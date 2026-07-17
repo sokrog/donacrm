@@ -27,6 +27,7 @@
                 <textarea @bind="_credentialsJson" rows="5" placeholder="{ &quot;type&quot;: &quot;service_account&quot;, ... }"></textarea>
                 <small>После сохранения приватный ключ очищается из формы и больше не отображается.</small>
             </label>
+            <label class="span-2 toggle-row"><input type="checkbox" @bind="_useGoogleSheets" /><span><strong>Использовать Google Sheets как основное хранилище</strong><small>Изменение применяется сразу после сохранения</small></span></label>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(_message))
@@ -44,7 +45,7 @@
         <div class="check-list settings-status">
             <div class="check-row"><span class="check-icon @(HasSpreadsheet ? "ok" : "missing")">@(HasSpreadsheet ? "✓" : "!")</span><div><strong>Таблица</strong><small>@(HasSpreadsheet ? SettingsStore.SpreadsheetId : "Не настроена")</small></div></div>
             <div class="check-row"><span class="check-icon @(SettingsStore.HasCredentials ? "ok" : "missing")">@(SettingsStore.HasCredentials ? "✓" : "!")</span><div><strong>Сервисный аккаунт</strong><small>@(SettingsStore.ServiceAccountEmail ?? "Ключ не сохранён")</small></div></div>
-            <div class="check-row"><span class="check-icon @(IsGoogleActive ? "ok" : "neutral")">@(IsGoogleActive ? "✓" : "○")</span><div><strong>Активное хранилище</strong><small>@StorageConfiguration.Value.Provider</small></div></div>
+            <div class="check-row"><span class="check-icon @(SettingsStore.UseGoogleSheets ? "ok" : "neutral")">@(SettingsStore.UseGoogleSheets ? "✓" : "○")</span><div><strong>Активное хранилище</strong><small>@(SettingsStore.UseGoogleSheets ? "Google Sheets" : "Локальный JSON")</small></div></div>
         </div>
     </section>
 
@@ -74,11 +75,10 @@
     private string? _message;
     private string _spreadsheetId = string.Empty;
     private string _credentialsJson = string.Empty;
+    private bool _useGoogleSheets;
     private string? _uploadedFileName;
     private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
-    private bool IsGoogleActive => StorageConfiguration.Value.Provider.Equals("GoogleSheets", StringComparison.OrdinalIgnoreCase);
-
-    protected override void OnInitialized() => _spreadsheetId = SettingsStore.SpreadsheetId;
+    protected override void OnInitialized() { _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
     {
@@ -97,7 +97,7 @@
 
     private async Task SaveSettingsAsync() => await ExecuteAsync(async () =>
     {
-        await SettingsStore.SaveAsync(_spreadsheetId, _credentialsJson);
+        await SettingsStore.SaveAsync(_spreadsheetId, _credentialsJson, _useGoogleSheets);
         _spreadsheetId = SettingsStore.SpreadsheetId;
         _credentialsJson = string.Empty;
         _uploadedFileName = null;

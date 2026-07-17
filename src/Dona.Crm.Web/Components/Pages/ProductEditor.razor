@@ -1,6 +1,7 @@
 @page "/products/new"
 @page "/products/{Id:guid}"
 @inject ICatalogRepository Repository
+@inject ICommerceRepository Commerce
 @inject NavigationManager Navigation
 
 <PageTitle>@(_isNew ? "Новый товар" : "Редактирование") — Dona CRM</PageTitle>
@@ -58,10 +59,10 @@
     private Product Model { get; set; } = new();
     private bool _saving;
     private bool _isNew => Id is null;
-    private static readonly string[] Categories = ["Футболка", "Худи", "Рубашка", "Брюки", "Джинсы", "Куртка", "Сумка", "Кепка", "Ремень", "Украшения", "Другое"];
+    private IReadOnlyList<string> Categories { get; set; } = [];
     private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
     private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
-    protected override async Task OnParametersSetAsync() { if (Id is not null) Model = await Repository.GetProductAsync(Id.Value) ?? new Product(); }
+    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); if (Id is not null) Model = await Repository.GetProductAsync(Id.Value) ?? new Product(); }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
     private async Task SaveAsync() { _saving = true; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }

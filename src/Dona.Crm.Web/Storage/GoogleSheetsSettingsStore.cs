@@ -9,22 +9,26 @@ public sealed partial class GoogleSheetsSettingsStore
     private readonly string _settingsPath;
     private readonly string _credentialsPath;
     private string _spreadsheetId;
+    private bool _useGoogleSheets;
 
     public GoogleSheetsSettingsStore(IWebHostEnvironment environment, IOptions<GoogleSheetsOptions> defaults)
     {
         _settingsPath = Path.Combine(environment.ContentRootPath, "data", "google-sheets-settings.json");
         _credentialsPath = Path.GetFullPath(defaults.Value.CredentialsPath, environment.ContentRootPath);
-        _spreadsheetId = LoadSpreadsheetId() ?? defaults.Value.SpreadsheetId;
+        var persisted = LoadSettings();
+        _spreadsheetId = persisted?.SpreadsheetId ?? defaults.Value.SpreadsheetId;
+        _useGoogleSheets = persisted?.UseGoogleSheets ?? false;
     }
 
     public string SpreadsheetId => _spreadsheetId;
     public string CredentialsFullPath => _credentialsPath;
     public bool HasCredentials => File.Exists(_credentialsPath);
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_spreadsheetId) && HasCredentials;
+    public bool UseGoogleSheets => _useGoogleSheets && IsConfigured;
     public int Version { get; private set; }
     public string? ServiceAccountEmail => ReadCredentialField("client_email");
 
-    public async Task SaveAsync(string spreadsheetIdOrUrl, string? credentialsJson, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(string spreadsheetIdOrUrl, string? credentialsJson, bool useGoogleSheets = false, CancellationToken cancellationToken = default)
     {
         var spreadsheetId = ExtractSpreadsheetId(spreadsheetIdOrUrl);
         if (string.IsNullOrWhiteSpace(spreadsheetId))
@@ -34,7 +38,7 @@ public sealed partial class GoogleSheetsSettingsStore
         else if (!HasCredentials) throw new InvalidOperationException("Загрузите JSON-ключ сервисного аккаунта или вставьте его содержимое.");
 
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        var settingsJson = JsonSerializer.Serialize(new PersistedSettings(spreadsheetId), new JsonSerializerOptions { WriteIndented = true });
+        var settingsJson = JsonSerializer.Serialize(new PersistedSettings(spreadsheetId, useGoogleSheets), new JsonSerializerOptions { WriteIndented = true });
         await WriteAtomicallyAsync(_settingsPath, settingsJson, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(credentialsJson))
@@ -44,13 +48,14 @@ public sealed partial class GoogleSheetsSettingsStore
         }
 
         _spreadsheetId = spreadsheetId;
+        _useGoogleSheets = useGoogleSheets;
         Version++;
     }
 
-    private string? LoadSpreadsheetId()
+    private PersistedSettings? LoadSettings()
     {
         if (!File.Exists(_settingsPath)) return null;
-        try { return JsonSerializer.Deserialize<PersistedSettings>(File.ReadAllText(_settingsPath))?.SpreadsheetId; }
+        try { return JsonSerializer.Deserialize<PersistedSettings>(File.ReadAllText(_settingsPath)); }
         catch (JsonException) { return null; }
     }
 
@@ -98,7 +103,7 @@ public sealed partial class GoogleSheetsSettingsStore
         File.Move(temporaryPath, path, true);
     }
 
-    private sealed record PersistedSettings(string SpreadsheetId);
+    private sealed record PersistedSettings(string SpreadsheetId, bool UseGoogleSheets = false);
     [GeneratedRegex(@"/spreadsheets/d/([a-zA-Z0-9_-]+)", RegexOptions.IgnoreCase)] private static partial Regex SpreadsheetUrlRegex();
     [GeneratedRegex(@"^[a-zA-Z0-9_-]{10,}$")] private static partial Regex SpreadsheetIdRegex();
 }

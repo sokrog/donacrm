@@ -1,0 +1,16 @@
+@page "/purchases"
+@inject ICommerceRepository Repository
+
+<PageTitle>Закупки — Dona CRM</PageTitle>
+<div class="page-heading"><div><span class="eyebrow">Поставка</span><h1>Закупки</h1><p>От выкупа до поступления на склад.</p></div><a class="button primary" href="/purchases/new">＋ Новая закупка</a></div>
+<section class="panel table-panel">
+    <div class="data-table purchase-table">
+        <div class="table-header"><span>Номер</span><span>Поставщик</span><span>Статус</span><span>Позиций</span><span>Сумма</span></div>
+        @foreach (var purchase in _purchases.OrderByDescending(x => x.OrderedAt))
+        {
+            <a class="table-row" href="/purchases/@purchase.Id"><span><strong>@purchase.Number</strong><small>@purchase.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></span><span>@(purchase.SupplierName ?? "—")</span><span><em class="badge">@purchase.Status.Display()</em></span><span>@purchase.TotalQuantity шт.</span><span><strong>@Money(purchase.TotalCostUzs)</strong></span></a>
+        }
+    </div>
+    @if (_purchases.Count == 0) { <div class="empty-state">Закупок пока нет.</div> }
+</section>
+@code { private List<Purchase> _purchases = []; protected override async Task OnInitializedAsync() => _purchases = (await Repository.GetPurchasesAsync()).ToList(); private static string Money(decimal value) => $"{value:N0} сум"; }

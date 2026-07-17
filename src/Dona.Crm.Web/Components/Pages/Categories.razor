@@ -1,0 +1,21 @@
+@page "/categories"
+@inject ICommerceRepository Repository
+
+<PageTitle>Категории — Dona CRM</PageTitle>
+<div class="page-heading"><div><span class="eyebrow">Справочник</span><h1>Категории</h1><p>Категории доступны при заполнении каталога.</p></div></div>
+<section class="panel form-section narrow-panel">
+    <div class="inline-create"><input @bind="_newName" placeholder="Название новой категории" /><button class="button primary" @onclick="AddAsync">Добавить</button></div>
+    <div class="category-list">
+        @foreach (var category in _categories.OrderBy(x => x.SortOrder))
+        {
+            <div class="category-row"><span class="drag-handle">⋮⋮</span><InputText @bind-Value="category.Name" /><label class="inline-toggle"><InputCheckbox @bind-Value="category.IsActive" /> Активна</label><button class="button secondary" @onclick="() => SaveAsync(category)">Сохранить</button></div>
+        }
+    </div>
+</section>
+@code {
+    private List<Category> _categories = [];
+    private string _newName = string.Empty;
+    protected override async Task OnInitializedAsync() => _categories = (await Repository.GetCategoriesAsync()).ToList();
+    private async Task AddAsync() { if (string.IsNullOrWhiteSpace(_newName)) return; var item = new Category { Name = _newName.Trim(), SortOrder = _categories.Count }; await Repository.UpsertCategoryAsync(item); _categories.Add(item); _newName = string.Empty; }
+    private Task SaveAsync(Category category) => Repository.UpsertCategoryAsync(category);
+}

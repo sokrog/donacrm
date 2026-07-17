@@ -43,6 +43,28 @@ public sealed class ProductEconomicsTests
     }
 }
 
+public sealed class PurchaseEconomicsTests
+{
+    [Fact]
+    public void Calculates_complete_purchase_cost()
+    {
+        var purchase = new Purchase
+        {
+            CnyRateUzs = 1_800,
+            AgentCommissionPercent = 5,
+            InternationalShippingUzs = 100_000,
+            OtherCostsUzs = 20_000,
+            Items = [new PurchaseItem { ProductName = "Футболка", Quantity = 10, UnitPriceCny = 25 }]
+        };
+
+        Assert.Equal(250, purchase.GoodsCostCny);
+        Assert.Equal(450_000, purchase.GoodsCostUzs);
+        Assert.Equal(22_500, purchase.AgentCommissionUzs);
+        Assert.Equal(592_500, purchase.TotalCostUzs);
+        Assert.Equal(10, purchase.TotalQuantity);
+    }
+}
+
 public sealed class JsonCatalogRepositoryTests
 {
     [Fact]

@@ -14,14 +14,13 @@ builder.Services.Configure<GoogleSheetsOptions>(builder.Configuration.GetSection
 builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
 builder.Services.AddSingleton<JsonCatalogRepository>();
 builder.Services.AddSingleton<GoogleSheetsCatalogRepository>();
+builder.Services.AddSingleton<SwitchingCatalogRepository>();
 builder.Services.AddSingleton<CatalogMigrationService>();
-builder.Services.AddSingleton<ICatalogRepository>(services =>
-{
-    var storage = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
-    return storage.Provider.Equals("GoogleSheets", StringComparison.OrdinalIgnoreCase)
-        ? services.GetRequiredService<GoogleSheetsCatalogRepository>()
-        : services.GetRequiredService<JsonCatalogRepository>();
-});
+builder.Services.AddSingleton<ICatalogRepository>(services => services.GetRequiredService<SwitchingCatalogRepository>());
+builder.Services.AddSingleton<JsonCommerceRepository>();
+builder.Services.AddSingleton<GoogleSheetsCommerceRepository>();
+builder.Services.AddSingleton<SwitchingCommerceRepository>();
+builder.Services.AddSingleton<ICommerceRepository>(services => services.GetRequiredService<SwitchingCommerceRepository>());
 
 var app = builder.Build();
 

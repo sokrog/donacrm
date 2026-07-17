@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject GoogleSheetsSettingsStore StorageSettings
 
 <div class="app-shell">
     <aside class="sidebar">
@@ -10,11 +11,14 @@
             <NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink>
             <NavLink href="/products"><span>▦</span> Товары</NavLink>
             <NavLink href="/products/new"><span>＋</span> Новый товар</NavLink>
+            <NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink>
+            <NavLink href="/categories"><span>◇</span> Категории</NavLink>
+            <NavLink href="/purchases"><span>↙</span> Закупки</NavLink>
             <NavLink href="/settings"><span>⚙</span> Настройки</NavLink>
         </nav>
         <div class="sidebar-note">
             <span class="status-dot"></span>
-            <div><strong>Локальное хранилище</strong><small>Google Sheets — следующий этап</small></div>
+            <div><strong>@(StorageSettings.UseGoogleSheets ? "Google Sheets" : "Локальный JSON")</strong><small>активное хранилище</small></div>
         </div>
     </aside>
     <main class="main-content">
