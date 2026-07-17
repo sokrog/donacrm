@@ -39,6 +39,10 @@ builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
 builder.Services.AddScoped<SwitchingBusinessSettingsRepository>();
 builder.Services.AddScoped<IBusinessSettingsRepository>(services => services.GetRequiredService<SwitchingBusinessSettingsRepository>());
 builder.Services.AddScoped<ProductStatusService>();
+builder.Services.AddScoped<JsonStockMovementRepository>();
+builder.Services.AddScoped<GoogleSheetsStockMovementRepository>();
+builder.Services.AddScoped<SwitchingStockMovementRepository>();
+builder.Services.AddScoped<IStockMovementRepository>(services => services.GetRequiredService<SwitchingStockMovementRepository>());
 
 var app = builder.Build();
 

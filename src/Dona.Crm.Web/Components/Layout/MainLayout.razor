@@ -10,19 +10,12 @@
             <span><strong>Dona CRM</strong><small>торговля без хаоса</small></span>
         </a>
         <nav class="main-nav">
-            <NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink>
-            <NavLink href="/products"><span>▦</span> Товары</NavLink>
-            <NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink>
-            <NavLink href="/intermediaries"><span>⇄</span> Посредники</NavLink>
-            <NavLink href="/categories"><span>◇</span> Категории</NavLink>
-            <NavLink href="/purchases"><span>↙</span> Закупки</NavLink>
-            <NavLink href="/sales"><span>₸</span> Продажи</NavLink>
-            <NavLink href="/customers"><span>♙</span> Клиенты</NavLink>
-            <NavLink href="/collections"><span>◇</span> Коллекции</NavLink>
-            <NavLink href="/outfits"><span>◎</span> Образы</NavLink>
-            <NavLink href="/content-plan"><span>▤</span> Контент-план</NavLink>
-            <NavLink href="/analytics"><span>⌁</span> Аналитика</NavLink>
-            <NavLink href="/settings"><span>⚙</span> Настройки</NavLink>
+            <div class="nav-group"><div class="nav-group-title">Главное</div><NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink><NavLink href="/analytics"><span>⌁</span> Аналитика</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Каталог и склад</div><NavLink href="/products"><span>▦</span> Товары</NavLink><NavLink href="/categories"><span>◇</span> Категории</NavLink><NavLink href="/inventory"><span>↕</span> Движения</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Закупки</div><NavLink href="/purchases"><span>↙</span> Закупки</NavLink><NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink><NavLink href="/intermediaries"><span>⇄</span> Посредники</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Продажи</div><NavLink href="/sales"><span>₸</span> Продажи</NavLink><NavLink href="/customers"><span>♙</span> Клиенты</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Маркетинг</div><NavLink href="/collections"><span>◇</span> Коллекции</NavLink><NavLink href="/outfits"><span>◎</span> Образы</NavLink><NavLink href="/content-plan"><span>▤</span> Контент-план</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Система</div><NavLink href="/settings"><span>⚙</span> Настройки</NavLink></div>
         </nav>
         <div class="nav-section-title">Поиск товаров</div>
         <nav class="store-links">
@@ -38,7 +31,7 @@
     </aside>
     <main class="main-content">
         <header class="topbar">
-            <div><span class="eyebrow">MVP · этап 1</span></div>
+            <div><span class="eyebrow">Dona CRM · рабочая версия</span></div>
             <div class="avatar">ДС</div>
         </header>
         <div class="page-container">@Body</div>

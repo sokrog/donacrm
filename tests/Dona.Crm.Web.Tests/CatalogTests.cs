@@ -111,7 +111,8 @@ public sealed class PurchaseReceivingServiceTests
         var purchase = new Purchase { Items = [item] };
         var catalog = new MemoryCatalog(product);
         var commerce = new MemoryCommerce();
-        var service = new PurchaseReceivingService(catalog, commerce);
+        var movements = new MemoryStockMovements();
+        var service = new PurchaseReceivingService(catalog, commerce, movements);
 
         var first = await service.ReceiveAsync(purchase);
         var second = await service.ReceiveAsync(purchase);
@@ -121,6 +122,9 @@ public sealed class PurchaseReceivingServiceTests
         Assert.Equal(9, variant.Quantity);
         Assert.Equal(7, item.StockedQuantity);
         Assert.Equal(PurchaseStatus.Received, purchase.Status);
+        var movement = Assert.Single(await movements.GetAsync());
+        Assert.Equal(StockMovementType.PurchaseReceipt, movement.Type);
+        Assert.Equal(7, movement.QuantityDelta);
     }
 
     private sealed class MemoryCatalog(Product product) : ICatalogRepository
@@ -199,7 +203,8 @@ public sealed class SalesInventoryServiceTests
         var sale = new Sale { Number = "SALE-1", Items = [item] };
         var catalog = new SalesMemoryCatalog(product);
         var sales = new MemorySales();
-        var service = new SalesInventoryService(catalog, sales);
+        var movements = new MemoryStockMovements();
+        var service = new SalesInventoryService(catalog, sales, movements);
 
         await service.ReserveAsync(sale);
         await service.ReserveAsync(sale);
@@ -218,6 +223,11 @@ public sealed class SalesInventoryServiceTests
         Assert.Equal(10, variant.Quantity);
         Assert.Equal(3, item.ReturnedQuantity);
         Assert.Equal(SaleStatus.Returned, sale.Status);
+        var history = await movements.GetAsync();
+        Assert.Collection(history,
+            x => { Assert.Equal(StockMovementType.Reservation, x.Type); Assert.Equal(3, x.ReservedDelta); },
+            x => { Assert.Equal(StockMovementType.Sale, x.Type); Assert.Equal(-3, x.QuantityDelta); Assert.Equal(-3, x.ReservedDelta); },
+            x => { Assert.Equal(StockMovementType.Return, x.Type); Assert.Equal(3, x.QuantityDelta); });
     }
 
     [Fact]
@@ -503,4 +513,11 @@ public sealed class GoogleSheetsSettingsStoreTests
         public string ContentRootPath { get; set; } = contentRootPath;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
+}
+
+internal sealed class MemoryStockMovements : IStockMovementRepository
+{
+    private readonly List<StockMovement> _items = [];
+    public Task<IReadOnlyList<StockMovement>> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StockMovement>>(_items);
+    public Task AddRangeAsync(IEnumerable<StockMovement> movements, CancellationToken cancellationToken = default) { _items.AddRange(movements); return Task.CompletedTask; }
 }

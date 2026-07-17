@@ -5,7 +5,7 @@ namespace Dona.Crm.Web.Services;
 
 public sealed record PurchaseReceiptResult(int AddedUnits, int UpdatedProducts, int SkippedItems);
 
-public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommerceRepository commerce)
+public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommerceRepository commerce, IStockMovementRepository? movements = null)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
 
@@ -15,6 +15,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
         try
         {
             var added = 0; var updated = 0; var skipped = 0;
+            var movementRecords = new List<StockMovement>();
             foreach (var item in purchase.Items.Where(x => x.QuantityToStock > 0))
             {
                 if (item.ProductId is null) { skipped++; continue; }
@@ -32,10 +33,12 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
                 product.AgentCommissionPercent = purchase.AgentCommissionPercent;
                 product.DeliveryCostUzs = (item.Quantity ?? 0) == 0 ? 0 : Math.Round((purchase.ItemShippingUzs(item) + purchase.ItemOtherCostsUzs(item)) / item.Quantity!.Value);
                 await catalog.UpsertProductAsync(product, cancellationToken);
+                movementRecords.Add(new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = delta, SourceType = "Purchase", SourceId = purchase.Id, SourceNumber = purchase.Number });
                 added += delta; updated++;
             }
             if (purchase.Items.Count > 0 && purchase.Items.All(x => x.ProductId is null || x.QuantityToStock == 0)) purchase.Status = PurchaseStatus.Received;
             await commerce.UpsertPurchaseAsync(purchase, cancellationToken);
+            if (movements is not null) await movements.AddRangeAsync(movementRecords, cancellationToken);
             return new PurchaseReceiptResult(added, updated, skipped);
         }
         finally { _gate.Release(); }
