@@ -29,6 +29,10 @@ builder.Services.AddScoped<GoogleSheetsSalesRepository>();
 builder.Services.AddScoped<SwitchingSalesRepository>();
 builder.Services.AddScoped<ISalesRepository>(services => services.GetRequiredService<SwitchingSalesRepository>());
 builder.Services.AddScoped<SalesInventoryService>();
+builder.Services.AddScoped<JsonMarketingRepository>();
+builder.Services.AddScoped<GoogleSheetsMarketingRepository>();
+builder.Services.AddScoped<SwitchingMarketingRepository>();
+builder.Services.AddScoped<IMarketingRepository>(services => services.GetRequiredService<SwitchingMarketingRepository>());
 
 var app = builder.Build();
 

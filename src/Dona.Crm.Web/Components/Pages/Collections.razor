@@ -1,0 +1,55 @@
+@page "/collections"
+@attribute [StreamRendering]
+@inject IMarketingRepository Marketing
+@inject ICatalogRepository Catalog
+
+<PageTitle>Коллекции — Dona CRM</PageTitle>
+<div class="page-heading"><div><span class="eyebrow">Витрина</span><h1>Коллекции</h1><p>Сезонные подборки и тематические каталоги для покупателей.</p></div><button class="button primary" @onclick="NewCollection">＋ Добавить</button></div>
+
+<div class="master-detail marketing-master">
+    <section class="panel table-panel">
+        <div class="simple-list-header"><strong>@_items.Count коллекций</strong></div>
+        @foreach (var item in _items.OrderBy(x => x.Name))
+        {
+            <button class="simple-list-row @(item.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(item)">
+                <span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@item.Products.Count товаров · @(item.Season ?? "сезон не указан") · @item.Status.Display()</small></span><em>→</em>
+            </button>
+        }
+        @if (_items.Count == 0) { <div class="empty-state">Создайте первую подборку товаров.</div> }
+    </section>
+
+    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section sticky-card">
+        <DataAnnotationsValidator />
+        <div class="section-title"><span>◇</span><div><h2>@(_isNew ? "Новая коллекция" : "Редактирование")</h2><p>Тема и состав подборки</p></div></div>
+        <div class="stack-form">
+            <label>Название<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label>
+            <label>Описание<InputTextArea @bind-Value="_model.Description" /></label>
+            <div class="form-grid"><label>Сезон<InputText @bind-Value="_model.Season" placeholder="Лето, всесезон" /></label><label>Стиль<InputText @bind-Value="_model.Style" placeholder="Minimal, streetwear" /></label></div>
+            <div class="form-grid"><label>Лимит бюджета, сум<InputNumber @bind-Value="_model.BudgetLimitUzs" /></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Не указан</option>@foreach (var status in Enum.GetValues<MarketingStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label></div>
+            <div class="section-title compact-title"><span>＋</span><div><h2>Товары</h2><p>Порядок используется в каталоге</p></div><button type="button" class="button secondary" @onclick="AddProduct">Добавить</button></div>
+            @foreach (var item in _model.Products)
+            {
+                <div class="marketing-product-row" @key="item.Id"><label>Товар<select value="@item.ProductId" @onchange="e => CollectionProductChanged(item, e.Value?.ToString())"><option value="">Выберите товар</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label><button type="button" class="icon-button danger" @onclick="() => _model.Products.Remove(item)">×</button></div>
+            }
+            @if (_model.Products.Count == 0) { <div class="empty-state small">Товары ещё не добавлены.</div> }
+        </div>
+        @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить коллекцию?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div> }
+        <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewCollection">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="() => _confirmDelete = true">Удалить</button> }<button class="button primary">Сохранить</button></div>
+    </EditForm>
+</div>
+
+@code {
+    private List<ProductCollection> _items = [];
+    private IReadOnlyList<Product> _products = [];
+    private ProductCollection _model = new();
+    private bool _isNew = true;
+    private bool _confirmDelete;
+    protected override async Task OnInitializedAsync() { var productsTask = Catalog.GetProductsAsync(); var collectionsTask = Marketing.GetCollectionsAsync(); await Task.WhenAll(productsTask, collectionsTask); _products = await productsTask; _items = (await collectionsTask).ToList(); }
+    private async Task ReloadAsync() => _items = (await Marketing.GetCollectionsAsync()).ToList();
+    private void NewCollection() { _model = new ProductCollection(); _isNew = true; _confirmDelete = false; }
+    private void Edit(ProductCollection item) { _model = item; _isNew = false; _confirmDelete = false; }
+    private void AddProduct() => _model.Products.Add(new CollectionProduct { SortOrder = _model.Products.Count });
+    private void CollectionProductChanged(CollectionProduct item, string? value) { item.ProductId = Guid.TryParse(value, out var id) ? id : null; item.ProductName = _products.FirstOrDefault(x => x.Id == item.ProductId)?.Name ?? string.Empty; }
+    private async Task SaveAsync() { for (var i = 0; i < _model.Products.Count; i++) _model.Products[i].SortOrder = i; await Marketing.UpsertCollectionAsync(_model); await ReloadAsync(); _isNew = false; }
+    private async Task DeleteAsync() { await Marketing.DeleteCollectionAsync(_model.Id); await ReloadAsync(); NewCollection(); }
+}

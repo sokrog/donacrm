@@ -259,6 +259,67 @@ public sealed class SalesInventoryServiceTests
     }
 }
 
+public sealed class MarketingTests
+{
+    [Fact]
+    public void New_marketing_forms_have_no_prefilled_values_and_outfit_sums_prices()
+    {
+        var collection = new ProductCollection();
+        var post = new ContentPost();
+        var outfit = new Outfit { Products = [new OutfitProduct { SellingPriceUzs = 120_000 }, new OutfitProduct { SellingPriceUzs = 80_000 }] };
+
+        Assert.Empty(collection.Name);
+        Assert.Null(collection.Status);
+        Assert.Empty(collection.Products);
+        Assert.Empty(post.Title);
+        Assert.Null(post.Type);
+        Assert.Null(post.ScheduledAt);
+        Assert.Equal(200_000, outfit.TotalPriceUzs);
+    }
+
+    [Fact]
+    public async Task Json_repository_persists_marketing_data_and_clears_deleted_links()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-marketing-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var repository = new JsonMarketingRepository(new MarketingEnvironment(root));
+            var collection = new ProductCollection { Name = "Лето" };
+            var outfit = new Outfit { Name = "Travel" };
+            var post = new ContentPost { Title = "Карусель", CollectionId = collection.Id, CollectionName = collection.Name, OutfitId = outfit.Id, OutfitName = outfit.Name };
+            await repository.UpsertCollectionAsync(collection);
+            await repository.UpsertOutfitAsync(outfit);
+            await repository.UpsertContentPostAsync(post);
+
+            var restored = await new JsonMarketingRepository(new MarketingEnvironment(root)).GetDataAsync();
+            Assert.Single(restored.Collections);
+            Assert.Single(restored.Outfits);
+            Assert.Single(restored.ContentPosts);
+
+            await repository.DeleteCollectionAsync(collection.Id);
+            await repository.DeleteOutfitAsync(outfit.Id);
+            var unlinked = Assert.Single((await repository.GetDataAsync()).ContentPosts);
+            Assert.Null(unlinked.CollectionId);
+            Assert.Null(unlinked.OutfitId);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private sealed class MarketingEnvironment(string contentRootPath) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "Dona.Crm.Web.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = contentRootPath;
+        public string EnvironmentName { get; set; } = "Test";
+        public string ContentRootPath { get; set; } = contentRootPath;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+}
+
 public sealed class GoogleSheetsSettingsStoreTests
 {
     [Fact]

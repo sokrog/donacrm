@@ -16,6 +16,9 @@
 | Categories | Справочник категорий | Id, Name, SortOrder |
 | Collections | Сезонные и маркетинговые подборки | Id, Name, Description, Status |
 | CollectionProducts | Связь many-to-many | CollectionId, ProductId, SortOrder |
+| Outfits | Готовые образы | Id, Name, Occasion, Status |
+| OutfitProducts | Состав образа | OutfitId, ProductId, SellingPriceUzs, SortOrder |
+| ContentPlan | План публикаций | Id, Title, Type, Status, ScheduledAt, CollectionId, OutfitId |
 | Sales | Заказы | Id, Number, CustomerName, Status, PaymentMethod, CreatedAt |
 | SaleItems | Позиции заказа | Id, SaleId, ProductVariantId, Quantity, UnitPriceUzs, UnitCostUzs |
 | Settings | Настройки расчётов | Key, Value |
@@ -67,12 +70,16 @@
 - отдельные листы Google Sheets `Customers`, `Sales` и `SaleItems`;
 - далее: частичные возвраты, журнал складских движений и статусы оплаты.
 
-### 5. Instagram-контент и аналитика
+### 5. Instagram-контент и аналитика — первый срез контент-плана реализован
 
-- образы и подборки;
-- контент-план Reels/Stories/каруселей;
-- показатели воронки и продаж;
-- отчёты по SKU, категории, поставщику и коллекции.
+- коллекции с упорядоченным составом товаров;
+- готовые образы с зафиксированными ценами и общей стоимостью;
+- контент-план для фото, Reels, Stories, каруселей, обзоров и распаковок;
+- связь публикаций с коллекциями и образами;
+- статусы подготовки и фильтрация публикаций;
+- отдельные нормализованные листы Google Sheets для контента;
+- далее: показатели воронки и продаж;
+- далее: отчёты по SKU, категории, поставщику и коллекции.
 
 ## Важные решения
 
