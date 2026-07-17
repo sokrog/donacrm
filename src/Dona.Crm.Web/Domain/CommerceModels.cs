@@ -31,6 +31,7 @@ public sealed class Intermediary
     public decimal? CommissionPercent { get; set; }
     public decimal? MinimumWeightKg { get; set; }
     public int? EstimatedDays { get; set; }
+    [Range(0, 5)] public decimal? Rating { get; set; }
     public bool OfficialImport { get; set; }
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

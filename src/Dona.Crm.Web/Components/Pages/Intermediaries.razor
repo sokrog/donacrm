@@ -11,7 +11,7 @@
         @foreach (var item in _items.OrderBy(x => x.Name))
         {
             <button class="simple-list-row @(item.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(item)">
-                <span class="product-thumb">@item.Name[..1]</span><span><strong>@item.Name</strong><small>@(item.Company ?? "Без компании") · @(item.RatePerKgUsd is null ? "тариф не указан" : $"${item.RatePerKgUsd}/кг")</small></span><em>→</em>
+                <span class="product-thumb">@item.Name[..1]</span><span><strong>@item.Name</strong><small>@(item.Company ?? "Без компании") · @(item.RatePerKgUsd is null ? "тариф не указан" : $"${item.RatePerKgUsd}/кг") · рейтинг @(item.Rating?.ToString("0.0") ?? "—")</small></span><em>→</em>
             </button>
         }
         @if (_items.Count == 0) { <div class="empty-state">Добавьте первого посредника.</div> }
@@ -28,6 +28,7 @@
             <div class="form-grid"><label>Telegram<InputText @bind-Value="_model.Telegram" /></label><label>WeChat<InputText @bind-Value="_model.WeChat" /></label></div>
             <div class="form-grid"><label>Тариф, $/кг<InputNumber @bind-Value="_model.RatePerKgUsd" step="0.01" /></label><label>Комиссия, %<InputNumber @bind-Value="_model.CommissionPercent" step="0.1" /></label></div>
             <div class="form-grid"><label>Минимальный вес, кг<InputNumber @bind-Value="_model.MinimumWeightKg" step="0.1" /></label><label>Срок, дней<InputNumber @bind-Value="_model.EstimatedDays" /></label></div>
+            <label>Рейтинг 0–5<InputNumber @bind-Value="_model.Rating" min="0" max="5" step="0.1" /></label>
             <label class="toggle-row"><InputCheckbox @bind-Value="_model.OfficialImport" /><span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span></label>
             <label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
         </div>
