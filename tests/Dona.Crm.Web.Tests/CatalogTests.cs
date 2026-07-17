@@ -1,5 +1,6 @@
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Storage;
+using Dona.Crm.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -62,6 +63,63 @@ public sealed class PurchaseEconomicsTests
         Assert.Equal(22_500, purchase.AgentCommissionUzs);
         Assert.Equal(592_500, purchase.TotalCostUzs);
         Assert.Equal(10, purchase.TotalQuantity);
+    }
+
+    [Fact]
+    public void Allocates_shipping_by_weight_and_calculates_receipt_quantities()
+    {
+        var light = new PurchaseItem { ProductName = "Лёгкий", Quantity = 10, UnitPriceCny = 10, UnitWeightKg = 0.1m, ReceivedQuantity = 9, DefectQuantity = 1 };
+        var heavy = new PurchaseItem { ProductName = "Тяжёлый", Quantity = 10, UnitPriceCny = 10, UnitWeightKg = 0.3m };
+        var purchase = new Purchase { CnyRateUzs = 1_000, InternationalShippingUzs = 40_000, Items = [light, heavy] };
+
+        Assert.Equal(10_000, purchase.ItemShippingUzs(light));
+        Assert.Equal(30_000, purchase.ItemShippingUzs(heavy));
+        Assert.Equal(1, light.MissingQuantity);
+        Assert.Equal(8, light.AcceptedQuantity);
+        Assert.Equal(8, light.QuantityToStock);
+    }
+}
+
+public sealed class PurchaseReceivingServiceTests
+{
+    [Fact]
+    public async Task Adds_only_accepted_quantity_and_does_not_add_it_twice()
+    {
+        var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 2 };
+        var product = new Product { Name = "Футболка", Sku = "TS-1", Variants = [variant] };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, ReceivedQuantity = 8, DefectQuantity = 1, UnitPriceCny = 20 };
+        var purchase = new Purchase { Items = [item] };
+        var catalog = new MemoryCatalog(product);
+        var commerce = new MemoryCommerce();
+        var service = new PurchaseReceivingService(catalog, commerce);
+
+        var first = await service.ReceiveAsync(purchase);
+        var second = await service.ReceiveAsync(purchase);
+
+        Assert.Equal(7, first.AddedUnits);
+        Assert.Equal(0, second.AddedUnits);
+        Assert.Equal(9, variant.Quantity);
+        Assert.Equal(7, item.StockedQuantity);
+        Assert.Equal(PurchaseStatus.Received, purchase.Status);
+    }
+
+    private sealed class MemoryCatalog(Product product) : ICatalogRepository
+    {
+        public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>([product]);
+        public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
+        public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+    private sealed class MemoryCommerce : ICommerceRepository
+    {
+        public Task<IReadOnlyList<Supplier>> GetSuppliersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
+        public Task UpsertSupplierAsync(Supplier supplier, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteSupplierAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Category>>([]);
+        public Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Purchase>>([]);
+        public Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Purchase?>(null);
+        public Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
 

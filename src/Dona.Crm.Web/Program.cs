@@ -1,5 +1,6 @@
 using Dona.Crm.Web.Components;
 using Dona.Crm.Web.Storage;
+using Dona.Crm.Web.Services;
 using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,7 @@ builder.Services.AddSingleton<JsonCommerceRepository>();
 builder.Services.AddSingleton<GoogleSheetsCommerceRepository>();
 builder.Services.AddSingleton<SwitchingCommerceRepository>();
 builder.Services.AddSingleton<ICommerceRepository>(services => services.GetRequiredService<SwitchingCommerceRepository>());
+builder.Services.AddSingleton<PurchaseReceivingService>();
 
 var app = builder.Build();
 

@@ -2,6 +2,7 @@
 @page "/purchases/{Id:guid}"
 @inject ICommerceRepository Commerce
 @inject ICatalogRepository Catalog
+@inject PurchaseReceivingService Receiving
 @inject NavigationManager Navigation
 
 <PageTitle>Закупка — Dona CRM</PageTitle>
@@ -21,22 +22,31 @@
         <aside class="panel economics-card"><div class="section-title"><span>¥</span><div><h2>Итог партии</h2><p>@_model.TotalQuantity единиц</p></div></div><div class="calculation large"><span>Товар в юанях <strong>¥ @_model.GoodsCostCny.ToString("N2")</strong></span><span>Товар в сумах <strong>@Money(_model.GoodsCostUzs)</strong></span><span>Комиссия <strong>@Money(_model.AgentCommissionUzs)</strong></span><span class="total-line">Итого <strong>@Money(_model.TotalCostUzs)</strong></span></div></aside>
         <section class="panel form-section span-all">
             <div class="section-title with-action"><span>02</span><div><h2>Позиции</h2><p>Товары в этой закупке</p></div><button type="button" class="button secondary" @onclick="AddItem">＋ Позиция</button></div>
+            @if (HasMoqWarning) { <div class="notice warning">Есть позиции меньше MOQ поставщика (@SelectedSupplier!.Moq шт.). Проверьте возможность выкупа.</div> }
             @foreach (var item in _model.Items)
             {
-                <div class="purchase-item" @key="item.Id"><label>Товар<select value="@item.ProductId" @onchange="e => ProductChanged(item, e.Value?.ToString())"><option value="">Ручное название</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label><label>Название<InputText @bind-Value="item.ProductName" /></label><label>Количество<InputNumber @bind-Value="item.Quantity" /></label><label>Цена, ¥<InputNumber @bind-Value="item.UnitPriceCny" /></label><label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" step="0.01" /></label><button type="button" class="icon-button danger" @onclick="() => _model.Items.Remove(item)">×</button></div>
+                <div class="purchase-item-card" @key="item.Id">
+                    <div class="purchase-item"><label>Товар<select value="@item.ProductId" @onchange="e => ProductChanged(item, e.Value?.ToString())"><option value="">Ручное название</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label><label>Название<InputText @bind-Value="item.ProductName" /></label><label>Заказано<InputNumber @bind-Value="item.Quantity" /></label><label>Цена, ¥<InputNumber @bind-Value="item.UnitPriceCny" /></label><label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" step="0.01" /></label><button type="button" class="icon-button danger" @onclick="() => _model.Items.Remove(item)">×</button></div>
+                    <div class="receipt-row"><label>Цвет<InputText @bind-Value="item.Color" /></label><label>Размер<InputText @bind-Value="item.Size" /></label><label>Получено<InputNumber @bind-Value="item.ReceivedQuantity" /></label><label>Брак<InputNumber @bind-Value="item.DefectQuantity" /></label><div class="receipt-metric"><span>Недостача</span><strong class="@(item.MissingQuantity > 0 ? "negative" : null)">@item.MissingQuantity</strong></div><div class="receipt-metric"><span>Себестоимость ед.</span><strong>@Money(_model.ItemUnitLandedCostUzs(item))</strong></div><div class="receipt-metric"><span>Оприходовано</span><strong>@item.StockedQuantity / @item.AcceptedQuantity</strong></div></div>
+                </div>
             }
             @if (_model.Items.Count == 0) { <div class="empty-state small">Добавьте товары, которые входят в закупку.</div> }
         </section>
     </div>
-    <div class="form-actions"><a class="button ghost" href="/purchases">Отмена</a><button class="button primary">Сохранить закупку</button></div>
+    @if (!string.IsNullOrWhiteSpace(_message)) { <div class="notice @(_receiptSuccess ? "success" : "error")">@_message</div> }
+    <div class="form-actions"><a class="button ghost" href="/purchases">Отмена</a>@if (!_isNew) { <button type="button" class="button secondary" @onclick="ReceiveAsync">Оприходовать принятое</button> }<button class="button primary">Сохранить закупку</button></div>
 </EditForm>
 @code {
     [Parameter] public Guid? Id { get; set; }
     private Purchase _model = new(); private List<Supplier> _suppliers = []; private IReadOnlyList<Product> _products = []; private bool _isNew => Id is null;
+    private string? _message; private bool _receiptSuccess;
+    private Supplier? SelectedSupplier => _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId);
+    private bool HasMoqWarning => SelectedSupplier is { Moq: > 1 } supplier && _model.Items.Any(x => x.Quantity < supplier.Moq);
     protected override async Task OnParametersSetAsync() { _suppliers = (await Commerce.GetSuppliersAsync()).ToList(); _products = await Catalog.GetProductsAsync(); if (Id is not null) _model = await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); }
     private void AddItem() => _model.Items.Add(new PurchaseItem());
     private void SupplierChanged() { _model.SupplierName = _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId)?.Name; }
-    private void ProductChanged(PurchaseItem item, string? value) { if (!Guid.TryParse(value, out var id)) { item.ProductId = null; return; } var product = _products.FirstOrDefault(x => x.Id == id); if (product is null) return; item.ProductId = id; item.ProductName = product.Name; item.UnitPriceCny = product.PurchasePriceCny; }
+    private void ProductChanged(PurchaseItem item, string? value) { if (!Guid.TryParse(value, out var id)) { item.ProductId = null; item.ProductVariantId = null; return; } var product = _products.FirstOrDefault(x => x.Id == id); if (product is null) return; item.ProductId = id; item.ProductName = product.Name; item.UnitPriceCny = product.PurchasePriceCny; var variant = product.Variants.FirstOrDefault(); if (variant is not null) { item.ProductVariantId = variant.Id; item.Color = variant.Color; item.Size = variant.Size; } }
     private async Task SaveAsync() { await Commerce.UpsertPurchaseAsync(_model); Navigation.NavigateTo("/purchases"); }
+    private async Task ReceiveAsync() { try { await Commerce.UpsertPurchaseAsync(_model); var result = await Receiving.ReceiveAsync(_model); _message = $"Оприходовано {result.AddedUnits} шт. в {result.UpdatedProducts} товарах. Пропущено позиций: {result.SkippedItems}."; _receiptSuccess = true; } catch (Exception exception) { _message = $"Ошибка приёмки: {exception.Message}"; _receiptSuccess = false; } }
     private static string Money(decimal value) => $"{value:N0} сум";
 }
