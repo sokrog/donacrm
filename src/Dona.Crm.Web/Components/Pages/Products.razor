@@ -12,6 +12,8 @@
 <div class="toolbar">
     <input class="search" placeholder="Поиск по названию или SKU" @bind="_query" @bind:event="oninput" />
     <select @bind="_status"><option value="">Все статусы</option>@foreach (var status in Enum.GetValues<ProductStatus>()) { <option value="@status">@status.Display()</option> }</select>
+    <select @bind="_category"><option value="">Все категории</option>@foreach (var category in Categories) { <option value="@category">@category</option> }</select>
+    <select @bind="_stock"><option value="">Любой остаток</option><option value="available">Есть в наличии</option><option value="empty">Нет в наличии</option></select>
     <label class="toolbar-toggle"><input type="checkbox" @bind="_showArchived" /> Показывать архив</label>
 </div>
 
@@ -35,10 +37,15 @@
     private IReadOnlyList<Product> _products = [];
     private string _query = string.Empty;
     private string _status = string.Empty;
+    private string _category = string.Empty;
+    private string _stock = string.Empty;
     private bool _showArchived;
+    private IEnumerable<string> Categories => _products.Select(x => x.Category).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Order();
     private IEnumerable<Product> FilteredProducts => _products.Where(x =>
         (string.IsNullOrWhiteSpace(_query) || x.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase)) &&
         (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status) &&
+        (string.IsNullOrWhiteSpace(_category) || x.Category.Equals(_category, StringComparison.OrdinalIgnoreCase)) &&
+        (_stock != "available" || x.Quantity > 0) && (_stock != "empty" || x.Quantity == 0) &&
         (_showArchived || _status == ProductStatus.Archived.ToString() || x.Status != ProductStatus.Archived));
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
     private static string Money(decimal? value) => $"{value ?? 0:N0} сум";

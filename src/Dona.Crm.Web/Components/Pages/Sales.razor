@@ -12,19 +12,32 @@
     <div class="metric-card"><span>Прибыль</span><strong>@Money(_items.Where(x => x.Status is SaleStatus.Completed).Sum(x => x.ProfitUzs))</strong><small>по зафиксированной себестоимости</small></div>
 </div>
 
+<div class="toolbar">
+    <input class="search" placeholder="Поиск по номеру или клиенту" @bind="_query" @bind:event="oninput" />
+    <select @bind="_status"><option value="">Все статусы</option>@foreach (var status in Enum.GetValues<SaleStatus>()) { <option value="@status">@status.Display()</option> }</select>
+    <select @bind="_delivery"><option value="">Любая доставка</option>@foreach (var method in Enum.GetValues<DeliveryMethod>()) { <option value="@method">@method.Display()</option> }</select>
+</div>
+
 <section class="panel table-panel sale-table">
     <div class="data-table">
         <div class="table-header"><span>Заказ</span><span>Клиент</span><span>Статус</span><span>Товаров</span><span>Сумма</span><span>Дата</span></div>
-        @foreach (var sale in _items.OrderByDescending(x => x.CreatedAt))
+        @foreach (var sale in Filtered.OrderByDescending(x => x.CreatedAt))
         {
             <a class="table-row" href="/sales/@sale.Id"><span><strong>@sale.Number</strong><small>@(sale.DeliveryMethod?.Display() ?? "Доставка не указана")</small></span><span>@(sale.CustomerName ?? "Без клиента")</span><span><em class="badge @Badge(sale.Status)">@sale.Status.Display()</em></span><span>@sale.TotalQuantity</span><span><strong>@Money(sale.TotalUzs)</strong></span><span>@sale.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</span></a>
         }
-        @if (_items.Count == 0) { <div class="empty-state">Продаж пока нет. Создайте первый заказ.</div> }
+        @if (!Filtered.Any()) { <div class="empty-state">Продажи не найдены. Измените параметры фильтра.</div> }
     </div>
 </section>
 
 @code {
     private IReadOnlyList<Sale> _items = [];
+    private string _query = string.Empty;
+    private string _status = string.Empty;
+    private string _delivery = string.Empty;
+    private IEnumerable<Sale> Filtered => _items.Where(x =>
+        (string.IsNullOrWhiteSpace(_query) || x.Number.Contains(_query, StringComparison.OrdinalIgnoreCase) || (x.CustomerName?.Contains(_query, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+        (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status) &&
+        (string.IsNullOrWhiteSpace(_delivery) || x.DeliveryMethod.ToString() == _delivery));
     protected override async Task OnInitializedAsync() => _items = await Repository.GetSalesAsync();
     private static string Money(decimal value) => $"{value:N0} сум";
     private static string Badge(SaleStatus? status) => status switch { SaleStatus.Completed => "instock", SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped => "onorder", SaleStatus.Cancelled or SaleStatus.Returned => "archived", _ => "" };
