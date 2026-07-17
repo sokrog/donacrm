@@ -443,6 +443,17 @@ public sealed class ProductStatusServiceTests
         Assert.Equal(ProductStatus.Archived, service.Calculate(archived, new BusinessSettings()));
         Assert.Equal(ProductStatus.OnOrder, service.Calculate(preorder, new BusinessSettings()));
     }
+
+    [Fact]
+    public void Restored_product_returns_to_stock_status_rules()
+    {
+        var service = new ProductStatusService();
+        var product = new Product { Status = ProductStatus.OnOrder, Variants = [new ProductVariant { Quantity = 5 }] };
+        Assert.Equal(ProductStatus.InStock, service.Calculate(product, new BusinessSettings { LowStockThreshold = 3 }));
+
+        var withoutVariants = new Product { Status = ProductStatus.OnOrder };
+        Assert.Equal(ProductStatus.OnOrder, service.Calculate(withoutVariants, new BusinessSettings()));
+    }
 }
 
 public sealed class GoogleSheetsSettingsStoreTests

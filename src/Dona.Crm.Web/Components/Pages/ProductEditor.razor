@@ -4,6 +4,8 @@
 @inject ICatalogRepository Repository
 @inject ICommerceRepository Commerce
 @inject NavigationManager Navigation
+@inject IBusinessSettingsRepository BusinessSettingsRepository
+@inject ProductStatusService ProductStatusService
 
 <PageTitle>@(_isNew ? "Новый товар" : "Редактирование") — Dona CRM</PageTitle>
 
@@ -53,7 +55,7 @@
         </section>
     </div>
     @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить товар без возможности восстановления?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да, удалить</button></div> }
-    <div class="form-actions"><a class="button ghost" href="/products">Отмена</a>@if (!_isNew) { <button class="button danger-button" type="button" @onclick="() => _confirmDelete = true">Удалить товар</button> }<button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
+    <div class="form-actions"><a class="button ghost" href="/products">Отмена</a>@if (!_isNew && Model.Status == ProductStatus.Archived) { <button class="button secondary" type="button" @onclick="RestoreAsync">Вернуть из архива</button> } else if (!_isNew) { <button class="button ghost" type="button" @onclick="ArchiveAsync">В архив</button> }@if (!_isNew) { <button class="button danger-button" type="button" @onclick="() => _confirmDelete = true">Удалить товар</button> }<button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
 </EditForm>
 
 @code {
@@ -69,6 +71,8 @@
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
     private async Task SaveAsync() { _saving = true; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private async Task ArchiveAsync() { _saving = true; Model.Status = ProductStatus.Archived; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private async Task RestoreAsync() { _saving = true; Model.Status = ProductStatus.OnOrder; Model.Status = ProductStatusService.Calculate(Model, await BusinessSettingsRepository.GetAsync()); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task DeleteAsync() { _saving = true; await Repository.DeleteProductAsync(Model.Id); Navigation.NavigateTo("/products"); }
     private static string Money(decimal value) => $"{value:N0} сум";
 }

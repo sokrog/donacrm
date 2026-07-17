@@ -82,8 +82,10 @@
     protected override async Task OnParametersSetAsync()
     {
         _customers = await Sales.GetCustomersAsync();
-        _products = await Catalog.GetProductsAsync();
         _model = Id is null ? new Sale() : await Sales.GetSaleAsync(Id.Value) ?? new Sale();
+        var allProducts = await Catalog.GetProductsAsync();
+        var referencedIds = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet();
+        _products = allProducts.Where(x => x.Status != ProductStatus.Archived || referencedIds.Contains(x.Id)).ToList();
         _message = null;
     }
 

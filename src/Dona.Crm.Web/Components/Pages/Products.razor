@@ -12,6 +12,7 @@
 <div class="toolbar">
     <input class="search" placeholder="Поиск по названию или SKU" @bind="_query" @bind:event="oninput" />
     <select @bind="_status"><option value="">Все статусы</option>@foreach (var status in Enum.GetValues<ProductStatus>()) { <option value="@status">@status.Display()</option> }</select>
+    <label class="toolbar-toggle"><input type="checkbox" @bind="_showArchived" /> Показывать архив</label>
 </div>
 
 <section class="panel table-panel">
@@ -34,9 +35,11 @@
     private IReadOnlyList<Product> _products = [];
     private string _query = string.Empty;
     private string _status = string.Empty;
+    private bool _showArchived;
     private IEnumerable<Product> FilteredProducts => _products.Where(x =>
         (string.IsNullOrWhiteSpace(_query) || x.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase)) &&
-        (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status));
+        (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status) &&
+        (_showArchived || _status == ProductStatus.Archived.ToString() || x.Status != ProductStatus.Archived));
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
     private static string Money(decimal? value) => $"{value ?? 0:N0} сум";
 }
