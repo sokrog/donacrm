@@ -10,6 +10,17 @@ namespace Dona.Crm.Web.Tests;
 public sealed class ProductEconomicsTests
 {
     [Fact]
+    public void New_product_has_no_prefilled_form_values()
+    {
+        var product = new Product();
+        Assert.Empty(product.Name);
+        Assert.Empty(product.Category);
+        Assert.Null(product.Status);
+        Assert.Null(product.CnyRateUzs);
+        Assert.Null(product.SellingPriceUzs);
+    }
+
+    [Fact]
     public void Calculates_cost_profit_and_markup()
     {
         var product = new Product
@@ -115,6 +126,9 @@ public sealed class PurchaseReceivingServiceTests
         public Task<IReadOnlyList<Supplier>> GetSuppliersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
         public Task UpsertSupplierAsync(Supplier supplier, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteSupplierAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Intermediary>> GetIntermediariesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Intermediary>>([]);
+        public Task UpsertIntermediaryAsync(Intermediary intermediary, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Category>>([]);
         public Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Purchase>>([]);
@@ -144,6 +158,8 @@ public sealed class JsonCatalogRepositoryTests
             Assert.NotNull(restored);
             Assert.Equal("TEST-001", restored.Sku);
             Assert.Equal(99_000, restored.SellingPriceUzs);
+            await secondRepository.DeleteProductAsync(product.Id);
+            Assert.Null(await secondRepository.GetProductAsync(product.Id));
         }
         finally
         {

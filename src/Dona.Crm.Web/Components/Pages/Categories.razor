@@ -1,10 +1,11 @@
 @page "/categories"
+@attribute [StreamRendering]
 @inject ICommerceRepository Repository
 
 <PageTitle>Категории — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Справочник</span><h1>Категории</h1><p>Категории доступны при заполнении каталога.</p></div></div>
 <section class="panel form-section narrow-panel">
-    <div class="inline-create"><input @bind="_newName" placeholder="Название новой категории" /><button class="button primary" @onclick="AddAsync">Добавить</button></div>
+    <div class="inline-create"><input @bind="_newName" placeholder="Название новой категории" /><label class="inline-toggle"><input type="checkbox" @bind="_newActive" /> Активна</label><button class="button primary" @onclick="AddAsync">Добавить</button></div>
     <div class="category-list">
         @foreach (var category in _categories.OrderBy(x => x.SortOrder))
         {
@@ -15,7 +16,8 @@
 @code {
     private List<Category> _categories = [];
     private string _newName = string.Empty;
+    private bool _newActive;
     protected override async Task OnInitializedAsync() => _categories = (await Repository.GetCategoriesAsync()).ToList();
-    private async Task AddAsync() { if (string.IsNullOrWhiteSpace(_newName)) return; var item = new Category { Name = _newName.Trim(), SortOrder = _categories.Count }; await Repository.UpsertCategoryAsync(item); _categories.Add(item); _newName = string.Empty; }
+    private async Task AddAsync() { if (string.IsNullOrWhiteSpace(_newName)) return; var item = new Category { Name = _newName.Trim(), SortOrder = _categories.Count, IsActive = _newActive }; await Repository.UpsertCategoryAsync(item); _categories.Add(item); _newName = string.Empty; _newActive = false; }
     private Task SaveAsync(Category category) => Repository.UpsertCategoryAsync(category);
 }

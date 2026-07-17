@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 @inject GoogleSheetsSettingsStore StorageSettings
+@inject LoadingState Loading
+@implements IDisposable
 
 <div class="app-shell">
     <aside class="sidebar">
@@ -12,9 +14,17 @@
             <NavLink href="/products"><span>▦</span> Товары</NavLink>
             <NavLink href="/products/new"><span>＋</span> Новый товар</NavLink>
             <NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink>
+            <NavLink href="/intermediaries"><span>⇄</span> Посредники</NavLink>
             <NavLink href="/categories"><span>◇</span> Категории</NavLink>
             <NavLink href="/purchases"><span>↙</span> Закупки</NavLink>
             <NavLink href="/settings"><span>⚙</span> Настройки</NavLink>
+        </nav>
+        <div class="nav-section-title">Поиск товаров</div>
+        <nav class="store-links">
+            <a href="https://www.1688.com/" target="_blank" rel="noopener noreferrer"><span>16</span>1688 <em>↗</em></a>
+            <a href="https://www.taobao.com/" target="_blank" rel="noopener noreferrer"><span>淘</span>Taobao <em>↗</em></a>
+            <a href="https://www.alibaba.com/" target="_blank" rel="noopener noreferrer"><span>阿</span>Alibaba <em>↗</em></a>
+            <a href="https://www.pinduoduo.com/" target="_blank" rel="noopener noreferrer"><span>拼</span>Pinduoduo <em>↗</em></a>
         </nav>
         <div class="sidebar-note">
             <span class="status-dot"></span>
@@ -30,7 +40,18 @@
     </main>
 </div>
 
+@if (Loading.IsLoading)
+{
+    <div class="loading-overlay"><div class="loading-dialog"><span class="spinner"></span><strong>@Loading.Message</strong><small>Пожалуйста, подождите</small></div></div>
+}
+
 <div id="blazor-error-ui" data-nosnippet>
     Произошла ошибка. <a href="." class="reload">Перезагрузить</a>
     <span class="dismiss">×</span>
 </div>
+
+@code {
+    protected override void OnInitialized() => Loading.Changed += LoadingChanged;
+    private void LoadingChanged() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Loading.Changed -= LoadingChanged;
+}

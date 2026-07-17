@@ -1,5 +1,6 @@
 @page "/purchases/new"
 @page "/purchases/{Id:guid}"
+@attribute [StreamRendering]
 @inject ICommerceRepository Commerce
 @inject ICatalogRepository Catalog
 @inject PurchaseReceivingService Receiving
@@ -13,7 +14,7 @@
         <section class="panel form-section">
             <div class="section-title"><span>01</span><div><h2>Поставка</h2><p>Основные параметры</p></div></div>
             <div class="form-grid">
-                <label>Номер<InputText @bind-Value="_model.Number" /></label><label>Статус<InputSelect @bind-Value="_model.Status">@foreach (var status in Enum.GetValues<PurchaseStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label>
+                <label>Номер<InputText @bind-Value="_model.Number" /></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Выберите статус</option>@foreach (var status in Enum.GetValues<PurchaseStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label>
                 <label class="span-2">Поставщик<InputSelect @bind-Value="_model.SupplierId" @bind-Value:after="SupplierChanged"><option value="">Не выбран</option>@foreach (var supplier in _suppliers) { <option value="@supplier.Id">@supplier.Name</option> }</InputSelect></label>
                 <label>Курс ¥ → сум<InputNumber @bind-Value="_model.CnyRateUzs" /></label><label>Комиссия, %<InputNumber @bind-Value="_model.AgentCommissionPercent" /></label>
                 <label>Международная доставка<InputNumber @bind-Value="_model.InternationalShippingUzs" /></label><label>Прочие расходы<InputNumber @bind-Value="_model.OtherCostsUzs" /></label>
@@ -41,8 +42,8 @@
     private Purchase _model = new(); private List<Supplier> _suppliers = []; private IReadOnlyList<Product> _products = []; private bool _isNew => Id is null;
     private string? _message; private bool _receiptSuccess;
     private Supplier? SelectedSupplier => _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId);
-    private bool HasMoqWarning => SelectedSupplier is { Moq: > 1 } supplier && _model.Items.Any(x => x.Quantity < supplier.Moq);
-    protected override async Task OnParametersSetAsync() { _suppliers = (await Commerce.GetSuppliersAsync()).ToList(); _products = await Catalog.GetProductsAsync(); if (Id is not null) _model = await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); }
+    private bool HasMoqWarning => SelectedSupplier?.Moq is > 1 && _model.Items.Any(x => (x.Quantity ?? 0) < SelectedSupplier.Moq.Value);
+    protected override async Task OnParametersSetAsync() { _suppliers = (await Commerce.GetSuppliersAsync()).ToList(); _products = await Catalog.GetProductsAsync(); _model = Id is null ? new Purchase() : await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); _message = null; }
     private void AddItem() => _model.Items.Add(new PurchaseItem());
     private void SupplierChanged() { _model.SupplierName = _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId)?.Name; }
     private void ProductChanged(PurchaseItem item, string? value) { if (!Guid.TryParse(value, out var id)) { item.ProductId = null; item.ProductVariantId = null; return; } var product = _products.FirstOrDefault(x => x.Id == id); if (product is null) return; item.ProductId = id; item.ProductName = product.Name; item.UnitPriceCny = product.PurchasePriceCny; var variant = product.Variants.FirstOrDefault(); if (variant is not null) { item.ProductVariantId = variant.Id; item.Color = variant.Color; item.Size = variant.Size; } }

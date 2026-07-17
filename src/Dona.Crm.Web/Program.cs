@@ -13,16 +13,17 @@ builder.Services.AddDataProtection()
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<GoogleSheetsOptions>(builder.Configuration.GetSection(GoogleSheetsOptions.SectionName));
 builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
-builder.Services.AddSingleton<JsonCatalogRepository>();
-builder.Services.AddSingleton<GoogleSheetsCatalogRepository>();
-builder.Services.AddSingleton<SwitchingCatalogRepository>();
-builder.Services.AddSingleton<CatalogMigrationService>();
-builder.Services.AddSingleton<ICatalogRepository>(services => services.GetRequiredService<SwitchingCatalogRepository>());
-builder.Services.AddSingleton<JsonCommerceRepository>();
-builder.Services.AddSingleton<GoogleSheetsCommerceRepository>();
-builder.Services.AddSingleton<SwitchingCommerceRepository>();
-builder.Services.AddSingleton<ICommerceRepository>(services => services.GetRequiredService<SwitchingCommerceRepository>());
-builder.Services.AddSingleton<PurchaseReceivingService>();
+builder.Services.AddScoped<LoadingState>();
+builder.Services.AddScoped<JsonCatalogRepository>();
+builder.Services.AddScoped<GoogleSheetsCatalogRepository>();
+builder.Services.AddScoped<SwitchingCatalogRepository>();
+builder.Services.AddScoped<CatalogMigrationService>();
+builder.Services.AddScoped<ICatalogRepository>(services => services.GetRequiredService<SwitchingCatalogRepository>());
+builder.Services.AddScoped<JsonCommerceRepository>();
+builder.Services.AddScoped<GoogleSheetsCommerceRepository>();
+builder.Services.AddScoped<SwitchingCommerceRepository>();
+builder.Services.AddScoped<ICommerceRepository>(services => services.GetRequiredService<SwitchingCommerceRepository>());
+builder.Services.AddScoped<PurchaseReceivingService>();
 
 var app = builder.Build();
 

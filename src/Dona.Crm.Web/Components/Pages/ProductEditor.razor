@@ -1,5 +1,6 @@
 @page "/products/new"
 @page "/products/{Id:guid}"
+@attribute [StreamRendering]
 @inject ICatalogRepository Repository
 @inject ICommerceRepository Commerce
 @inject NavigationManager Navigation
@@ -18,10 +19,10 @@
             <div class="form-grid">
                 <label class="span-2">Название<InputText @bind-Value="Model.Name" placeholder="Например, Oversize футболка Basic" /><ValidationMessage For="() => Model.Name" /></label>
                 <label>SKU<InputText @bind-Value="Model.Sku" placeholder="TS-0001" /><ValidationMessage For="() => Model.Sku" /></label>
-                <label>Категория<InputSelect @bind-Value="Model.Category">@foreach (var item in Categories) { <option>@item</option> }</InputSelect></label>
-                <label>Статус<InputSelect @bind-Value="Model.Status">@foreach (var item in Enum.GetValues<ProductStatus>()) { <option value="@item">@item.Display()</option> }</InputSelect></label>
-                <label>Пол<InputSelect @bind-Value="Model.Gender">@foreach (var item in Genders) { <option>@item</option> }</InputSelect></label>
-                <label>Сезон<InputSelect @bind-Value="Model.Season">@foreach (var item in Seasons) { <option>@item</option> }</InputSelect></label>
+                <label>Категория<InputSelect @bind-Value="Model.Category"><option value="">Выберите категорию</option>@foreach (var item in Categories) { <option>@item</option> }</InputSelect></label>
+                <label>Статус<InputSelect @bind-Value="Model.Status"><option value="">Выберите статус</option>@foreach (var item in Enum.GetValues<ProductStatus>()) { <option value="@item">@item.Display()</option> }</InputSelect></label>
+                <label>Пол<InputSelect @bind-Value="Model.Gender"><option value="">Выберите пол</option>@foreach (var item in Genders) { <option>@item</option> }</InputSelect></label>
+                <label>Сезон<InputSelect @bind-Value="Model.Season"><option value="">Выберите сезон</option>@foreach (var item in Seasons) { <option>@item</option> }</InputSelect></label>
                 <label>Поставщик<InputText @bind-Value="Model.SupplierName" placeholder="Название магазина" /></label>
                 <label class="span-2">Ссылка 1688<InputText @bind-Value="Model.SourceUrl" placeholder="https://detail.1688.com/..." /></label>
             </div>
@@ -51,20 +52,23 @@
             }
         </section>
     </div>
-    <div class="form-actions"><a class="button ghost" href="/products">Отмена</a><button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
+    @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить товар без возможности восстановления?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да, удалить</button></div> }
+    <div class="form-actions"><a class="button ghost" href="/products">Отмена</a>@if (!_isNew) { <button class="button danger-button" type="button" @onclick="() => _confirmDelete = true">Удалить товар</button> }<button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
 </EditForm>
 
 @code {
     [Parameter] public Guid? Id { get; set; }
     private Product Model { get; set; } = new();
     private bool _saving;
+    private bool _confirmDelete;
     private bool _isNew => Id is null;
     private IReadOnlyList<string> Categories { get; set; } = [];
     private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
     private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
-    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); if (Id is not null) Model = await Repository.GetProductAsync(Id.Value) ?? new Product(); }
+    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); Model = Id is null ? new Product() : await Repository.GetProductAsync(Id.Value) ?? new Product(); _confirmDelete = false; }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
     private async Task SaveAsync() { _saving = true; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private async Task DeleteAsync() { _saving = true; await Repository.DeleteProductAsync(Model.Id); Navigation.NavigateTo("/products"); }
     private static string Money(decimal value) => $"{value:N0} сум";
 }

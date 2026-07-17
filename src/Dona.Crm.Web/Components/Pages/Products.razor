@@ -1,4 +1,5 @@
 @page "/products"
+@attribute [StreamRendering]
 @inject ICatalogRepository Repository
 
 <PageTitle>Товары — Dona CRM</PageTitle>
@@ -20,7 +21,7 @@
         {
             <a class="table-row" href="/products/@product.Id">
                 <span class="product-cell"><i>@product.Name[..1]</i><span><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></span></span>
-                <span><em class="badge @product.Status.ToString().ToLowerInvariant()">@product.Status.Display()</em></span>
+                <span><em class="badge @((product.Status?.ToString() ?? "none").ToLowerInvariant())">@product.Status.Display()</em></span>
                 <span>@product.Quantity шт.</span><span>@Money(product.CostUzs)</span><span><strong>@Money(product.SellingPriceUzs)</strong></span>
                 <span class="@(product.ProfitUzs >= 0 ? "positive" : "negative")">@product.MarkupPercent%</span>
             </a>
@@ -37,5 +38,5 @@
         (string.IsNullOrWhiteSpace(_query) || x.Name.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase)) &&
         (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status));
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private static string Money(decimal? value) => $"{value ?? 0:N0} сум";
 }

@@ -1,4 +1,5 @@
 @page "/"
+@attribute [StreamRendering]
 @inject ICatalogRepository Repository
 
 <PageTitle>Обзор — Dona CRM</PageTitle>
@@ -29,7 +30,7 @@ else
                 <div class="product-row">
                     <div class="product-thumb">@product.Name[..1]</div>
                     <div class="product-name"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></div>
-                    <span class="badge @product.Status.ToString().ToLowerInvariant()">@product.Status.Display()</span>
+                    <span class="badge @((product.Status?.ToString() ?? "none").ToLowerInvariant())">@product.Status.Display()</span>
                     <div class="number"><strong>@Money(product.SellingPriceUzs)</strong><small>прибыль @Money(product.ProfitUzs)</small></div>
                 </div>
             }
@@ -40,5 +41,5 @@ else
 @code {
     private IReadOnlyList<Product>? _products;
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private static string Money(decimal? value) => $"{value ?? 0:N0} сум";
 }

@@ -177,19 +177,21 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
         return new Product
         {
             Id = id.Value, Sku = Cell(row, 1), Name = Cell(row, 2), Category = Cell(row, 3), Gender = Cell(row, 4), Season = Cell(row, 5),
-            Status = Enum.TryParse<ProductStatus>(Cell(row, 6), true, out var status) ? status : ProductStatus.InStock,
+            Status = Enum.TryParse<ProductStatus>(Cell(row, 6), true, out var status) ? status : null,
             SupplierName = NullIfEmpty(Cell(row, 7)), SourceUrl = NullIfEmpty(Cell(row, 8)), ImageUrl = NullIfEmpty(Cell(row, 9)), Notes = NullIfEmpty(Cell(row, 10)),
-            PurchasePriceCny = ParseDecimal(Cell(row, 11)), CnyRateUzs = ParseDecimal(Cell(row, 12)), AgentCommissionPercent = ParseDecimal(Cell(row, 13)),
-            DeliveryCostUzs = ParseDecimal(Cell(row, 14)), SellingPriceUzs = ParseDecimal(Cell(row, 15)),
+            PurchasePriceCny = ParseNullableDecimal(Cell(row, 11)), CnyRateUzs = ParseNullableDecimal(Cell(row, 12)), AgentCommissionPercent = ParseNullableDecimal(Cell(row, 13)),
+            DeliveryCostUzs = ParseNullableDecimal(Cell(row, 14)), SellingPriceUzs = ParseNullableDecimal(Cell(row, 15)),
             CreatedAt = DateTimeOffset.TryParse(Cell(row, 16), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date) ? date : DateTimeOffset.UtcNow
         };
     }
 
-    private static IList<object> ToProductRow(Product x) => [x.Id.ToString(), x.Sku, x.Name, x.Category, x.Gender, x.Season, x.Status.ToString(), x.SupplierName ?? "", x.SourceUrl ?? "", x.ImageUrl ?? "", x.Notes ?? "", x.PurchasePriceCny, x.CnyRateUzs, x.AgentCommissionPercent, x.DeliveryCostUzs, x.SellingPriceUzs, x.CreatedAt.ToString("O")];
-    private static IList<object> ToVariantRow(Guid productId, ProductVariant x) => [x.Id.ToString(), productId.ToString(), x.Color, x.Size, x.Quantity, x.ReservedQuantity];
+    private static IList<object> ToProductRow(Product x) => [x.Id.ToString(), x.Sku, x.Name, x.Category, x.Gender, x.Season, x.Status?.ToString() ?? "", x.SupplierName ?? "", x.SourceUrl ?? "", x.ImageUrl ?? "", x.Notes ?? "", Obj(x.PurchasePriceCny), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.DeliveryCostUzs), Obj(x.SellingPriceUzs), x.CreatedAt.ToString("O")];
+    private static IList<object> ToVariantRow(Guid productId, ProductVariant x) => [x.Id.ToString(), productId.ToString(), x.Color, x.Size, Obj(x.Quantity), x.ReservedQuantity];
     private static string Cell(IList<object> row, int index) => index < row.Count ? Convert.ToString(row[index], CultureInfo.InvariantCulture)?.Trim() ?? "" : "";
     private static Guid? ParseGuid(string value) => Guid.TryParse(value, out var result) ? result : null;
     private static decimal ParseDecimal(string value) => decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0;
+    private static decimal? ParseNullableDecimal(string value) => string.IsNullOrWhiteSpace(value) ? null : ParseDecimal(value);
+    private static object Obj<T>(T? value) where T : struct => value.HasValue ? value.Value : "";
     private static int ParseInt(string value) => int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0;
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
     public void Dispose() { _service?.Dispose(); _gate.Dispose(); }

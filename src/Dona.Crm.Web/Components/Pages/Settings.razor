@@ -1,9 +1,11 @@
 @page "/settings"
+@attribute [StreamRendering]
 @using Microsoft.Extensions.Options
 @inject IOptions<StorageOptions> StorageConfiguration
 @inject GoogleSheetsSettingsStore SettingsStore
 @inject GoogleSheetsCatalogRepository GoogleSheets
 @inject CatalogMigrationService Migration
+@inject LoadingState Loading
 
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
@@ -119,7 +121,7 @@
     private async Task ExecuteAsync(Func<Task<string>> action)
     {
         _busy = true; _message = null;
-        try { _message = await action(); _success = true; }
+        try { _message = await Loading.RunAsync("Выполняем операцию с Google…", action); _success = true; }
         catch (Exception exception) { _message = $"Ошибка: {exception.Message}"; _success = false; }
         finally { _busy = false; }
     }

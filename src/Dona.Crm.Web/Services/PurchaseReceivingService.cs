@@ -24,13 +24,13 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
                 variant ??= product.Variants.FirstOrDefault(x => x.Color.Equals(item.Color, StringComparison.OrdinalIgnoreCase) && x.Size.Equals(item.Size, StringComparison.OrdinalIgnoreCase));
                 if (variant is null) { variant = new ProductVariant { Color = item.Color, Size = item.Size }; product.Variants.Add(variant); }
                 var delta = item.QuantityToStock;
-                variant.Quantity += delta;
+                variant.Quantity = (variant.Quantity ?? 0) + delta;
                 item.ProductVariantId = variant.Id;
                 item.StockedQuantity += delta;
                 product.PurchasePriceCny = item.UnitPriceCny;
                 product.CnyRateUzs = purchase.CnyRateUzs;
                 product.AgentCommissionPercent = purchase.AgentCommissionPercent;
-                product.DeliveryCostUzs = item.Quantity == 0 ? 0 : Math.Round((purchase.ItemShippingUzs(item) + purchase.ItemOtherCostsUzs(item)) / item.Quantity);
+                product.DeliveryCostUzs = (item.Quantity ?? 0) == 0 ? 0 : Math.Round((purchase.ItemShippingUzs(item) + purchase.ItemOtherCostsUzs(item)) / item.Quantity!.Value);
                 await catalog.UpsertProductAsync(product, cancellationToken);
                 added += delta; updated++;
             }

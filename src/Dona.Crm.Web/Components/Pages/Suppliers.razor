@@ -1,4 +1,5 @@
 @page "/suppliers"
+@attribute [StreamRendering]
 @inject ICommerceRepository Repository
 
 <PageTitle>Поставщики — Dona CRM</PageTitle>
@@ -20,10 +21,10 @@
         <div class="section-title"><span>S</span><div><h2>@(_isNew ? "Новый поставщик" : "Редактирование")</h2><p>Условия и контакты</p></div></div>
         <div class="stack-form">
             <label>Название<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label>
-            <div class="form-grid"><label>Площадка<InputSelect @bind-Value="_model.Platform"><option>1688</option><option>Taobao</option><option>Alibaba</option><option>Другая</option></InputSelect></label><label>MOQ<InputNumber @bind-Value="_model.Moq" /></label></div>
+            <div class="form-grid"><label>Площадка<InputSelect @bind-Value="_model.Platform"><option value="">Выберите площадку</option><option>1688</option><option>Taobao</option><option>Alibaba</option><option>Pinduoduo</option><option>Другая</option></InputSelect></label><label>MOQ<InputNumber @bind-Value="_model.Moq" /></label></div>
             <label>Ссылка магазина<InputText @bind-Value="_model.StoreUrl" /></label>
             <div class="form-grid"><label>Рейтинг<InputNumber @bind-Value="_model.Rating" step="0.1" /></label><label>WeChat<InputText @bind-Value="_model.WeChat" /></label></div>
-            <label>Контакт<InputText @bind-Value="_model.Contact" /></label><label>Посредник<InputText @bind-Value="_model.Intermediary" /></label><label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
+            <label>Контакт<InputText @bind-Value="_model.Contact" /></label><label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
         </div>
         <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewSupplier">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="DeleteAsync">Удалить</button> }<button class="button primary">Сохранить</button></div>
     </EditForm>
