@@ -1,0 +1,32 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <span class="brand-mark">D</span>
+            <span><strong>Dona CRM</strong><small>торговля без хаоса</small></span>
+        </a>
+        <nav class="main-nav">
+            <NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink>
+            <NavLink href="/products"><span>▦</span> Товары</NavLink>
+            <NavLink href="/products/new"><span>＋</span> Новый товар</NavLink>
+            <NavLink href="/settings"><span>⚙</span> Настройки</NavLink>
+        </nav>
+        <div class="sidebar-note">
+            <span class="status-dot"></span>
+            <div><strong>Локальное хранилище</strong><small>Google Sheets — следующий этап</small></div>
+        </div>
+    </aside>
+    <main class="main-content">
+        <header class="topbar">
+            <div><span class="eyebrow">MVP · этап 1</span></div>
+            <div class="avatar">ДС</div>
+        </header>
+        <div class="page-container">@Body</div>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Произошла ошибка. <a href="." class="reload">Перезагрузить</a>
+    <span class="dismiss">×</span>
+</div>

@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/data/
+**/credentials/
+**/data-protection/
+*.user
+*.suo
+.vs/
+.codex-build/

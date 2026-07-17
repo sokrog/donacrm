@@ -1,0 +1,126 @@
+@page "/settings"
+@using Microsoft.Extensions.Options
+@inject IOptions<StorageOptions> StorageConfiguration
+@inject GoogleSheetsSettingsStore SettingsStore
+@inject GoogleSheetsCatalogRepository GoogleSheets
+@inject CatalogMigrationService Migration
+
+<PageTitle>Настройки — Dona CRM</PageTitle>
+
+<div class="page-heading">
+    <div><span class="eyebrow">Интеграции</span><h1>Настройки</h1><p>Подключите Google Sheets прямо из приложения.</p></div>
+</div>
+
+<div class="settings-grid">
+    <section class="panel form-section">
+        <div class="section-title"><span>G</span><div><h2>Доступ к Google Sheets</h2><p>Ключ сохраняется только на этом компьютере</p></div></div>
+
+        <div class="form-grid settings-form">
+            <label class="span-2">ID или ссылка на Google-таблицу
+                <input @bind="_spreadsheetId" placeholder="https://docs.google.com/spreadsheets/d/... или ID" />
+            </label>
+            <label class="span-2">Загрузить JSON-ключ сервисного аккаунта
+                <InputFile OnChange="ReadCredentialsFileAsync" accept="application/json,.json" />
+                <small>@(_uploadedFileName ?? (SettingsStore.HasCredentials ? $"Сохранён ключ: {SettingsStore.ServiceAccountEmail}" : "Файл ещё не выбран"))</small>
+            </label>
+            <label class="span-2">Или вставить содержимое JSON-ключа
+                <textarea @bind="_credentialsJson" rows="5" placeholder="{ &quot;type&quot;: &quot;service_account&quot;, ... }"></textarea>
+                <small>После сохранения приватный ключ очищается из формы и больше не отображается.</small>
+            </label>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="notice @(_success ? "success" : "error")">@_message</div>
+        }
+
+        <div class="settings-actions split-actions">
+            <button class="button primary" disabled="@_busy" @onclick="SaveSettingsAsync">Сохранить настройки</button>
+            <span class="action-spacer"></span>
+            <button class="button secondary" disabled="@(!SettingsStore.IsConfigured || _busy)" @onclick="CheckConnectionAsync">Проверить</button>
+            <button class="button secondary" disabled="@(!SettingsStore.IsConfigured || _busy)" @onclick="ImportAsync">Импортировать каталог</button>
+        </div>
+
+        <div class="check-list settings-status">
+            <div class="check-row"><span class="check-icon @(HasSpreadsheet ? "ok" : "missing")">@(HasSpreadsheet ? "✓" : "!")</span><div><strong>Таблица</strong><small>@(HasSpreadsheet ? SettingsStore.SpreadsheetId : "Не настроена")</small></div></div>
+            <div class="check-row"><span class="check-icon @(SettingsStore.HasCredentials ? "ok" : "missing")">@(SettingsStore.HasCredentials ? "✓" : "!")</span><div><strong>Сервисный аккаунт</strong><small>@(SettingsStore.ServiceAccountEmail ?? "Ключ не сохранён")</small></div></div>
+            <div class="check-row"><span class="check-icon @(IsGoogleActive ? "ok" : "neutral")">@(IsGoogleActive ? "✓" : "○")</span><div><strong>Активное хранилище</strong><small>@StorageConfiguration.Value.Provider</small></div></div>
+        </div>
+    </section>
+
+    <aside class="panel settings-summary">
+        <span class="eyebrow">Быстрый старт</span>
+        <h2>Официальные сервисы Google</h2>
+        <a class="external-card" href="https://console.cloud.google.com/iam-admin/serviceaccounts/create" target="_blank" rel="noopener noreferrer"><i>1</i><div><strong>Создать сервисный аккаунт ↗</strong><small>Google Cloud Console</small></div></a>
+        <a class="external-card" href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noopener noreferrer"><i>2</i><div><strong>Включить Sheets API ↗</strong><small>Библиотека Google API</small></div></a>
+        <a class="external-card" href="https://sheets.new/" target="_blank" rel="noopener noreferrer"><i>3</i><div><strong>Создать Google-таблицу ↗</strong><small>Новая пустая таблица</small></div></a>
+        <div class="setup-guide compact-guide">
+            <strong>После создания</strong>
+            <ol>
+                <li>Создайте JSON-ключ у сервисного аккаунта.</li>
+                <li>Откройте доступ к таблице для его <code>client_email</code> с правом редактора.</li>
+                <li>Загрузите ключ и вставьте ссылку на таблицу слева.</li>
+                <li>Сохраните и нажмите «Проверить».</li>
+            </ol>
+        </div>
+        <p>Приложение автоматически создаст листы <strong>Products</strong> и <strong>ProductVariants</strong>.</p>
+    </aside>
+</div>
+
+@code {
+    private const long MaxCredentialSize = 256 * 1024;
+    private bool _busy;
+    private bool _success;
+    private string? _message;
+    private string _spreadsheetId = string.Empty;
+    private string _credentialsJson = string.Empty;
+    private string? _uploadedFileName;
+    private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
+    private bool IsGoogleActive => StorageConfiguration.Value.Provider.Equals("GoogleSheets", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized() => _spreadsheetId = SettingsStore.SpreadsheetId;
+
+    private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
+    {
+        try
+        {
+            var file = args.File;
+            await using var stream = file.OpenReadStream(MaxCredentialSize);
+            using var reader = new StreamReader(stream);
+            _credentialsJson = await reader.ReadToEndAsync();
+            _uploadedFileName = file.Name;
+            _message = "Ключ загружен в форму. Нажмите «Сохранить настройки».";
+            _success = true;
+        }
+        catch (Exception exception) { _message = $"Не удалось прочитать файл: {exception.Message}"; _success = false; }
+    }
+
+    private async Task SaveSettingsAsync() => await ExecuteAsync(async () =>
+    {
+        await SettingsStore.SaveAsync(_spreadsheetId, _credentialsJson);
+        _spreadsheetId = SettingsStore.SpreadsheetId;
+        _credentialsJson = string.Empty;
+        _uploadedFileName = null;
+        return "Настройки сохранены локально. Теперь можно проверить подключение.";
+    });
+
+    private async Task CheckConnectionAsync() => await ExecuteAsync(async () =>
+    {
+        await GoogleSheets.CheckConnectionAsync();
+        return "Подключение успешно. Структура таблицы проверена.";
+    });
+
+    private async Task ImportAsync() => await ExecuteAsync(async () =>
+    {
+        var count = await Migration.ImportLocalToGoogleSheetsAsync();
+        return $"Импорт завершён: {count} товаров перенесено в Google Sheets.";
+    });
+
+    private async Task ExecuteAsync(Func<Task<string>> action)
+    {
+        _busy = true; _message = null;
+        try { _message = await action(); _success = true; }
+        catch (Exception exception) { _message = $"Ошибка: {exception.Message}"; _success = false; }
+        finally { _busy = false; }
+    }
+}

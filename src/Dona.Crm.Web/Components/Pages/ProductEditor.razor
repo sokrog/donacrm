@@ -1,0 +1,69 @@
+@page "/products/new"
+@page "/products/{Id:guid}"
+@inject ICatalogRepository Repository
+@inject NavigationManager Navigation
+
+<PageTitle>@(_isNew ? "Новый товар" : "Редактирование") — Dona CRM</PageTitle>
+
+<div class="page-heading">
+    <div><a class="back-link" href="/products">← Каталог</a><h1>@(_isNew ? "Новый товар" : Model.Name)</h1><p>Карточка товара и варианты на складе.</p></div>
+</div>
+
+<EditForm Model="Model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    <div class="editor-grid">
+        <section class="panel form-section">
+            <div class="section-title"><span>01</span><div><h2>Основное</h2><p>Данные, которые увидит покупатель</p></div></div>
+            <div class="form-grid">
+                <label class="span-2">Название<InputText @bind-Value="Model.Name" placeholder="Например, Oversize футболка Basic" /><ValidationMessage For="() => Model.Name" /></label>
+                <label>SKU<InputText @bind-Value="Model.Sku" placeholder="TS-0001" /><ValidationMessage For="() => Model.Sku" /></label>
+                <label>Категория<InputSelect @bind-Value="Model.Category">@foreach (var item in Categories) { <option>@item</option> }</InputSelect></label>
+                <label>Статус<InputSelect @bind-Value="Model.Status">@foreach (var item in Enum.GetValues<ProductStatus>()) { <option value="@item">@item.Display()</option> }</InputSelect></label>
+                <label>Пол<InputSelect @bind-Value="Model.Gender">@foreach (var item in Genders) { <option>@item</option> }</InputSelect></label>
+                <label>Сезон<InputSelect @bind-Value="Model.Season">@foreach (var item in Seasons) { <option>@item</option> }</InputSelect></label>
+                <label>Поставщик<InputText @bind-Value="Model.SupplierName" placeholder="Название магазина" /></label>
+                <label class="span-2">Ссылка 1688<InputText @bind-Value="Model.SourceUrl" placeholder="https://detail.1688.com/..." /></label>
+            </div>
+        </section>
+
+        <aside class="panel economics-card">
+            <div class="section-title"><span>¥</span><div><h2>Экономика</h2><p>На одну единицу</p></div></div>
+            <label>Закупка, ¥<InputNumber @bind-Value="Model.PurchasePriceCny" /></label>
+            <label>Курс ¥ → сум<InputNumber @bind-Value="Model.CnyRateUzs" /></label>
+            <label>Комиссия посредника, %<InputNumber @bind-Value="Model.AgentCommissionPercent" /></label>
+            <label>Доставка, сум<InputNumber @bind-Value="Model.DeliveryCostUzs" /></label>
+            <label>Цена продажи, сум<InputNumber @bind-Value="Model.SellingPriceUzs" /></label>
+            <div class="calculation"><span>Себестоимость <strong>@Money(Model.CostUzs)</strong></span><span>Прибыль <strong class="positive">@Money(Model.ProfitUzs)</strong></span><span>Наценка <strong>@Model.MarkupPercent%</strong></span></div>
+        </aside>
+
+        <section class="panel form-section span-all">
+            <div class="section-title with-action"><span>02</span><div><h2>Варианты</h2><p>Размеры, цвета и фактический остаток</p></div><button type="button" class="button secondary" @onclick="AddVariant">＋ Вариант</button></div>
+            @if (Model.Variants.Count == 0) { <div class="empty-state small">Вариантов пока нет — товар будет считаться доступным только под заказ.</div> }
+            @foreach (var variant in Model.Variants)
+            {
+                <div class="variant-row" @key="variant.Id">
+                    <label>Цвет<InputText @bind-Value="variant.Color" /></label>
+                    <label>Размер<InputText @bind-Value="variant.Size" /></label>
+                    <label>Количество<InputNumber @bind-Value="variant.Quantity" /></label>
+                    <button type="button" class="icon-button danger" title="Удалить" @onclick="() => RemoveVariant(variant)">×</button>
+                </div>
+            }
+        </section>
+    </div>
+    <div class="form-actions"><a class="button ghost" href="/products">Отмена</a><button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
+</EditForm>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private Product Model { get; set; } = new();
+    private bool _saving;
+    private bool _isNew => Id is null;
+    private static readonly string[] Categories = ["Футболка", "Худи", "Рубашка", "Брюки", "Джинсы", "Куртка", "Сумка", "Кепка", "Ремень", "Украшения", "Другое"];
+    private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
+    private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
+    protected override async Task OnParametersSetAsync() { if (Id is not null) Model = await Repository.GetProductAsync(Id.Value) ?? new Product(); }
+    private void AddVariant() => Model.Variants.Add(new ProductVariant());
+    private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
+    private async Task SaveAsync() { _saving = true; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private static string Money(decimal value) => $"{value:N0} сум";
+}
