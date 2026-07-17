@@ -216,7 +216,7 @@ public sealed class SalesInventoryServiceTests
     {
         var variant = new ProductVariant { Quantity = 5 };
         var product = new Product { Name = "Сумка", Sku = "BG-2", Variants = [variant] };
-        var sale = new Sale { Number = "SALE-2", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2 }] };
+        var sale = new Sale { Number = "SALE-2", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2, UnitPriceUzs = 100 }] };
         var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
 
         await service.ReserveAsync(sale);
@@ -226,6 +226,62 @@ public sealed class SalesInventoryServiceTests
         Assert.Equal(0, variant.ReservedQuantity);
         Assert.Equal(0, sale.Items[0].ReservedQuantity);
         Assert.Equal(SaleStatus.Cancelled, sale.Status);
+    }
+
+    [Fact]
+    public async Task Rejects_quantity_above_available_stock_without_mutation()
+    {
+        var variant = new ProductVariant { Color = "Черный", Size = "L", Quantity = 2 };
+        var product = new Product { Name = "Худи", Sku = "HD-3", Variants = [variant] };
+        var sale = new Sale { Number = "SALE-3", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 3, UnitPriceUzs = 200 }] };
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+
+        var error = await Assert.ThrowsAsync<InventoryException>(() => service.ReserveAsync(sale));
+
+        Assert.Contains("Доступно 2", error.Message);
+        Assert.Equal(2, variant.Quantity);
+        Assert.Equal(0, variant.ReservedQuantity);
+        Assert.Null(sale.Status);
+    }
+
+    [Fact]
+    public async Task Rejects_duplicate_variant_lines()
+    {
+        var variant = new ProductVariant { Quantity = 10 };
+        var product = new Product { Name = "Ремень", Sku = "BL-1", Variants = [variant] };
+        SaleItem Line() => new() { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 1, UnitPriceUzs = 50 };
+        var sale = new Sale { Number = "SALE-4", Items = [Line(), Line()] };
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+
+        await Assert.ThrowsAsync<InventoryException>(() => service.ReserveAsync(sale));
+        Assert.Equal(0, variant.ReservedQuantity);
+    }
+
+    [Fact]
+    public async Task Enforces_status_transitions_and_keeps_reservation_synced()
+    {
+        var variant = new ProductVariant { Quantity = 5 };
+        var product = new Product { Name = "Кепка", Sku = "CP-1", Variants = [variant] };
+        var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2, UnitPriceUzs = 100 };
+        var sale = new Sale { Number = "SALE-5", Items = [item] };
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+
+        await Assert.ThrowsAsync<SaleTransitionException>(() => service.CompleteAsync(sale));
+        await service.ReserveAsync(sale);
+        item.Quantity = 4;
+        await service.ReserveAsync(sale);
+        Assert.Equal(4, variant.ReservedQuantity);
+        await service.MarkPaidAsync(sale);
+        Assert.Equal(SaleStatus.Paid, sale.Status);
+        await service.MarkShippedAsync(sale);
+        Assert.Equal(SaleStatus.Shipped, sale.Status);
+        await Assert.ThrowsAsync<SaleTransitionException>(() => service.CancelAsync(sale));
+        await service.CompleteAsync(sale);
+
+        Assert.Equal(1, variant.Quantity);
+        Assert.Equal(0, variant.ReservedQuantity);
+        Assert.Equal(4, item.SoldQuantity);
+        Assert.Equal(SaleStatus.Completed, sale.Status);
     }
 
     [Fact]

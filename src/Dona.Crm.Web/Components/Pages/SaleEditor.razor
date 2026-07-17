@@ -8,9 +8,17 @@
 
 <PageTitle>Продажа — Dona CRM</PageTitle>
 <div class="page-heading"><div><a class="back-link" href="/sales">← Продажи</a><h1>@(_isNew ? "Новая продажа" : _model.Number)</h1><p>Заказ клиента и движение товара на складе.</p></div></div>
+@if (!_isNew && _model.Status is not SaleStatus.Cancelled and not SaleStatus.Returned)
+{
+    <div class="sale-workflow">@foreach (var status in WorkflowStatuses) { <span class="@(WorkflowClass(status))">@status.Display()</span> }</div>
+}
 
 <EditForm Model="_model" OnValidSubmit="SaveAsync">
     <DataAnnotationsValidator />
+    <ValidationSummary />
+    @if (IsClosed) { <div class="notice warning">Заказ закрыт. Товары и сумма доступны только для просмотра.</div> }
+    else if (_model.Status == SaleStatus.Shipped) { <div class="notice warning">Заказ уже отправлен. Изменение состава заблокировано; доступно только завершение продажи.</div> }
+    <fieldset class="editor-fieldset" disabled="@IsReadOnly">
     <div class="editor-grid">
         <section class="panel form-section">
             <div class="section-title"><span>01</span><div><h2>Заказ</h2><p>Клиент, оплата и доставка</p></div></div>
@@ -44,15 +52,18 @@
             @if (_model.Items.Count == 0) { <div class="empty-state small">Добавьте товары в заказ.</div> }
         </section>
     </div>
+    </fieldset>
 
     @if (!string.IsNullOrWhiteSpace(_message)) { <div class="notice @(_success ? "success" : "error")">@_message</div> }
     <div class="form-actions">
         <a class="button ghost" href="/sales">Отмена</a>
-        @if (!_isNew && _model.Status is not SaleStatus.Completed and not SaleStatus.Returned) { <button type="button" class="button ghost" @onclick="CancelAsync">Отменить заказ</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Draft or SaleStatus.Reserved or SaleStatus.Paid) { <button type="button" class="button ghost" @onclick="CancelAsync">Отменить заказ</button> }
         @if (!_isNew && _model.Status is SaleStatus.Draft or null) { <button type="button" class="button secondary" @onclick="ReserveAsync">Зарезервировать</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Reserved) { <button type="button" class="button secondary" @onclick="MarkPaidAsync">Отметить оплаченным</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Reserved or SaleStatus.Paid) { <button type="button" class="button secondary" @onclick="MarkShippedAsync">Отметить отправленным</button> }
         @if (!_isNew && _model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped) { <button type="button" class="button secondary" @onclick="CompleteAsync">Завершить продажу</button> }
         @if (!_isNew && _model.Status is SaleStatus.Completed) { <button type="button" class="button danger-button" @onclick="ReturnAsync">Оформить возврат</button> }
-        <button class="button primary">Сохранить</button>
+        @if (!IsReadOnly) { <button class="button primary">Сохранить</button> }
     </div>
 </EditForm>
 
@@ -62,6 +73,9 @@
     private IReadOnlyList<Customer> _customers = [];
     private IReadOnlyList<Product> _products = [];
     private bool _isNew => Id is null;
+    private bool IsClosed => _model.Status is SaleStatus.Completed or SaleStatus.Cancelled or SaleStatus.Returned;
+    private bool IsReadOnly => IsClosed || _model.Status == SaleStatus.Shipped;
+    private static readonly SaleStatus[] WorkflowStatuses = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped, SaleStatus.Completed];
     private string? _message;
     private bool _success;
 
@@ -91,11 +105,23 @@
         var variant = Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId);
         item.Color = variant?.Color ?? string.Empty; item.Size = variant?.Size ?? string.Empty;
     }
-    private int Available(SaleItem item) => Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId)?.AvailableQuantity ?? 0;
+    private int Available(SaleItem item) => (Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId)?.AvailableQuantity ?? 0) + item.ReservedQuantity;
     private static string VariantName(ProductVariant variant) => $"{(string.IsNullOrWhiteSpace(variant.Color) ? "Без цвета" : variant.Color)} · {(string.IsNullOrWhiteSpace(variant.Size) ? "Без размера" : variant.Size)}";
-    private async Task SaveAsync() { _model.Status ??= SaleStatus.Draft; await Sales.UpsertSaleAsync(_model); if (_isNew) Navigation.NavigateTo($"/sales/{_model.Id}"); else Show("Заказ сохранён.", true); }
+    private string WorkflowClass(SaleStatus status) => _model.Status == status ? "active" : _model.Status is not null && _model.Status <= SaleStatus.Completed && status < _model.Status ? "done" : string.Empty;
+    private async Task SaveAsync()
+    {
+        try
+        {
+            _model.Status ??= SaleStatus.Draft;
+            if (_model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped) await Inventory.ReserveAsync(_model); else await Sales.UpsertSaleAsync(_model);
+            if (_isNew) Navigation.NavigateTo($"/sales/{_model.Id}"); else { _products = await Catalog.GetProductsAsync(); Show("Заказ сохранён, резерв синхронизирован.", true); }
+        }
+        catch (Exception exception) { Show(exception.Message, false); }
+    }
     private async Task ReserveAsync() => await RunInventoryAsync(() => Inventory.ReserveAsync(_model), "Товар зарезервирован.");
     private async Task CancelAsync() => await RunInventoryAsync(() => Inventory.CancelAsync(_model), "Заказ отменён, резерв снят.");
+    private async Task MarkPaidAsync() => await RunInventoryAsync(() => Inventory.MarkPaidAsync(_model), "Заказ отмечен оплаченным.");
+    private async Task MarkShippedAsync() => await RunInventoryAsync(() => Inventory.MarkShippedAsync(_model), "Заказ отмечен отправленным.");
     private async Task CompleteAsync() => await RunInventoryAsync(() => Inventory.CompleteAsync(_model), "Продажа завершена, остатки списаны.");
     private async Task ReturnAsync() => await RunInventoryAsync(() => Inventory.ReturnAsync(_model), "Возврат оформлен, товар возвращён на склад.");
     private async Task RunInventoryAsync(Func<Task> action, string success) { try { await action(); _products = await Catalog.GetProductsAsync(); Show(success, true); } catch (Exception exception) { Show(exception.Message, false); } }
