@@ -16,6 +16,7 @@
             <div class="form-grid">
                 <label>Номер<InputText @bind-Value="_model.Number" /></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Выберите статус</option>@foreach (var status in Enum.GetValues<PurchaseStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label>
                 <label class="span-2">Поставщик<InputSelect @bind-Value="_model.SupplierId" @bind-Value:after="SupplierChanged"><option value="">Не выбран</option>@foreach (var supplier in _suppliers) { <option value="@supplier.Id">@supplier.Name</option> }</InputSelect></label>
+                <label>Трек-код<InputText @bind-Value="_model.TrackingCode" placeholder="Код отслеживания" /></label><label>Предполагаемая дата поставки<InputDate @bind-Value="_model.EstimatedDeliveryDate" /></label>
                 <label>Курс ¥ → сум<InputNumber @bind-Value="_model.CnyRateUzs" /></label><label>Комиссия, %<InputNumber @bind-Value="_model.AgentCommissionPercent" /></label>
                 <label>Международная доставка<InputNumber @bind-Value="_model.InternationalShippingUzs" /></label><label>Прочие расходы<InputNumber @bind-Value="_model.OtherCostsUzs" /></label>
             </div>

@@ -9,7 +9,7 @@
         <div class="table-header"><span>Номер</span><span>Поставщик</span><span>Статус</span><span>Позиций</span><span>Сумма</span></div>
         @foreach (var purchase in _purchases.OrderByDescending(x => x.OrderedAt))
         {
-            <a class="table-row" href="/purchases/@purchase.Id"><span><strong>@purchase.Number</strong><small>@purchase.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></span><span>@(purchase.SupplierName ?? "—")</span><span><em class="badge">@purchase.Status.Display()</em></span><span>@purchase.TotalQuantity шт.</span><span><strong>@Money(purchase.TotalCostUzs)</strong></span></a>
+            <a class="table-row" href="/purchases/@purchase.Id"><span><strong>@purchase.Number</strong><small>@purchase.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></span><span><strong>@(purchase.SupplierName ?? "—")</strong><small>@(string.IsNullOrWhiteSpace(purchase.TrackingCode) ? "без трек-кода" : purchase.TrackingCode) · @(purchase.EstimatedDeliveryDate is null ? "дата не указана" : $"до {purchase.EstimatedDeliveryDate:dd.MM.yyyy}")</small></span><span><em class="badge">@purchase.Status.Display()</em></span><span>@purchase.TotalQuantity шт.</span><span><strong>@Money(purchase.TotalCostUzs)</strong></span></a>
         }
     </div>
     @if (_purchases.Count == 0) { <div class="empty-state">Закупок пока нет.</div> }

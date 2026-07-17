@@ -14,7 +14,7 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     [
         ["Id", "Name", "Platform", "StoreUrl", "Rating", "Moq", "Contact", "WeChat", "Intermediary", "Notes", "CreatedAt"],
         ["Id", "Name", "SortOrder", "IsActive"],
-        ["Id", "Number", "SupplierId", "SupplierName", "Status", "OrderedAt", "CnyRateUzs", "AgentCommissionPercent", "InternationalShippingUzs", "OtherCostsUzs", "Notes"],
+        ["Id", "Number", "SupplierId", "SupplierName", "Status", "OrderedAt", "CnyRateUzs", "AgentCommissionPercent", "InternationalShippingUzs", "OtherCostsUzs", "Notes", "TrackingCode", "EstimatedDeliveryDate"],
         ["Id", "PurchaseId", "ProductId", "ProductName", "Quantity", "UnitPriceCny", "UnitWeightKg", "ProductVariantId", "Color", "Size", "ReceivedQuantity", "DefectQuantity", "StockedQuantity"],
         ["Id", "Name", "Company", "ChinaWarehouseAddress", "ContactName", "Telegram", "WeChat", "Phone", "RatePerKgUsd", "CommissionPercent", "MinimumWeightKg", "EstimatedDays", "OfficialImport", "Notes", "CreatedAt", "Rating"]
     ];
@@ -51,7 +51,7 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     {
         var service = await EnsureAsync(cancellationToken);
         var request = service.Spreadsheets.Values.BatchGet(settings.SpreadsheetId);
-        request.Ranges = new[] { "Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:K", "PurchaseItems!A2:M", "Intermediaries!A2:P" };
+        request.Ranges = new[] { "Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "Intermediaries!A2:P" };
         var ranges = (await request.ExecuteAsync(cancellationToken)).ValueRanges;
         var data = new CommerceData
         {
@@ -73,12 +73,12 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     private async Task WriteCoreAsync(CommerceData data, CancellationToken cancellationToken)
     {
         var service = await EnsureAsync(cancellationToken);
-        var clear = new BatchClearValuesRequest { Ranges = ["Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:K", "PurchaseItems!A2:M", "Intermediaries!A2:P"] };
+        var clear = new BatchClearValuesRequest { Ranges = ["Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "Intermediaries!A2:P"] };
         await service.Spreadsheets.Values.BatchClear(clear, settings.SpreadsheetId).ExecuteAsync(cancellationToken);
         var values = new List<ValueRange>();
         Add(values, "Suppliers!A2:K", data.Suppliers.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Platform, x.StoreUrl ?? "", Obj(x.Rating), Obj(x.Moq), x.Contact ?? "", x.WeChat ?? "", x.Intermediary ?? "", x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
         Add(values, "Categories!A2:D", data.Categories.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.SortOrder, x.IsActive]).ToList());
-        Add(values, "Purchases!A2:K", data.Purchases.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.SupplierId?.ToString() ?? "", x.SupplierName ?? "", x.Status?.ToString() ?? "", x.OrderedAt.ToString("O"), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.InternationalShippingUzs), Obj(x.OtherCostsUzs), x.Notes ?? ""]).ToList());
+        Add(values, "Purchases!A2:M", data.Purchases.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.SupplierId?.ToString() ?? "", x.SupplierName ?? "", x.Status?.ToString() ?? "", x.OrderedAt.ToString("O"), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.InternationalShippingUzs), Obj(x.OtherCostsUzs), x.Notes ?? "", x.TrackingCode ?? "", x.EstimatedDeliveryDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""]).ToList());
         Add(values, "PurchaseItems!A2:M", data.Purchases.SelectMany(p => p.Items.Select(x => (IList<object>)[x.Id.ToString(), p.Id.ToString(), x.ProductId?.ToString() ?? "", x.ProductName, Obj(x.Quantity), Obj(x.UnitPriceCny), Obj(x.UnitWeightKg), x.ProductVariantId?.ToString() ?? "", x.Color, x.Size, Obj(x.ReceivedQuantity), Obj(x.DefectQuantity), x.StockedQuantity])).ToList());
         Add(values, "Intermediaries!A2:P", data.Intermediaries.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Company ?? "", x.ChinaWarehouseAddress ?? "", x.ContactName ?? "", x.Telegram ?? "", x.WeChat ?? "", x.Phone ?? "", Obj(x.RatePerKgUsd), Obj(x.CommissionPercent), Obj(x.MinimumWeightKg), Obj(x.EstimatedDays), x.OfficialImport, x.Notes ?? "", x.CreatedAt.ToString("O"), Obj(x.Rating)]).ToList());
         if (values.Count > 0) await service.Spreadsheets.Values.BatchUpdate(new BatchUpdateValuesRequest { ValueInputOption = "RAW", Data = values }, settings.SpreadsheetId).ExecuteAsync(cancellationToken);
@@ -100,7 +100,7 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     }
     private static Supplier? ParseSupplier(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Supplier { Id = id.Value, Name = Cell(r, 1), Platform = Cell(r, 2), StoreUrl = Empty(Cell(r, 3)), Rating = NullableDecimal(Cell(r, 4)), Moq = NullableInt(Cell(r, 5)), Contact = Empty(Cell(r, 6)), WeChat = Empty(Cell(r, 7)), Intermediary = Empty(Cell(r, 8)), Notes = Empty(Cell(r, 9)), CreatedAt = DateValue(Cell(r, 10)) }; }
     private static Category? ParseCategory(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Category { Id = id.Value, Name = Cell(r, 1), SortOrder = IntValue(Cell(r, 2)), IsActive = bool.TryParse(Cell(r, 3), out var active) && active }; }
-    private static Purchase? ParsePurchase(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Purchase { Id = id.Value, Number = Cell(r, 1), SupplierId = GuidValue(Cell(r, 2)), SupplierName = Empty(Cell(r, 3)), Status = Enum.TryParse<PurchaseStatus>(Cell(r, 4), true, out var status) ? status : null, OrderedAt = DateValue(Cell(r, 5)), CnyRateUzs = NullableDecimal(Cell(r, 6)), AgentCommissionPercent = NullableDecimal(Cell(r, 7)), InternationalShippingUzs = NullableDecimal(Cell(r, 8)), OtherCostsUzs = NullableDecimal(Cell(r, 9)), Notes = Empty(Cell(r, 10)) }; }
+    private static Purchase? ParsePurchase(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Purchase { Id = id.Value, Number = Cell(r, 1), SupplierId = GuidValue(Cell(r, 2)), SupplierName = Empty(Cell(r, 3)), Status = Enum.TryParse<PurchaseStatus>(Cell(r, 4), true, out var status) ? status : null, OrderedAt = DateValue(Cell(r, 5)), CnyRateUzs = NullableDecimal(Cell(r, 6)), AgentCommissionPercent = NullableDecimal(Cell(r, 7)), InternationalShippingUzs = NullableDecimal(Cell(r, 8)), OtherCostsUzs = NullableDecimal(Cell(r, 9)), Notes = Empty(Cell(r, 10)), TrackingCode = Empty(Cell(r, 11)), EstimatedDeliveryDate = NullableDate(Cell(r, 12)) }; }
     private static Intermediary? ParseIntermediary(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Intermediary { Id = id.Value, Name = Cell(r, 1), Company = Empty(Cell(r, 2)), ChinaWarehouseAddress = Empty(Cell(r, 3)), ContactName = Empty(Cell(r, 4)), Telegram = Empty(Cell(r, 5)), WeChat = Empty(Cell(r, 6)), Phone = Empty(Cell(r, 7)), RatePerKgUsd = NullableDecimal(Cell(r, 8)), CommissionPercent = NullableDecimal(Cell(r, 9)), MinimumWeightKg = NullableDecimal(Cell(r, 10)), EstimatedDays = NullableInt(Cell(r, 11)), OfficialImport = bool.TryParse(Cell(r, 12), out var official) && official, Notes = Empty(Cell(r, 13)), CreatedAt = DateValue(Cell(r, 14)), Rating = NullableDecimal(Cell(r, 15)) }; }
     private static IList<IList<object>> Rows(IList<ValueRange> ranges, int index) => index < ranges.Count ? ranges[index].Values ?? [] : [];
     private static void Add(List<ValueRange> values, string range, IList<IList<object>> rows) { if (rows.Count > 0) values.Add(new ValueRange { Range = range, Values = rows }); }
@@ -113,6 +113,7 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     private static int? NullableInt(string value) => string.IsNullOrWhiteSpace(value) ? null : IntValue(value);
     private static object Obj<T>(T? value) where T : struct => value.HasValue ? value.Value : "";
     private static DateTimeOffset DateValue(string value) => DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var x) ? x : DateTimeOffset.UtcNow;
+    private static DateTime? NullableDate(string value) => DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var x) ? x : null;
     private static string? Empty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
     private static string ColumnName(int count) => ((char)('A' + count - 1)).ToString();
     private static List<Category> JsonDefaultCategories() => new[] { "Футболка", "Худи", "Рубашка", "Брюки", "Джинсы", "Куртка", "Сумка", "Кепка", "Ремень", "Украшения", "Другое" }.Select((x, i) => new Category { Name = x, SortOrder = i, IsActive = true }).ToList();

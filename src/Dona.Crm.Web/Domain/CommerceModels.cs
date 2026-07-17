@@ -55,6 +55,8 @@ public sealed class Purchase
     public string? SupplierName { get; set; }
     public PurchaseStatus? Status { get; set; }
     public DateTimeOffset OrderedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string? TrackingCode { get; set; }
+    public DateTime? EstimatedDeliveryDate { get; set; }
     [Range(0, 100_000)] public decimal? CnyRateUzs { get; set; }
     [Range(0, 100)] public decimal? AgentCommissionPercent { get; set; }
     [Range(0, 1_000_000_000)] public decimal? InternationalShippingUzs { get; set; }
