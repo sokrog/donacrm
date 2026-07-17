@@ -3,6 +3,7 @@
 @inject ISalesRepository Sales
 @inject ICatalogRepository Catalog
 @inject AnalyticsService AnalyticsService
+@inject IBusinessSettingsRepository BusinessSettingsRepository
 
 <PageTitle>Аналитика — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Результаты</span><h1>Аналитика продаж</h1><p>Только завершённые продажи; отмены и возвраты исключены.</p></div></div>
@@ -43,7 +44,7 @@
 @code {
     private IReadOnlyList<Sale> _sales = [];
     private IReadOnlyList<Product> _products = [];
-    private DateTime? _from = DateTime.Today.AddDays(-29);
+    private DateTime? _from;
     private DateTime? _to = DateTime.Today;
     private AnalyticsReport _report = new();
     private string _tab = "products";
@@ -54,8 +55,10 @@
     {
         var salesTask = Sales.GetSalesAsync();
         var productsTask = Catalog.GetProductsAsync();
-        await Task.WhenAll(salesTask, productsTask);
+        var settingsTask = BusinessSettingsRepository.GetAsync();
+        await Task.WhenAll(salesTask, productsTask, settingsTask);
         _sales = await salesTask; _products = await productsTask;
+        var days = Math.Max(1, (await settingsTask).DefaultAnalyticsPeriodDays); _from = DateTime.Today.AddDays(-(days - 1)); _to = DateTime.Today;
         Rebuild();
     }
     private void Rebuild() => _report = AnalyticsService.Build(_sales, _products, _from, _to);

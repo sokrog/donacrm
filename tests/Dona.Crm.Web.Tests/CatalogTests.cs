@@ -361,6 +361,34 @@ public sealed class AnalyticsServiceTests
     }
 }
 
+public sealed class ProductStatusServiceTests
+{
+    [Fact]
+    public void Calculates_status_from_available_stock_and_threshold()
+    {
+        var product = new Product { Status = ProductStatus.InStock, Variants = [new ProductVariant { Quantity = 5, ReservedQuantity = 2 }] };
+        var service = new ProductStatusService();
+
+        Assert.Equal(ProductStatus.LowStock, service.Calculate(product, new BusinessSettings { LowStockThreshold = 3, CountReservedAsUnavailable = true }));
+        Assert.Equal(ProductStatus.InStock, service.Calculate(product, new BusinessSettings { LowStockThreshold = 2, CountReservedAsUnavailable = true }));
+        Assert.Equal(ProductStatus.InStock, service.Calculate(product, new BusinessSettings { LowStockThreshold = 3, CountReservedAsUnavailable = false }));
+    }
+
+    [Fact]
+    public void Uses_configured_zero_status_and_preserves_manual_exceptions()
+    {
+        var service = new ProductStatusService();
+        var empty = new Product { Status = ProductStatus.InStock, Variants = [new ProductVariant { Quantity = 0 }] };
+        Assert.Equal(ProductStatus.OutOfStock, service.Calculate(empty, new BusinessSettings()));
+        Assert.Equal(ProductStatus.OnOrder, service.Calculate(empty, new BusinessSettings { ZeroStockStatus = ProductStatus.OnOrder }));
+
+        var archived = new Product { Status = ProductStatus.Archived, Variants = [new ProductVariant { Quantity = 10 }] };
+        var preorder = new Product { Status = ProductStatus.OnOrder };
+        Assert.Equal(ProductStatus.Archived, service.Calculate(archived, new BusinessSettings()));
+        Assert.Equal(ProductStatus.OnOrder, service.Calculate(preorder, new BusinessSettings()));
+    }
+}
+
 public sealed class GoogleSheetsSettingsStoreTests
 {
     [Fact]

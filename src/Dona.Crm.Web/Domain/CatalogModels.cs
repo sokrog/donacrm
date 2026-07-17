@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Dona.Crm.Web.Domain;
 
-public enum ProductStatus { InStock, OnOrder, LowStock, Archived }
+public enum ProductStatus { InStock, OnOrder, LowStock, OutOfStock, Archived }
 
 public sealed class Product
 {
@@ -48,6 +48,7 @@ public static class ProductStatusText
         ProductStatus.InStock => "В наличии",
         ProductStatus.OnOrder => "Под заказ",
         ProductStatus.LowStock => "Заканчивается",
+        ProductStatus.OutOfStock => "Нет в наличии",
         ProductStatus.Archived => "Архив",
         _ => "Не указан"
     };

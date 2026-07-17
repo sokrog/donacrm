@@ -1,9 +1,12 @@
 @page "/purchases"
 @attribute [StreamRendering]
 @inject ICommerceRepository Repository
+@inject IBusinessSettingsRepository BusinessSettingsRepository
 
 <PageTitle>Закупки — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Поставка</span><h1>Закупки</h1><p>От выкупа до поступления на склад.</p></div><a class="button primary" href="/purchases/new">＋ Новая закупка</a></div>
+@if (OverdueCount > 0) { <div class="notice error">Просрочено поставок: @OverdueCount. Проверьте трек-коды и свяжитесь с посредником.</div> }
+else if (DueSoonCount > 0) { <div class="notice warning">В ближайшие @_settings.PurchaseDueSoonDays дн. ожидается поставок: @DueSoonCount.</div> }
 <section class="panel table-panel">
     <div class="data-table purchase-table">
         <div class="table-header"><span>Номер</span><span>Поставщик</span><span>Статус</span><span>Позиций</span><span>Сумма</span></div>
@@ -14,4 +17,4 @@
     </div>
     @if (_purchases.Count == 0) { <div class="empty-state">Закупок пока нет.</div> }
 </section>
-@code { private List<Purchase> _purchases = []; protected override async Task OnInitializedAsync() => _purchases = (await Repository.GetPurchasesAsync()).ToList(); private static string Money(decimal value) => $"{value:N0} сум"; }
+@code { private List<Purchase> _purchases = []; private BusinessSettings _settings=new(); private IEnumerable<Purchase> Active=>_purchases.Where(x=>x.Status is not PurchaseStatus.Received and not PurchaseStatus.Cancelled); private int OverdueCount=>Active.Count(x=>x.EstimatedDeliveryDate?.Date<DateTime.Today);private int DueSoonCount=>Active.Count(x=>x.EstimatedDeliveryDate?.Date>=DateTime.Today&&x.EstimatedDeliveryDate?.Date<=DateTime.Today.AddDays(_settings.PurchaseDueSoonDays));protected override async Task OnInitializedAsync(){var purchases=Repository.GetPurchasesAsync();var settings=BusinessSettingsRepository.GetAsync();await Task.WhenAll(purchases,settings);_purchases=(await purchases).ToList();_settings=await settings;}private static string Money(decimal value) => $"{value:N0} сум"; }

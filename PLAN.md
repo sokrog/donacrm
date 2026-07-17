@@ -19,6 +19,7 @@
 | Outfits | Готовые образы | Id, Name, Occasion, Status |
 | OutfitProducts | Состав образа | OutfitId, ProductId, SellingPriceUzs, SortOrder |
 | ContentPlan | План публикаций | Id, Title, Type, Status, ScheduledAt, CollectionId, OutfitId |
+| AppSettings | Бизнес-правила | Key, Value |
 | Sales | Заказы | Id, Number, CustomerName, Status, PaymentMethod, CreatedAt |
 | SaleItems | Позиции заказа | Id, SaleId, ProductVariantId, Quantity, UnitPriceUzs, UnitCostUzs |
 | Settings | Настройки расчётов | Key, Value |
@@ -90,3 +91,4 @@
 - Остаток ведётся на уровне варианта, а не модели товара.
 - Себестоимость продажи фиксируется в `SaleItems`, поэтому будущая смена закупочной цены не искажает историю.
 - Операции продажи и списания требуют защиты от частичной записи; до появления БД используется журнал операций и пакетное обновление Sheets.
+- Статус складского товара рассчитывается централизованно по доступному остатку и настраиваемому порогу; архив и товары без вариантов не изменяются автоматически.

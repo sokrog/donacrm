@@ -6,12 +6,30 @@
 @inject GoogleSheetsCatalogRepository GoogleSheets
 @inject CatalogMigrationService Migration
 @inject LoadingState Loading
+@inject IBusinessSettingsRepository BusinessSettingsRepository
+@inject ICatalogRepository Catalog
+@inject ProductStatusService ProductStatusService
 
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
 <div class="page-heading">
-    <div><span class="eyebrow">Интеграции</span><h1>Настройки</h1><p>Подключите Google Sheets прямо из приложения.</p></div>
+    <div><span class="eyebrow">Система</span><h1>Настройки</h1><p>Бизнес-правила и подключение Google Sheets.</p></div>
 </div>
+
+<EditForm Model="_business" class="panel form-section business-settings">
+    <div class="section-title"><span>⚙</span><div><h2>Бизнес-правила</h2><p>Автоматические статусы и горизонты предупреждений</p></div></div>
+    <div class="form-grid settings-form">
+        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.AutoUpdateStockStatus" /><span><strong>Автоматически обновлять статус товара</strong><small>Архивные товары и позиции без вариантов не изменяются</small></span></label>
+        <label>Порог «Заканчивается», шт.<InputNumber @bind-Value="_business.LowStockThreshold" min="0" /></label>
+        <label>При нулевом остатке<InputSelect @bind-Value="_business.ZeroStockStatus"><option value="@ProductStatus.OutOfStock">Нет в наличии</option><option value="@ProductStatus.OnOrder">Под заказ</option></InputSelect></label>
+        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.CountReservedAsUnavailable" /><span><strong>Учитывать резерв как недоступный остаток</strong><small>Например, 5 на складе и 3 в резерве считаются как 2 доступных</small></span></label>
+        <label>Поставка скоро, дней<InputNumber @bind-Value="_business.PurchaseDueSoonDays" min="0" /></label>
+        <label>Горизонт контент-плана, дней<InputNumber @bind-Value="_business.ContentPlanningHorizonDays" min="1" /></label>
+        <label>Период аналитики по умолчанию, дней<InputNumber @bind-Value="_business.DefaultAnalyticsPeriodDays" min="1" /></label>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(_businessMessage)) { <div class="notice @(_businessSuccess ? "success" : "error")">@_businessMessage</div> }
+    <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button><button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
+</EditForm>
 
 <div class="settings-grid">
     <section class="panel form-section">
@@ -79,8 +97,31 @@
     private string _credentialsJson = string.Empty;
     private bool _useGoogleSheets;
     private string? _uploadedFileName;
+    private BusinessSettings _business = new();
+    private string? _businessMessage;
+    private bool _businessSuccess;
     private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
-    protected override void OnInitialized() { _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; }
+    protected override async Task OnInitializedAsync() { _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
+
+    private async Task SaveBusinessSettingsAsync()
+    {
+        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
+        catch (Exception exception) { _businessMessage = $"Не удалось сохранить: {exception.Message}"; _businessSuccess = false; }
+    }
+
+    private async Task RecalculateStatusesAsync()
+    {
+        try
+        {
+            NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business);
+            var products = await Catalog.GetProductsAsync(); var changed = 0;
+            foreach (var product in products) { var status = ProductStatusService.Calculate(product, _business); if (status == product.Status) continue; product.Status = status; await Catalog.UpsertProductAsync(product); changed++; }
+            _businessMessage = $"Пересчёт завершён: изменено статусов — {changed}."; _businessSuccess = true;
+        }
+        catch (Exception exception) { _businessMessage = $"Ошибка пересчёта: {exception.Message}"; _businessSuccess = false; }
+    }
+
+    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
     {
