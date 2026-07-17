@@ -41,7 +41,7 @@
             @foreach (var item in _model.Items)
             {
                 <div class="sale-item" @key="item.Id">
-                    <label>Товар<select value="@item.ProductId" @onchange="e => ProductChanged(item, e.Value?.ToString())"><option value="">Выберите товар</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label>
+                    <label>Товар<ProductAutocomplete Products="_products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                     <label>Вариант<select value="@item.ProductVariantId" @onchange="e => VariantChanged(item, e.Value?.ToString())"><option value="">Выберите вариант</option>@foreach (var variant in Variants(item)) { <option value="@variant.Id">@VariantName(variant)</option> }</select></label>
                     <label>Количество<InputNumber @bind-Value="item.Quantity" /></label>
                     <label>Цена, сум<InputNumber @bind-Value="item.UnitPriceUzs" /></label>
@@ -92,10 +92,9 @@
     private void AddItem() => _model.Items.Add(new SaleItem());
     private void CustomerChanged() => _model.CustomerName = _model.CustomerId is null ? null : _customers.FirstOrDefault(x => x.Id == _model.CustomerId)?.Name;
     private IEnumerable<ProductVariant> Variants(SaleItem item) => item.ProductId is null ? [] : _products.FirstOrDefault(x => x.Id == item.ProductId)?.Variants ?? [];
-    private void ProductChanged(SaleItem item, string? value)
+    private void ProductChanged(SaleItem item, Product? product)
     {
-        item.ProductId = Guid.TryParse(value, out var id) ? id : null;
-        var product = _products.FirstOrDefault(x => x.Id == item.ProductId);
+        item.ProductId = product?.Id;
         item.ProductName = product?.Name ?? string.Empty;
         item.UnitPriceUzs = product?.SellingPriceUzs;
         item.UnitCostUzs = product?.CostUzs;

@@ -10,6 +10,15 @@ namespace Dona.Crm.Web.Tests;
 public sealed class ProductEconomicsTests
 {
     [Fact]
+    public void Product_search_matches_sku_and_name_case_insensitively()
+    {
+        var products = new[] { new Product { Sku = "TS-001", Name = "Белая футболка" }, new Product { Sku = "BG-002", Name = "City Bag" } };
+        Assert.Equal("TS-001", Assert.Single(ProductSearch.Filter(products, "ts-001")).Sku);
+        Assert.Equal("BG-002", Assert.Single(ProductSearch.Filter(products, "city")).Sku);
+        Assert.Empty(ProductSearch.Filter(products, "худи"));
+    }
+
+    [Fact]
     public void New_product_has_no_prefilled_form_values()
     {
         var product = new Product();

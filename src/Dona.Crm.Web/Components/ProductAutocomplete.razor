@@ -1,0 +1,54 @@
+<div class="product-autocomplete @(Disabled ? "disabled" : null)" @onfocusout="CloseLaterAsync">
+    <input value="@_query" placeholder="@Placeholder" disabled="@Disabled" autocomplete="off" @onfocus="Open" @oninput="InputAsync" @onkeydown="KeyDownAsync" />
+    @if (Value is not null && !Disabled) { <button type="button" class="autocomplete-clear" title="Очистить выбор" @onmousedown="ClearAsync" @onmousedown:preventDefault="true">×</button> }
+    @if (_open && !Disabled)
+    {
+        <div class="autocomplete-results">
+            @foreach (var product in Results)
+            {
+                <button type="button" @onmousedown="() => SelectAsync(product)" @onmousedown:preventDefault="true"><strong>@product.Name</strong><small>@product.Sku · @product.Status.Display() · @product.Variants.Sum(x => x.AvailableQuantity) шт.</small></button>
+            }
+            @if (Results.Count == 0) { <div class="autocomplete-empty">Ничего не найдено по названию или SKU</div> }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Product> Products { get; set; } = [];
+    [Parameter] public Guid? Value { get; set; }
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<Product?> OnSelected { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Название или SKU";
+    [Parameter] public bool Disabled { get; set; }
+    private string _query = string.Empty;
+    private bool _open;
+    private Guid? _lastValue;
+    private IReadOnlyList<Product> Results => ProductSearch.Filter(Products, _query);
+
+    protected override void OnParametersSet()
+    {
+        if (_lastValue == Value) return;
+        _lastValue = Value;
+        var product = Value is null ? null : Products.FirstOrDefault(x => x.Id == Value);
+        _query = product is null ? string.Empty : $"{product.Sku} · {product.Name}";
+    }
+    private void Open() => _open = true;
+    private async Task InputAsync(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? string.Empty; _open = true;
+        if (Value is null) return;
+        _lastValue = null; await ValueChanged.InvokeAsync(null); await OnSelected.InvokeAsync(null);
+    }
+    private async Task SelectAsync(Product product)
+    {
+        _lastValue = product.Id; _query = $"{product.Sku} · {product.Name}"; _open = false;
+        await ValueChanged.InvokeAsync(product.Id); await OnSelected.InvokeAsync(product);
+    }
+    private async Task ClearAsync() { _lastValue = null; _query = string.Empty; _open = true; await ValueChanged.InvokeAsync(null); await OnSelected.InvokeAsync(null); }
+    private async Task CloseLaterAsync() { await Task.Delay(120); _open = false; await InvokeAsync(StateHasChanged); }
+    private async Task KeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") _open = false;
+        else if (args.Key == "Enter" && _open && Results.Count == 1) await SelectAsync(Results[0]);
+    }
+}

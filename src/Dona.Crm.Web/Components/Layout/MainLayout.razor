@@ -45,7 +45,7 @@
     </main>
 </div>
 
-@if (Loading.IsLoading)
+@if (_showLoading)
 {
     <div class="loading-overlay"><div class="loading-dialog"><span class="spinner"></span><strong>@Loading.Message</strong><small>Пожалуйста, подождите</small></div></div>
 }
@@ -57,6 +57,20 @@
 
 @code {
     protected override void OnInitialized() => Loading.Changed += LoadingChanged;
-    private void LoadingChanged() => _ = InvokeAsync(StateHasChanged);
-    public void Dispose() => Loading.Changed -= LoadingChanged;
+    private bool _showLoading;
+    private CancellationTokenSource? _loadingDelay;
+    private void LoadingChanged()
+    {
+        _loadingDelay?.Cancel();
+        _loadingDelay?.Dispose();
+        _loadingDelay = new CancellationTokenSource();
+        if (!Loading.IsLoading) { _showLoading = false; _ = InvokeAsync(StateHasChanged); return; }
+        _ = ShowLoadingAfterDelayAsync(_loadingDelay.Token);
+    }
+    private async Task ShowLoadingAfterDelayAsync(CancellationToken token)
+    {
+        try { await Task.Delay(450, token); if (!Loading.IsLoading || token.IsCancellationRequested) return; _showLoading = true; await InvokeAsync(StateHasChanged); }
+        catch (OperationCanceledException) { }
+    }
+    public void Dispose() { Loading.Changed -= LoadingChanged; _loadingDelay?.Cancel(); _loadingDelay?.Dispose(); }
 }
