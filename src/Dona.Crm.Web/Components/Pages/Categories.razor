@@ -1,23 +1,7 @@
 @page "/categories"
 @attribute [StreamRendering]
 @inject ICommerceRepository Repository
-
 <PageTitle>Категории — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Справочник</span><h1>Категории</h1><p>Категории доступны при заполнении каталога.</p></div></div>
-<section class="panel form-section narrow-panel">
-    <div class="inline-create"><input @bind="_newName" placeholder="Название новой категории" /><label class="inline-toggle"><input type="checkbox" @bind="_newActive" /> Активна</label><button class="button primary" @onclick="AddAsync">Добавить</button></div>
-    <div class="category-list">
-        @foreach (var category in _categories.OrderBy(x => x.SortOrder))
-        {
-            <div class="category-row"><span class="drag-handle">⋮⋮</span><InputText @bind-Value="category.Name" /><label class="inline-toggle"><InputCheckbox @bind-Value="category.IsActive" /> Активна</label><button class="button secondary" @onclick="() => SaveAsync(category)">Сохранить</button></div>
-        }
-    </div>
-</section>
-@code {
-    private List<Category> _categories = [];
-    private string _newName = string.Empty;
-    private bool _newActive;
-    protected override async Task OnInitializedAsync() => _categories = (await Repository.GetCategoriesAsync()).ToList();
-    private async Task AddAsync() { if (string.IsNullOrWhiteSpace(_newName)) return; var item = new Category { Name = _newName.Trim(), SortOrder = _categories.Count, IsActive = _newActive }; await Repository.UpsertCategoryAsync(item); _categories.Add(item); _newName = string.Empty; _newActive = false; }
-    private Task SaveAsync(Category category) => Repository.UpsertCategoryAsync(category);
-}
+<div class="page-heading"><div><span class="eyebrow">Справочник</span><h1>Категории</h1><p>Категории доступны при заполнении каталога.</p></div><a class="button primary" href="/categories/new">＋ Добавить</a></div>
+<section class="panel table-panel narrow-panel"><div class="simple-list-header"><strong>@_items.Count категорий</strong></div>@foreach(var item in _items.OrderBy(x=>x.SortOrder)){<a class="simple-list-row" href="/categories/@item.Id"><span class="product-thumb">◇</span><span><strong>@item.Name</strong><small>Порядок @(item.SortOrder?.ToString()??"—") · @(item.IsActive?"активна":"скрыта")</small></span><em>→</em></a>}</section>
+@code { private IReadOnlyList<Category> _items=[]; protected override async Task OnInitializedAsync()=>_items=await Repository.GetCategoriesAsync(); }

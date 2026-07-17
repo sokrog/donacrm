@@ -13,6 +13,7 @@ public sealed class SwitchingCommerceRepository(GoogleSheetsSettingsStore settin
     public Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default) => loading.RunAsync("Удаляем посредника…", () => Current.DeleteIntermediaryAsync(id, cancellationToken));
     public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => loading.RunAsync("Загружаем категории…", () => Current.GetCategoriesAsync(cancellationToken));
     public Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default) => loading.RunAsync("Сохраняем категорию…", () => Current.UpsertCategoryAsync(category, cancellationToken));
+    public Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default) => loading.RunAsync("Удаляем категорию…", () => Current.DeleteCategoryAsync(id, cancellationToken));
     public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => loading.RunAsync("Загружаем закупки…", () => Current.GetPurchasesAsync(cancellationToken));
     public Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default) => loading.RunAsync("Загружаем закупку…", () => Current.GetPurchaseAsync(id, cancellationToken));
     public Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default) => loading.RunAsync("Сохраняем закупку…", () => Current.UpsertPurchaseAsync(purchase, cancellationToken));

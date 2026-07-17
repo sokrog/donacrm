@@ -1,61 +1,8 @@
 @page "/outfits"
 @attribute [StreamRendering]
 @inject IMarketingRepository Marketing
-@inject ICatalogRepository Catalog
-
 <PageTitle>Образы — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Подборки</span><h1>Готовые образы</h1><p>Сеты одежды с общей стоимостью для постов и каруселей.</p></div><button class="button primary" @onclick="NewOutfit">＋ Добавить</button></div>
-
-<div class="metric-grid compact-metrics">
-    <div class="metric-card accent"><span>Образов</span><strong>@_items.Count</strong><small>всего сохранено</small></div>
-    <div class="metric-card"><span>Активных</span><strong>@_items.Count(x => x.Status == MarketingStatus.Active)</strong><small>готовы к публикации</small></div>
-    <div class="metric-card"><span>Средний чек образа</span><strong>@Money(_items.Count == 0 ? 0 : _items.Average(x => x.TotalPriceUzs))</strong><small>по текущим снимкам цен</small></div>
-    <div class="metric-card"><span>Товаров в образах</span><strong>@_items.Sum(x => x.Products.Count)</strong><small>включая повторения</small></div>
-</div>
-
-<div class="master-detail marketing-master">
-    <section class="panel table-panel">
-        <div class="simple-list-header"><strong>@_items.Count образов</strong></div>
-        @foreach (var item in _items.OrderBy(x => x.Name))
-        {
-            <button class="simple-list-row @(item.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(item)"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@item.Products.Count позиций · @Money(item.TotalPriceUzs) · @(item.Occasion ?? "без повода")</small></span><em>→</em></button>
-        }
-        @if (_items.Count == 0) { <div class="empty-state">Соберите первый готовый образ.</div> }
-    </section>
-
-    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section sticky-card">
-        <DataAnnotationsValidator />
-        <div class="section-title"><span>◎</span><div><h2>@(_isNew ? "Новый образ" : "Редактирование")</h2><p>Состав и общая стоимость</p></div></div>
-        <div class="stack-form">
-            <label>Название<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label>
-            <label>Описание<InputTextArea @bind-Value="_model.Description" /></label>
-            <div class="form-grid"><label>Повод<InputText @bind-Value="_model.Occasion" placeholder="Офис, путешествие" /></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Не указан</option>@foreach (var status in Enum.GetValues<MarketingStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label></div>
-            <div class="outfit-total"><span>Стоимость образа</span><strong>@Money(_model.TotalPriceUzs)</strong></div>
-            <div class="section-title compact-title"><span>＋</span><div><h2>Состав образа</h2><p>Цена фиксируется при выборе</p></div><button type="button" class="button secondary" @onclick="AddProduct">Добавить</button></div>
-            @foreach (var item in _model.Products)
-            {
-                <div class="outfit-product-row" @key="item.Id"><label>Товар<select value="@item.ProductId" @onchange="e => OutfitProductChanged(item, e.Value?.ToString())"><option value="">Выберите товар</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label><label>Цена, сум<InputNumber @bind-Value="item.SellingPriceUzs" /></label><button type="button" class="icon-button danger" @onclick="() => _model.Products.Remove(item)">×</button></div>
-            }
-            @if (_model.Products.Count == 0) { <div class="empty-state small">Добавьте вещи, которые составляют образ.</div> }
-        </div>
-        @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить образ?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div> }
-        <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewOutfit">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="() => _confirmDelete = true">Удалить</button> }<button class="button primary">Сохранить</button></div>
-    </EditForm>
-</div>
-
-@code {
-    private List<Outfit> _items = [];
-    private IReadOnlyList<Product> _products = [];
-    private Outfit _model = new();
-    private bool _isNew = true;
-    private bool _confirmDelete;
-    protected override async Task OnInitializedAsync() { var productsTask = Catalog.GetProductsAsync(); var outfitsTask = Marketing.GetOutfitsAsync(); await Task.WhenAll(productsTask, outfitsTask); _products = await productsTask; _items = (await outfitsTask).ToList(); }
-    private async Task ReloadAsync() => _items = (await Marketing.GetOutfitsAsync()).ToList();
-    private void NewOutfit() { _model = new Outfit(); _isNew = true; _confirmDelete = false; }
-    private void Edit(Outfit item) { _model = item; _isNew = false; _confirmDelete = false; }
-    private void AddProduct() => _model.Products.Add(new OutfitProduct { SortOrder = _model.Products.Count });
-    private void OutfitProductChanged(OutfitProduct item, string? value) { item.ProductId = Guid.TryParse(value, out var id) ? id : null; var product = _products.FirstOrDefault(x => x.Id == item.ProductId); item.ProductName = product?.Name ?? string.Empty; item.SellingPriceUzs = product?.SellingPriceUzs; }
-    private async Task SaveAsync() { for (var i = 0; i < _model.Products.Count; i++) _model.Products[i].SortOrder = i; await Marketing.UpsertOutfitAsync(_model); await ReloadAsync(); _isNew = false; }
-    private async Task DeleteAsync() { await Marketing.DeleteOutfitAsync(_model.Id); await ReloadAsync(); NewOutfit(); }
-    private static string Money(decimal value) => $"{value:N0} сум";
-}
+<div class="page-heading"><div><span class="eyebrow">Подборки</span><h1>Готовые образы</h1><p>Сеты одежды с общей стоимостью.</p></div><a class="button primary" href="/outfits/new">＋ Добавить</a></div>
+<div class="metric-grid compact-metrics"><div class="metric-card accent"><span>Образов</span><strong>@_items.Count</strong><small>всего сохранено</small></div><div class="metric-card"><span>Активных</span><strong>@_items.Count(x=>x.Status==MarketingStatus.Active)</strong><small>готовы к публикации</small></div><div class="metric-card"><span>Средний чек</span><strong>@Money(_items.Count==0?0:_items.Average(x=>x.TotalPriceUzs))</strong><small>по снимкам цен</small></div><div class="metric-card"><span>Товаров</span><strong>@_items.Sum(x=>x.Products.Count)</strong><small>в образах</small></div></div>
+<section class="panel table-panel"><div class="simple-list-header"><strong>@_items.Count образов</strong></div>@foreach(var item in _items.OrderBy(x=>x.Name)){<a class="simple-list-row" href="/outfits/@item.Id"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name)?"?":item.Name[..1])</span><span><strong>@item.Name</strong><small>@item.Products.Count позиций · @Money(item.TotalPriceUzs) · @(item.Occasion??"без повода")</small></span><em>→</em></a>}@if(_items.Count==0){<div class="empty-state">Соберите первый готовый образ.</div>}</section>
+@code { private IReadOnlyList<Outfit> _items=[];protected override async Task OnInitializedAsync()=>_items=await Marketing.GetOutfitsAsync();private static string Money(decimal value)=>$"{value:N0} сум"; }

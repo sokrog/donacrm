@@ -1,61 +1,8 @@
 @page "/content-plan"
 @attribute [StreamRendering]
 @inject IMarketingRepository Marketing
-
 <PageTitle>Контент-план — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Instagram</span><h1>Контент-план</h1><p>Идеи, подготовка и расписание публикаций.</p></div><button class="button primary" @onclick="NewPost">＋ Добавить</button></div>
-
-<div class="metric-grid compact-metrics">
-    <div class="metric-card accent"><span>Запланировано</span><strong>@_posts.Count(x => x.Status == ContentStatus.Planned)</strong><small>ожидают публикации</small></div>
-    <div class="metric-card"><span>Идей</span><strong>@_posts.Count(x => x.Status is ContentStatus.Idea or null)</strong><small>в черновой очереди</small></div>
-    <div class="metric-card"><span>Готово</span><strong>@_posts.Count(x => x.Status == ContentStatus.Ready)</strong><small>можно публиковать</small></div>
-    <div class="metric-card"><span>Опубликовано</span><strong>@_posts.Count(x => x.Status == ContentStatus.Published)</strong><small>за всё время</small></div>
-</div>
-
-<div class="master-detail content-master">
-    <section class="panel table-panel">
-        <div class="simple-list-header content-filter"><strong>@FilteredPosts.Count публикаций</strong><select @bind="_statusFilter"><option value="">Все статусы</option>@foreach (var status in Enum.GetValues<ContentStatus>()) { <option value="@status">@status.Display()</option> }</select></div>
-        @foreach (var post in FilteredPosts.OrderBy(x => x.ScheduledAt ?? DateTime.MaxValue).ThenByDescending(x => x.CreatedAt))
-        {
-            <button class="content-list-row @(post.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(post)"><span class="content-date"><strong>@(post.ScheduledAt?.ToString("dd") ?? "—")</strong><small>@(post.ScheduledAt?.ToString("MMM") ?? "без даты")</small></span><span><strong>@post.Title</strong><small>@(post.Type?.Display() ?? "Формат не указан") · @post.Status.Display() @Related(post)</small></span><em>→</em></button>
-        }
-        @if (FilteredPosts.Count == 0) { <div class="empty-state">Нет публикаций с выбранным статусом.</div> }
-    </section>
-
-    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section sticky-card">
-        <DataAnnotationsValidator />
-        <div class="section-title"><span>▤</span><div><h2>@(_isNew ? "Новая публикация" : "Редактирование")</h2><p>Материал и дата выхода</p></div></div>
-        <div class="stack-form">
-            <label>Тема<InputText @bind-Value="_model.Title" /><ValidationMessage For="() => _model.Title" /></label>
-            <div class="form-grid"><label>Формат<InputSelect @bind-Value="_model.Type"><option value="">Не выбран</option>@foreach (var type in Enum.GetValues<ContentType>()) { <option value="@type">@type.Display()</option> }</InputSelect></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Не указан</option>@foreach (var status in Enum.GetValues<ContentStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label></div>
-            <label>Дата публикации<InputDate @bind-Value="_model.ScheduledAt" /></label>
-            <label>Коллекция<InputSelect @bind-Value="_model.CollectionId" @bind-Value:after="CollectionChanged"><option value="">Не выбрана</option>@foreach (var item in _collections) { <option value="@item.Id">@item.Name</option> }</InputSelect></label>
-            <label>Готовый образ<InputSelect @bind-Value="_model.OutfitId" @bind-Value:after="OutfitChanged"><option value="">Не выбран</option>@foreach (var item in _outfits) { <option value="@item.Id">@item.Name</option> }</InputSelect></label>
-            <label>Текст публикации<InputTextArea @bind-Value="_model.Caption" class="caption-area" /></label>
-            <label>Ссылка на публикацию<InputText @bind-Value="_model.PublicationUrl" placeholder="После публикации" /></label>
-            <label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
-        </div>
-        @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить публикацию?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div> }
-        <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewPost">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="() => _confirmDelete = true">Удалить</button> }<button class="button primary">Сохранить</button></div>
-    </EditForm>
-</div>
-
-@code {
-    private List<ContentPost> _posts = [];
-    private IReadOnlyList<ProductCollection> _collections = [];
-    private IReadOnlyList<Outfit> _outfits = [];
-    private ContentPost _model = new();
-    private ContentStatus? _statusFilter;
-    private bool _isNew = true;
-    private bool _confirmDelete;
-    private List<ContentPost> FilteredPosts => _statusFilter is null ? _posts : _posts.Where(x => x.Status == _statusFilter).ToList();
-    protected override async Task OnInitializedAsync() { var data = await Marketing.GetDataAsync(); _collections = data.Collections; _outfits = data.Outfits; _posts = data.ContentPosts; }
-    private async Task ReloadAsync() => _posts = (await Marketing.GetContentPostsAsync()).ToList();
-    private void NewPost() { _model = new ContentPost(); _isNew = true; _confirmDelete = false; }
-    private void Edit(ContentPost post) { _model = post; _isNew = false; _confirmDelete = false; }
-    private void CollectionChanged() => _model.CollectionName = _model.CollectionId is null ? null : _collections.FirstOrDefault(x => x.Id == _model.CollectionId)?.Name;
-    private void OutfitChanged() => _model.OutfitName = _model.OutfitId is null ? null : _outfits.FirstOrDefault(x => x.Id == _model.OutfitId)?.Name;
-    private async Task SaveAsync() { await Marketing.UpsertContentPostAsync(_model); await ReloadAsync(); _isNew = false; }
-    private async Task DeleteAsync() { await Marketing.DeleteContentPostAsync(_model.Id); await ReloadAsync(); NewPost(); }
-    private static string Related(ContentPost post) => post.OutfitName is not null ? $"· {post.OutfitName}" : post.CollectionName is not null ? $"· {post.CollectionName}" : string.Empty;
-}
+<div class="page-heading"><div><span class="eyebrow">Instagram</span><h1>Контент-план</h1><p>Идеи, подготовка и расписание публикаций.</p></div><a class="button primary" href="/content-plan/new">＋ Добавить</a></div>
+<div class="metric-grid compact-metrics"><div class="metric-card accent"><span>Запланировано</span><strong>@_posts.Count(x=>x.Status==ContentStatus.Planned)</strong><small>ожидают публикации</small></div><div class="metric-card"><span>Идей</span><strong>@_posts.Count(x=>x.Status is ContentStatus.Idea or null)</strong><small>в очереди</small></div><div class="metric-card"><span>Готово</span><strong>@_posts.Count(x=>x.Status==ContentStatus.Ready)</strong><small>можно публиковать</small></div><div class="metric-card"><span>Опубликовано</span><strong>@_posts.Count(x=>x.Status==ContentStatus.Published)</strong><small>за всё время</small></div></div>
+<section class="panel table-panel"><div class="simple-list-header content-filter"><strong>@Filtered.Count публикаций</strong><select @bind="_filter"><option value="">Все статусы</option>@foreach(var status in Enum.GetValues<ContentStatus>()){<option value="@status">@status.Display()</option>}</select></div>@foreach(var post in Filtered.OrderBy(x=>x.ScheduledAt??DateTime.MaxValue).ThenByDescending(x=>x.CreatedAt)){<a class="content-list-row" href="/content-plan/@post.Id"><span class="content-date"><strong>@(post.ScheduledAt?.ToString("dd")??"—")</strong><small>@(post.ScheduledAt?.ToString("MMM")??"без даты")</small></span><span><strong>@post.Title</strong><small>@(post.Type?.Display()??"Формат не указан") · @post.Status.Display()</small></span><em>→</em></a>}@if(Filtered.Count==0){<div class="empty-state">Нет публикаций с выбранным статусом.</div>}</section>
+@code { private List<ContentPost> _posts=[];private ContentStatus? _filter;private List<ContentPost> Filtered=>_filter is null?_posts:_posts.Where(x=>x.Status==_filter).ToList();protected override async Task OnInitializedAsync()=>_posts=(await Marketing.GetContentPostsAsync()).ToList(); }

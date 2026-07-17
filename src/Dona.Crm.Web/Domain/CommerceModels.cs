@@ -41,7 +41,7 @@ public sealed class Category
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите название")] public string Name { get; set; } = string.Empty;
-    public int SortOrder { get; set; }
+    public int? SortOrder { get; set; }
     public bool IsActive { get; set; }
 }
 

@@ -20,6 +20,7 @@ public sealed class JsonCommerceRepository : ICommerceRepository
     public Task UpsertIntermediaryAsync(Intermediary intermediary, CancellationToken cancellationToken = default) => MutateAsync(data => Upsert(data.Intermediaries, intermediary, x => x.Id), cancellationToken);
     public Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default) => MutateAsync(data => data.Intermediaries.RemoveAll(x => x.Id == id), cancellationToken);
     public Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default) => MutateAsync(data => Upsert(data.Categories, category, x => x.Id), cancellationToken);
+    public Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default) => MutateAsync(data => data.Categories.RemoveAll(x => x.Id == id), cancellationToken);
     public Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default) => MutateAsync(data => Upsert(data.Purchases, purchase, x => x.Id), cancellationToken);
 
     private async Task<CommerceData> ReadAsync(CancellationToken cancellationToken)

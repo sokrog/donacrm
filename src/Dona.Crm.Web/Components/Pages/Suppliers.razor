@@ -1,43 +1,7 @@
 @page "/suppliers"
 @attribute [StreamRendering]
 @inject ICommerceRepository Repository
-
 <PageTitle>Поставщики — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Закупки</span><h1>Поставщики</h1><p>Магазины 1688, контакты и условия работы.</p></div><button class="button primary" @onclick="NewSupplier">＋ Добавить</button></div>
-
-<div class="master-detail">
-    <section class="panel table-panel">
-        <div class="simple-list-header"><strong>@_suppliers.Count поставщиков</strong></div>
-        @foreach (var supplier in _suppliers.OrderBy(x => x.Name))
-        {
-            <button class="simple-list-row @(supplier.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(supplier)">
-                <span class="product-thumb">@supplier.Name[..1]</span><span><strong>@supplier.Name</strong><small>@supplier.Platform · MOQ @supplier.Moq · рейтинг @supplier.Rating</small></span><em>→</em>
-            </button>
-        }
-        @if (_suppliers.Count == 0) { <div class="empty-state">Добавьте первого поставщика.</div> }
-    </section>
-    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section sticky-card">
-        <DataAnnotationsValidator />
-        <div class="section-title"><span>S</span><div><h2>@(_isNew ? "Новый поставщик" : "Редактирование")</h2><p>Условия и контакты</p></div></div>
-        <div class="stack-form">
-            <label>Название<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label>
-            <div class="form-grid"><label>Площадка<InputSelect @bind-Value="_model.Platform"><option value="">Выберите площадку</option><option>1688</option><option>Taobao</option><option>Alibaba</option><option>Pinduoduo</option><option>Другая</option></InputSelect></label><label>MOQ<InputNumber @bind-Value="_model.Moq" /></label></div>
-            <label>Ссылка магазина<InputText @bind-Value="_model.StoreUrl" /></label>
-            <div class="form-grid"><label>Рейтинг<InputNumber @bind-Value="_model.Rating" step="0.1" /></label><label>WeChat<InputText @bind-Value="_model.WeChat" /></label></div>
-            <label>Контакт<InputText @bind-Value="_model.Contact" /></label><label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
-        </div>
-        <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewSupplier">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="DeleteAsync">Удалить</button> }<button class="button primary">Сохранить</button></div>
-    </EditForm>
-</div>
-
-@code {
-    private List<Supplier> _suppliers = [];
-    private Supplier _model = new();
-    private bool _isNew = true;
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
-    private async Task ReloadAsync() => _suppliers = (await Repository.GetSuppliersAsync()).ToList();
-    private void NewSupplier() { _model = new Supplier(); _isNew = true; }
-    private void Edit(Supplier supplier) { _model = supplier; _isNew = false; }
-    private async Task SaveAsync() { await Repository.UpsertSupplierAsync(_model); await ReloadAsync(); _isNew = false; }
-    private async Task DeleteAsync() { await Repository.DeleteSupplierAsync(_model.Id); await ReloadAsync(); NewSupplier(); }
-}
+<div class="page-heading"><div><span class="eyebrow">Закупки</span><h1>Поставщики</h1><p>Магазины 1688, контакты и условия работы.</p></div><a class="button primary" href="/suppliers/new">＋ Добавить</a></div>
+<section class="panel table-panel"><div class="simple-list-header"><strong>@_items.Count поставщиков</strong></div>@foreach (var item in _items.OrderBy(x => x.Name)){<a class="simple-list-row" href="/suppliers/@item.Id"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@item.Platform · MOQ @(item.Moq?.ToString() ?? "—") · рейтинг @(item.Rating?.ToString("0.0") ?? "—")</small></span><em>→</em></a>}@if (_items.Count == 0){<div class="empty-state">Добавьте первого поставщика.</div>}</section>
+@code { private IReadOnlyList<Supplier> _items=[]; protected override async Task OnInitializedAsync()=>_items=await Repository.GetSuppliersAsync(); }

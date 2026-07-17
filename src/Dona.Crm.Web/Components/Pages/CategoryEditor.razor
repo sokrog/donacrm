@@ -1,0 +1,9 @@
+@page "/categories/new"
+@page "/categories/{Id:guid}"
+@attribute [StreamRendering]
+@inject ICommerceRepository Repository
+@inject NavigationManager Navigation
+<PageTitle>Категория — Dona CRM</PageTitle>
+<div class="page-heading"><div><a class="back-link" href="/categories">← Категории</a><h1>@(_isNew?"Новая категория":_model.Name)</h1><p>Название и порядок отображения.</p></div></div>
+<EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section narrow-panel"><DataAnnotationsValidator/><div class="stack-form"><label>Название<InputText @bind-Value="_model.Name"/></label><label>Порядок<InputNumber @bind-Value="_model.SortOrder"/></label><label class="toggle-row"><InputCheckbox @bind-Value="_model.IsActive"/><span><strong>Активна</strong><small>Показывать в карточке товара</small></span></label></div><div class="form-actions"><a class="button ghost" href="/categories">Отмена</a>@if(!_isNew){<button type="button" class="button danger-button" @onclick="DeleteAsync">Удалить</button>}<button class="button primary">Сохранить</button></div></EditForm>
+@code { [Parameter]public Guid? Id{get;set;} private Category _model=new(); private bool _isNew=>Id is null; protected override async Task OnParametersSetAsync(){var items=await Repository.GetCategoriesAsync();_model=Id is null?new Category():items.FirstOrDefault(x=>x.Id==Id)??new Category();} private async Task SaveAsync(){await Repository.UpsertCategoryAsync(_model);Navigation.NavigateTo("/categories");} private async Task DeleteAsync(){await Repository.DeleteCategoryAsync(_model.Id);Navigation.NavigateTo("/categories");} }

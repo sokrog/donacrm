@@ -12,6 +12,7 @@ public interface ICommerceRepository
     Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default);
     Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default);
+    Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default);
     Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default);
     Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default);
