@@ -550,3 +550,23 @@ internal sealed class MemoryStockMovements : IStockMovementRepository
     public Task<IReadOnlyList<StockMovement>> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StockMovement>>(_items);
     public Task AddRangeAsync(IEnumerable<StockMovement> movements, CancellationToken cancellationToken = default) { _items.AddRange(movements); return Task.CompletedTask; }
 }
+
+public sealed class LoadingStateTests
+{
+    [Fact]
+    public void Fullscreen_phase_finishes_once_and_operation_count_remains_nested()
+    {
+        var state = new LoadingState();
+        Assert.True(state.IsInitialLoad);
+        using (state.Begin("Первая"))
+        {
+            using (state.Begin("Вторая")) Assert.True(state.IsLoading);
+            Assert.True(state.IsLoading);
+        }
+        Assert.False(state.IsLoading);
+        state.CompleteInitialLoad();
+        Assert.False(state.IsInitialLoad);
+        using (state.Begin("Следующая")) Assert.True(state.IsLoading);
+        Assert.False(state.IsInitialLoad);
+    }
+}

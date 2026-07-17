@@ -38,9 +38,13 @@
     </main>
 </div>
 
-@if (_showLoading)
+@if (_showInitialLoading)
 {
     <div class="loading-overlay"><div class="loading-dialog"><span class="spinner"></span><strong>@Loading.Message</strong><small>Пожалуйста, подождите</small></div></div>
+}
+else if (_showProgress)
+{
+    <div class="loading-progress" role="progressbar" aria-label="@Loading.Message"><span></span></div>
 }
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -50,20 +54,51 @@
 
 @code {
     protected override void OnInitialized() => Loading.Changed += LoadingChanged;
-    private bool _showLoading;
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) ScheduleInitialCompletion(); }
+    private bool _showInitialLoading;
+    private bool _showProgress;
     private CancellationTokenSource? _loadingDelay;
+    private CancellationTokenSource? _initialCompletionDelay;
     private void LoadingChanged()
     {
-        _loadingDelay?.Cancel();
-        _loadingDelay?.Dispose();
+        if (!Loading.IsLoading)
+        {
+            CancelLoadingDelay();
+            _showInitialLoading = false;
+            _showProgress = false;
+            if (Loading.IsInitialLoad) ScheduleInitialCompletion();
+            _ = InvokeAsync(StateHasChanged);
+            return;
+        }
+        CancelInitialCompletion();
+        if (_showInitialLoading || _showProgress || _loadingDelay is not null) return;
         _loadingDelay = new CancellationTokenSource();
-        if (!Loading.IsLoading) { _showLoading = false; _ = InvokeAsync(StateHasChanged); return; }
-        _ = ShowLoadingAfterDelayAsync(_loadingDelay.Token);
+        _ = ShowLoadingAfterDelayAsync(Loading.IsInitialLoad, _loadingDelay.Token);
     }
-    private async Task ShowLoadingAfterDelayAsync(CancellationToken token)
+    private void CancelLoadingDelay() { _loadingDelay?.Cancel(); _loadingDelay?.Dispose(); _loadingDelay = null; }
+    private async Task ShowLoadingAfterDelayAsync(bool initial, CancellationToken token)
     {
-        try { await Task.Delay(450, token); if (!Loading.IsLoading || token.IsCancellationRequested) return; _showLoading = true; await InvokeAsync(StateHasChanged); }
+        try
+        {
+            await Task.Delay(initial ? 300 : 120, token);
+            if (!Loading.IsLoading || token.IsCancellationRequested) return;
+            _showInitialLoading = initial;
+            _showProgress = !initial;
+            await InvokeAsync(StateHasChanged);
+        }
         catch (OperationCanceledException) { }
     }
-    public void Dispose() { Loading.Changed -= LoadingChanged; _loadingDelay?.Cancel(); _loadingDelay?.Dispose(); }
+    private void ScheduleInitialCompletion()
+    {
+        CancelInitialCompletion();
+        _initialCompletionDelay = new CancellationTokenSource();
+        _ = CompleteInitialLoadAfterQuietPeriodAsync(_initialCompletionDelay.Token);
+    }
+    private async Task CompleteInitialLoadAfterQuietPeriodAsync(CancellationToken token)
+    {
+        try { await Task.Delay(500, token); if (!Loading.IsLoading && !token.IsCancellationRequested) Loading.CompleteInitialLoad(); }
+        catch (OperationCanceledException) { }
+    }
+    private void CancelInitialCompletion() { _initialCompletionDelay?.Cancel(); _initialCompletionDelay?.Dispose(); _initialCompletionDelay = null; }
+    public void Dispose() { Loading.Changed -= LoadingChanged; CancelLoadingDelay(); CancelInitialCompletion(); }
 }

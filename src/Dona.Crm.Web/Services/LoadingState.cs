@@ -3,7 +3,9 @@ namespace Dona.Crm.Web.Services;
 public sealed class LoadingState
 {
     private int _operations;
+    private int _initialLoadCompleted;
     public bool IsLoading => _operations > 0;
+    public bool IsInitialLoad => Volatile.Read(ref _initialLoadCompleted) == 0;
     public string Message { get; private set; } = "Загрузка…";
     public event Action? Changed;
 
@@ -25,6 +27,11 @@ public sealed class LoadingState
     {
         using var scope = Begin(message);
         await operation();
+    }
+
+    public void CompleteInitialLoad()
+    {
+        if (Interlocked.Exchange(ref _initialLoadCompleted, 1) == 0) Changed?.Invoke();
     }
 
     private void End()
