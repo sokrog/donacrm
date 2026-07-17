@@ -1,0 +1,104 @@
+@page "/sales/new"
+@page "/sales/{Id:guid}"
+@attribute [StreamRendering]
+@inject ISalesRepository Sales
+@inject ICatalogRepository Catalog
+@inject SalesInventoryService Inventory
+@inject NavigationManager Navigation
+
+<PageTitle>Продажа — Dona CRM</PageTitle>
+<div class="page-heading"><div><a class="back-link" href="/sales">← Продажи</a><h1>@(_isNew ? "Новая продажа" : _model.Number)</h1><p>Заказ клиента и движение товара на складе.</p></div></div>
+
+<EditForm Model="_model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    <div class="editor-grid">
+        <section class="panel form-section">
+            <div class="section-title"><span>01</span><div><h2>Заказ</h2><p>Клиент, оплата и доставка</p></div></div>
+            <div class="form-grid">
+                <label>Номер<InputText @bind-Value="_model.Number" /><ValidationMessage For="() => _model.Number" /></label>
+                <label>Статус<div class="readonly-field">@_model.Status.Display()</div></label>
+                <label class="span-2">Клиент<InputSelect @bind-Value="_model.CustomerId" @bind-Value:after="CustomerChanged"><option value="">Без клиента</option>@foreach (var customer in _customers) { <option value="@customer.Id">@customer.Name</option> }</InputSelect></label>
+                <label>Способ оплаты<InputSelect @bind-Value="_model.PaymentMethod"><option value="">Не выбран</option>@foreach (var method in Enum.GetValues<PaymentMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
+                <label>Доставка<InputSelect @bind-Value="_model.DeliveryMethod"><option value="">Не выбрана</option>@foreach (var method in Enum.GetValues<DeliveryMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
+                <label>Скидка, сум<InputNumber @bind-Value="_model.DiscountUzs" /></label><label>Стоимость доставки, сум<InputNumber @bind-Value="_model.DeliveryChargeUzs" /></label>
+                <label class="span-2">Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
+            </div>
+        </section>
+        <aside class="panel economics-card">
+            <div class="section-title"><span>₸</span><div><h2>Итог заказа</h2><p>@_model.TotalQuantity товаров</p></div></div>
+            <div class="calculation large"><span>Товары <strong>@Money(_model.SubtotalUzs)</strong></span><span>Скидка <strong>− @Money(_model.DiscountUzs ?? 0)</strong></span><span>Доставка <strong>@Money(_model.DeliveryChargeUzs ?? 0)</strong></span><span class="total-line">К оплате <strong>@Money(_model.TotalUzs)</strong></span>@if (!_isNew) { <span>Себестоимость <strong>@Money(_model.CostUzs)</strong></span><span>Прибыль <strong class="@(_model.ProfitUzs >= 0 ? "positive" : "negative")">@Money(_model.ProfitUzs)</strong></span> }</div>
+        </aside>
+        <section class="panel form-section span-all">
+            <div class="section-title with-action"><span>02</span><div><h2>Товары</h2><p>Варианты и количество</p></div><button type="button" class="button secondary" @onclick="AddItem">＋ Позиция</button></div>
+            @foreach (var item in _model.Items)
+            {
+                <div class="sale-item" @key="item.Id">
+                    <label>Товар<select value="@item.ProductId" @onchange="e => ProductChanged(item, e.Value?.ToString())"><option value="">Выберите товар</option>@foreach (var product in _products) { <option value="@product.Id">@product.Name</option> }</select></label>
+                    <label>Вариант<select value="@item.ProductVariantId" @onchange="e => VariantChanged(item, e.Value?.ToString())"><option value="">Выберите вариант</option>@foreach (var variant in Variants(item)) { <option value="@variant.Id">@VariantName(variant)</option> }</select></label>
+                    <label>Количество<InputNumber @bind-Value="item.Quantity" /></label>
+                    <label>Цена, сум<InputNumber @bind-Value="item.UnitPriceUzs" /></label>
+                    <div class="stock-availability"><span>Доступно</span><strong>@Available(item) шт.</strong></div>
+                    <button type="button" class="icon-button danger" @onclick="() => _model.Items.Remove(item)">×</button>
+                </div>
+            }
+            @if (_model.Items.Count == 0) { <div class="empty-state small">Добавьте товары в заказ.</div> }
+        </section>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_message)) { <div class="notice @(_success ? "success" : "error")">@_message</div> }
+    <div class="form-actions">
+        <a class="button ghost" href="/sales">Отмена</a>
+        @if (!_isNew && _model.Status is not SaleStatus.Completed and not SaleStatus.Returned) { <button type="button" class="button ghost" @onclick="CancelAsync">Отменить заказ</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Draft or null) { <button type="button" class="button secondary" @onclick="ReserveAsync">Зарезервировать</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped) { <button type="button" class="button secondary" @onclick="CompleteAsync">Завершить продажу</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Completed) { <button type="button" class="button danger-button" @onclick="ReturnAsync">Оформить возврат</button> }
+        <button class="button primary">Сохранить</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private Sale _model = new();
+    private IReadOnlyList<Customer> _customers = [];
+    private IReadOnlyList<Product> _products = [];
+    private bool _isNew => Id is null;
+    private string? _message;
+    private bool _success;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _customers = await Sales.GetCustomersAsync();
+        _products = await Catalog.GetProductsAsync();
+        _model = Id is null ? new Sale() : await Sales.GetSaleAsync(Id.Value) ?? new Sale();
+        _message = null;
+    }
+
+    private void AddItem() => _model.Items.Add(new SaleItem());
+    private void CustomerChanged() => _model.CustomerName = _model.CustomerId is null ? null : _customers.FirstOrDefault(x => x.Id == _model.CustomerId)?.Name;
+    private IEnumerable<ProductVariant> Variants(SaleItem item) => item.ProductId is null ? [] : _products.FirstOrDefault(x => x.Id == item.ProductId)?.Variants ?? [];
+    private void ProductChanged(SaleItem item, string? value)
+    {
+        item.ProductId = Guid.TryParse(value, out var id) ? id : null;
+        var product = _products.FirstOrDefault(x => x.Id == item.ProductId);
+        item.ProductName = product?.Name ?? string.Empty;
+        item.UnitPriceUzs = product?.SellingPriceUzs;
+        item.UnitCostUzs = product?.CostUzs;
+        item.ProductVariantId = null; item.Color = string.Empty; item.Size = string.Empty;
+    }
+    private void VariantChanged(SaleItem item, string? value)
+    {
+        item.ProductVariantId = Guid.TryParse(value, out var id) ? id : null;
+        var variant = Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId);
+        item.Color = variant?.Color ?? string.Empty; item.Size = variant?.Size ?? string.Empty;
+    }
+    private int Available(SaleItem item) => Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId)?.AvailableQuantity ?? 0;
+    private static string VariantName(ProductVariant variant) => $"{(string.IsNullOrWhiteSpace(variant.Color) ? "Без цвета" : variant.Color)} · {(string.IsNullOrWhiteSpace(variant.Size) ? "Без размера" : variant.Size)}";
+    private async Task SaveAsync() { _model.Status ??= SaleStatus.Draft; await Sales.UpsertSaleAsync(_model); if (_isNew) Navigation.NavigateTo($"/sales/{_model.Id}"); else Show("Заказ сохранён.", true); }
+    private async Task ReserveAsync() => await RunInventoryAsync(() => Inventory.ReserveAsync(_model), "Товар зарезервирован.");
+    private async Task CancelAsync() => await RunInventoryAsync(() => Inventory.CancelAsync(_model), "Заказ отменён, резерв снят.");
+    private async Task CompleteAsync() => await RunInventoryAsync(() => Inventory.CompleteAsync(_model), "Продажа завершена, остатки списаны.");
+    private async Task ReturnAsync() => await RunInventoryAsync(() => Inventory.ReturnAsync(_model), "Возврат оформлен, товар возвращён на склад.");
+    private async Task RunInventoryAsync(Func<Task> action, string success) { try { await action(); _products = await Catalog.GetProductsAsync(); Show(success, true); } catch (Exception exception) { Show(exception.Message, false); } }
+    private void Show(string message, bool success) { _message = message; _success = success; }
+    private static string Money(decimal value) => $"{value:N0} сум";
+}

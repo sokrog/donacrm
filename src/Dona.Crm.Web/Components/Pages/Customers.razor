@@ -1,0 +1,48 @@
+@page "/customers"
+@attribute [StreamRendering]
+@inject ISalesRepository Repository
+
+<PageTitle>Клиенты — Dona CRM</PageTitle>
+<div class="page-heading"><div><span class="eyebrow">Продажи</span><h1>Клиенты</h1><p>Контакты покупателей, адреса и история общения.</p></div><button class="button primary" @onclick="NewCustomer">＋ Добавить</button></div>
+
+<div class="master-detail">
+    <section class="panel table-panel">
+        <div class="simple-list-header"><strong>@_items.Count клиентов</strong></div>
+        @foreach (var item in _items.OrderBy(x => x.Name))
+        {
+            <button class="simple-list-row @(item.Id == _model.Id ? "selected" : null)" @onclick="() => Edit(item)">
+                <span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@Contact(item)</small></span><em>→</em>
+            </button>
+        }
+        @if (_items.Count == 0) { <div class="empty-state">Добавьте первого клиента.</div> }
+    </section>
+
+    <EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section sticky-card">
+        <DataAnnotationsValidator />
+        <div class="section-title"><span>♙</span><div><h2>@(_isNew ? "Новый клиент" : "Редактирование")</h2><p>Контакты и доставка</p></div></div>
+        <div class="stack-form">
+            <label>Имя<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label>
+            <label>Телефон<InputText @bind-Value="_model.Phone" /></label>
+            <div class="form-grid"><label>Instagram<InputText @bind-Value="_model.Instagram" /></label><label>Telegram<InputText @bind-Value="_model.Telegram" /></label></div>
+            <label>Адрес<InputTextArea @bind-Value="_model.Address" /></label>
+            <label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
+        </div>
+        @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить клиента?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div> }
+        <div class="settings-actions"><button type="button" class="button ghost" @onclick="NewCustomer">Очистить</button>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="() => _confirmDelete = true">Удалить</button> }<button class="button primary">Сохранить</button></div>
+    </EditForm>
+</div>
+
+@code {
+    private List<Customer> _items = [];
+    private Customer _model = new();
+    private bool _isNew = true;
+    private bool _confirmDelete;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    private async Task ReloadAsync() => _items = (await Repository.GetCustomersAsync()).ToList();
+    private void NewCustomer() { _model = new Customer(); _isNew = true; _confirmDelete = false; }
+    private void Edit(Customer item) { _model = item; _isNew = false; _confirmDelete = false; }
+    private async Task SaveAsync() { await Repository.UpsertCustomerAsync(_model); await ReloadAsync(); _isNew = false; }
+    private async Task DeleteAsync() { await Repository.DeleteCustomerAsync(_model.Id); await ReloadAsync(); NewCustomer(); }
+    private static string Contact(Customer item) => new[] { item.Phone, item.Instagram, item.Telegram }.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "Контакты не указаны";
+}

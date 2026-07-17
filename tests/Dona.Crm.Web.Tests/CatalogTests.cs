@@ -178,6 +178,87 @@ public sealed class JsonCatalogRepositoryTests
     }
 }
 
+public sealed class SalesInventoryServiceTests
+{
+    [Fact]
+    public async Task Reserve_complete_and_return_are_idempotent()
+    {
+        var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 10 };
+        var product = new Product { Name = "Футболка", Sku = "TS-2", SellingPriceUzs = 120_000, Variants = [variant] };
+        var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 3, UnitPriceUzs = 120_000 };
+        var sale = new Sale { Number = "SALE-1", Items = [item] };
+        var catalog = new SalesMemoryCatalog(product);
+        var sales = new MemorySales();
+        var service = new SalesInventoryService(catalog, sales);
+
+        await service.ReserveAsync(sale);
+        await service.ReserveAsync(sale);
+        Assert.Equal(3, variant.ReservedQuantity);
+        Assert.Equal(3, item.ReservedQuantity);
+
+        await service.CompleteAsync(sale);
+        await service.CompleteAsync(sale);
+        Assert.Equal(7, variant.Quantity);
+        Assert.Equal(0, variant.ReservedQuantity);
+        Assert.Equal(3, item.SoldQuantity);
+        Assert.Equal(SaleStatus.Completed, sale.Status);
+
+        await service.ReturnAsync(sale);
+        await service.ReturnAsync(sale);
+        Assert.Equal(10, variant.Quantity);
+        Assert.Equal(3, item.ReturnedQuantity);
+        Assert.Equal(SaleStatus.Returned, sale.Status);
+    }
+
+    [Fact]
+    public async Task Cancelling_releases_reservation_without_changing_stock()
+    {
+        var variant = new ProductVariant { Quantity = 5 };
+        var product = new Product { Name = "Сумка", Sku = "BG-2", Variants = [variant] };
+        var sale = new Sale { Number = "SALE-2", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2 }] };
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+
+        await service.ReserveAsync(sale);
+        await service.CancelAsync(sale);
+
+        Assert.Equal(5, variant.Quantity);
+        Assert.Equal(0, variant.ReservedQuantity);
+        Assert.Equal(0, sale.Items[0].ReservedQuantity);
+        Assert.Equal(SaleStatus.Cancelled, sale.Status);
+    }
+
+    [Fact]
+    public void New_sale_and_customer_have_no_prefilled_form_values()
+    {
+        var sale = new Sale();
+        var customer = new Customer();
+        Assert.Empty(sale.Number);
+        Assert.Null(sale.Status);
+        Assert.Null(sale.CustomerId);
+        Assert.Empty(sale.Items);
+        Assert.Empty(customer.Name);
+        Assert.Null(customer.Phone);
+    }
+
+    private sealed class SalesMemoryCatalog(Product product) : ICatalogRepository
+    {
+        public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>([product]);
+        public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
+        public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class MemorySales : ISalesRepository
+    {
+        public Task<IReadOnlyList<Customer>> GetCustomersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Customer>>([]);
+        public Task UpsertCustomerAsync(Customer customer, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Sale>>([]);
+        public Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Sale?>(null);
+        public Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+}
+
 public sealed class GoogleSheetsSettingsStoreTests
 {
     [Fact]
