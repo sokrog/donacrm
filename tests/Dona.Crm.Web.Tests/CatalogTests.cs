@@ -321,6 +321,46 @@ public sealed class MarketingTests
     }
 }
 
+public sealed class AnalyticsServiceTests
+{
+    [Fact]
+    public void Builds_period_totals_and_excludes_returns()
+    {
+        var product = new Product { Name = "Футболка", Category = "Одежда" };
+        var completed = new Sale
+        {
+            Number = "S-1", CustomerName = "Алина", Status = SaleStatus.Completed,
+            CreatedAt = new DateTimeOffset(2026, 7, 10, 10, 0, 0, TimeSpan.Zero), DiscountUzs = 30, DeliveryChargeUzs = 10,
+            Items =
+            [
+                new SaleItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2, SoldQuantity = 2, UnitPriceUzs = 100, UnitCostUzs = 40 },
+                new SaleItem { ProductName = "Сумка", Quantity = 1, SoldQuantity = 1, UnitPriceUzs = 100, UnitCostUzs = 50 }
+            ]
+        };
+        var returned = new Sale { Number = "S-2", Status = SaleStatus.Returned, CreatedAt = completed.CreatedAt, Items = [new SaleItem { Quantity = 1, SoldQuantity = 1, UnitPriceUzs = 1_000, UnitCostUzs = 100 }] };
+
+        var report = new AnalyticsService().Build([completed, returned], [product], new DateTime(2026, 7, 1), new DateTime(2026, 7, 31));
+
+        Assert.Equal(1, report.Orders);
+        Assert.Equal(3, report.Units);
+        Assert.Equal(280, report.RevenueUzs);
+        Assert.Equal(130, report.CostUzs);
+        Assert.Equal(150, report.ProfitUzs);
+        Assert.Single(report.Daily);
+        Assert.Equal("Одежда", report.Categories[0].Name);
+        Assert.Equal("Алина", report.Customers[0].Name);
+    }
+
+    [Fact]
+    public void Date_filter_is_inclusive()
+    {
+        var sale = new Sale { Number = "S-3", Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 17, 12, 0, 0, TimeSpan.Zero) };
+        var service = new AnalyticsService();
+        Assert.Equal(1, service.Build([sale], [], new DateTime(2026, 7, 17), new DateTime(2026, 7, 17)).Orders);
+        Assert.Equal(0, service.Build([sale], [], new DateTime(2026, 7, 18), null).Orders);
+    }
+}
+
 public sealed class GoogleSheetsSettingsStoreTests
 {
     [Fact]

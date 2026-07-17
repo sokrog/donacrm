@@ -33,6 +33,7 @@ builder.Services.AddScoped<JsonMarketingRepository>();
 builder.Services.AddScoped<GoogleSheetsMarketingRepository>();
 builder.Services.AddScoped<SwitchingMarketingRepository>();
 builder.Services.AddScoped<IMarketingRepository>(services => services.GetRequiredService<SwitchingMarketingRepository>());
+builder.Services.AddScoped<AnalyticsService>();
 
 var app = builder.Build();
 
