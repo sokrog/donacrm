@@ -23,6 +23,8 @@
 | Sales | Заказы | Id, Number, CustomerName, Status, PaymentMethod, CreatedAt |
 | SaleItems | Позиции заказа | Id, SaleId, ProductVariantId, Quantity, UnitPriceUzs, UnitCostUzs |
 | StockMovements | История изменения склада | Id, Type, ProductId, ProductVariantId, QuantityDelta, ReservedDelta, SourceId, CreatedAt |
+| PurchaseReceipts | Документы частичной приёмки | Id, PurchaseId, ReceivedAt, Note |
+| PurchaseReceiptItems | Фактические строки приёмки | ReceiptId, PurchaseItemId, ReceivedQuantity, DefectQuantity, StockedQuantity |
 | Settings | Настройки расчётов | Key, Value |
 
 ## Этапы
@@ -60,7 +62,8 @@
 - обновление фактической себестоимости товара при приёмке;
 - далее: коллекции, история цен и курсов;
 - журнал складских движений для приёмки, резерва, продажи, отмены и возврата — реализован первый срез;
-- далее: ручные корректировки склада и частичные поставки.
+- ручные корректировки склада с причиной и контролем зарезервированного количества — реализовано;
+- частичные поставки с отдельной историей приёмок и статусом закупки — реализовано;
 
 ### 4. Продажи и склад — первый рабочий срез реализован
 

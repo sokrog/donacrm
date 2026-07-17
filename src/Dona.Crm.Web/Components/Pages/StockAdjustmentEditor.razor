@@ -1,0 +1,43 @@
+@page "/inventory/adjustment/new"
+@attribute [StreamRendering]
+@inject ICatalogRepository Catalog
+@inject StockAdjustmentService Service
+@inject NavigationManager Navigation
+
+<PageTitle>Корректировка склада — Dona CRM</PageTitle>
+
+<div class="page-heading"><div><a class="back-link" href="/inventory">← Движения склада</a><h1>Новая корректировка</h1><p>Зафиксируйте фактический остаток и обязательную причину изменения.</p></div></div>
+
+<EditForm Model="_model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="validation-errors" />
+    <section class="panel form-section adjustment-form">
+        <div class="section-title"><span>01</span><div><h2>Остаток</h2><p>Изменение будет записано в журнал склада</p></div></div>
+        <div class="form-grid">
+            <label class="span-2">Товар<ProductAutocomplete Products="_products" Value="_model.ProductId" OnSelected="ProductChanged" Placeholder="Название или SKU" /></label>
+            <label>Вариант<InputSelect @bind-Value="_model.ProductVariantId"><option value="">Выберите вариант</option>@foreach (var variant in SelectedProduct?.Variants ?? []) { <option value="@variant.Id">@VariantName(variant) · остаток @(variant.Quantity ?? 0) · резерв @variant.ReservedQuantity</option> }</InputSelect></label>
+            <label>Причина<InputSelect @bind-Value="_model.Reason"><option value="">Выберите причину</option>@foreach (var reason in Enum.GetValues<StockAdjustmentReason>()) { <option value="@reason">@reason.Display()</option> }</InputSelect></label>
+            <label>Текущий остаток<div class="readonly-field">@(SelectedVariant?.Quantity ?? 0) шт.</div></label>
+            <label>Новый фактический остаток<InputNumber @bind-Value="_model.NewQuantity" /></label>
+            <label class="span-2">Причина и комментарий<InputTextArea @bind-Value="_model.Note" placeholder="Что произошло и почему меняется остаток" /></label>
+        </div>
+        @if (SelectedVariant is not null && _model.NewQuantity is not null) { <div class="adjustment-preview"><span>Изменение</span><strong class="@DeltaClass">@DeltaText шт.</strong></div> }
+    </section>
+    @if (!string.IsNullOrWhiteSpace(_error)) { <div class="notice error">@_error</div> }
+    <div class="form-actions"><a class="button ghost" href="/inventory">Отмена</a><button class="button primary">Сохранить корректировку</button></div>
+</EditForm>
+
+@code {
+    private StockAdjustmentRequest _model = new();
+    private IReadOnlyList<Product> _products = [];
+    private string? _error;
+    private Product? SelectedProduct => _model.ProductId is null ? null : _products.FirstOrDefault(x => x.Id == _model.ProductId);
+    private ProductVariant? SelectedVariant => _model.ProductVariantId is null ? null : SelectedProduct?.Variants.FirstOrDefault(x => x.Id == _model.ProductVariantId);
+    private int Delta => (_model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0);
+    private string DeltaText => Delta > 0 ? $"+{Delta}" : Delta.ToString();
+    private string DeltaClass => Delta > 0 ? "positive" : Delta < 0 ? "negative" : string.Empty;
+    protected override async Task OnInitializedAsync() => _products = (await Catalog.GetProductsAsync()).Where(x => x.Status != ProductStatus.Archived && x.Variants.Count > 0).ToList();
+    private void ProductChanged(Product? product) { _model.ProductId = product?.Id; _model.ProductVariantId = null; _model.NewQuantity = null; }
+    private async Task SaveAsync() { try { await Service.AdjustAsync(_model); Navigation.NavigateTo("/inventory"); } catch (Exception exception) { _error = exception.Message; } }
+    private static string VariantName(ProductVariant variant) => string.Join(" · ", new[] { variant.Color, variant.Size }.Where(x => !string.IsNullOrWhiteSpace(x))) is { Length: > 0 } value ? value : "Без названия";
+}

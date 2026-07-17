@@ -103,28 +103,57 @@ public sealed class PurchaseEconomicsTests
 public sealed class PurchaseReceivingServiceTests
 {
     [Fact]
-    public async Task Adds_only_accepted_quantity_and_does_not_add_it_twice()
+    public async Task Stores_partial_receipts_and_does_not_add_the_same_receipt_twice()
     {
         var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 2 };
         var product = new Product { Name = "Футболка", Sku = "TS-1", Variants = [variant] };
-        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, ReceivedQuantity = 8, DefectQuantity = 1, UnitPriceCny = 20 };
-        var purchase = new Purchase { Items = [item] };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPriceCny = 20 };
+        var purchase = new Purchase { Number = "PO-1", Items = [item] };
         var catalog = new MemoryCatalog(product);
         var commerce = new MemoryCommerce();
         var movements = new MemoryStockMovements();
         var service = new PurchaseReceivingService(catalog, commerce, movements);
 
-        var first = await service.ReceiveAsync(purchase);
-        var second = await service.ReceiveAsync(purchase);
+        var firstReceiptId = Guid.NewGuid();
+        var first = await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 8, 1)], firstReceiptId);
+        var duplicate = await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 8, 1)], firstReceiptId);
 
         Assert.Equal(7, first.AddedUnits);
-        Assert.Equal(0, second.AddedUnits);
+        Assert.Equal(7, duplicate.AddedUnits);
         Assert.Equal(9, variant.Quantity);
         Assert.Equal(7, item.StockedQuantity);
+        Assert.Equal(PurchaseStatus.PartiallyReceived, purchase.Status);
+        Assert.Single(purchase.Receipts);
+
+        var second = await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 2, 0)], Guid.NewGuid());
+        Assert.Equal(2, second.AddedUnits);
+        Assert.Equal(11, variant.Quantity);
+        Assert.Equal(9, item.StockedQuantity);
         Assert.Equal(PurchaseStatus.Received, purchase.Status);
+        Assert.Equal(2, purchase.Receipts.Count);
+        var history = await movements.GetAsync();
+        Assert.Collection(history,
+            x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(7, x.QuantityDelta); },
+            x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(2, x.QuantityDelta); });
+    }
+
+    [Fact]
+    public async Task Manual_adjustment_requires_a_reason_and_cannot_go_below_reserve()
+    {
+        var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 10, ReservedQuantity = 3 };
+        var product = new Product { Name = "Худи", Sku = "HD-1", Variants = [variant] };
+        var movements = new MemoryStockMovements();
+        var service = new StockAdjustmentService(new MemoryCatalog(product), movements);
+        var request = new StockAdjustmentRequest { ProductId = product.Id, ProductVariantId = variant.Id, Reason = StockAdjustmentReason.InventoryCount, NewQuantity = 7, Note = "Фактический пересчёт" };
+
+        await service.AdjustAsync(request);
+
+        Assert.Equal(7, variant.Quantity);
         var movement = Assert.Single(await movements.GetAsync());
-        Assert.Equal(StockMovementType.PurchaseReceipt, movement.Type);
-        Assert.Equal(7, movement.QuantityDelta);
+        Assert.Equal(-3, movement.QuantityDelta);
+        Assert.Equal("Фактический пересчёт", movement.Note);
+        request.NewQuantity = 2;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AdjustAsync(request));
     }
 
     private sealed class MemoryCatalog(Product product) : ICatalogRepository

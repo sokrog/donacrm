@@ -45,7 +45,7 @@ public sealed class Category
     public bool IsActive { get; set; }
 }
 
-public enum PurchaseStatus { Draft, Ordered, ChinaWarehouse, Shipped, Received, Cancelled }
+public enum PurchaseStatus { Draft, Ordered, ChinaWarehouse, Shipped, PartiallyReceived, Received, Cancelled }
 
 public sealed class Purchase
 {
@@ -63,6 +63,7 @@ public sealed class Purchase
     [Range(0, 1_000_000_000)] public decimal? OtherCostsUzs { get; set; }
     public string? Notes { get; set; }
     public List<PurchaseItem> Items { get; set; } = [];
+    public List<PurchaseReceipt> Receipts { get; set; } = [];
     public decimal GoodsCostCny => Items.Sum(x => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0));
     public decimal GoodsCostUzs => Math.Round(GoodsCostCny * (CnyRateUzs ?? 0));
     public decimal AgentCommissionUzs => Math.Round(GoodsCostUzs * (AgentCommissionPercent ?? 0) / 100);
@@ -76,6 +77,31 @@ public sealed class Purchase
     public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemCommissionUzs(item) + ItemShippingUzs(item) + ItemOtherCostsUzs(item);
     public decimal ItemUnitLandedCostUzs(PurchaseItem item) => (item.Quantity ?? 0) == 0 ? 0 : Math.Round(ItemLandedCostUzs(item) / item.Quantity!.Value);
     private decimal Allocate(decimal basis, decimal totalBasis, decimal totalCost, int fallbackQuantity) => totalCost == 0 ? 0 : totalBasis > 0 ? Math.Round(totalCost * basis / totalBasis) : TotalQuantity > 0 ? Math.Round(totalCost * fallbackQuantity / TotalQuantity) : 0;
+}
+
+public sealed class PurchaseReceipt
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public DateTimeOffset ReceivedAt { get; set; } = DateTimeOffset.UtcNow;
+    public string? Note { get; set; }
+    public List<PurchaseReceiptLine> Lines { get; set; } = [];
+    public int ReceivedQuantity => Lines.Sum(x => x.ReceivedQuantity);
+    public int DefectQuantity => Lines.Sum(x => x.DefectQuantity);
+    public int StockedQuantity => Lines.Sum(x => x.StockedQuantity);
+}
+
+public sealed class PurchaseReceiptLine
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid PurchaseItemId { get; set; }
+    public Guid? ProductId { get; set; }
+    public Guid? ProductVariantId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
+    public string Size { get; set; } = string.Empty;
+    public int ReceivedQuantity { get; set; }
+    public int DefectQuantity { get; set; }
+    public int StockedQuantity { get; set; }
 }
 
 public sealed class PurchaseItem
@@ -106,6 +132,7 @@ public static class PurchaseStatusText
         PurchaseStatus.Ordered => "Выкуплено",
         PurchaseStatus.ChinaWarehouse => "На складе в Китае",
         PurchaseStatus.Shipped => "Отправлено",
+        PurchaseStatus.PartiallyReceived => "Частично получено",
         PurchaseStatus.Received => "Получено",
         PurchaseStatus.Cancelled => "Отменено",
         _ => "Не указан"

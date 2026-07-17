@@ -9,13 +9,15 @@ namespace Dona.Crm.Web.Storage;
 
 public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore settings) : ICommerceRepository, IDisposable
 {
-    private static readonly string[] SheetNames = ["Suppliers", "Categories", "Purchases", "PurchaseItems", "Intermediaries"];
+    private static readonly string[] SheetNames = ["Suppliers", "Categories", "Purchases", "PurchaseItems", "PurchaseReceipts", "PurchaseReceiptItems", "Intermediaries"];
     private static readonly string[][] Headers =
     [
         ["Id", "Name", "Platform", "StoreUrl", "Rating", "Moq", "Contact", "WeChat", "Intermediary", "Notes", "CreatedAt"],
         ["Id", "Name", "SortOrder", "IsActive"],
         ["Id", "Number", "SupplierId", "SupplierName", "Status", "OrderedAt", "CnyRateUzs", "AgentCommissionPercent", "InternationalShippingUzs", "OtherCostsUzs", "Notes", "TrackingCode", "EstimatedDeliveryDate"],
         ["Id", "PurchaseId", "ProductId", "ProductName", "Quantity", "UnitPriceCny", "UnitWeightKg", "ProductVariantId", "Color", "Size", "ReceivedQuantity", "DefectQuantity", "StockedQuantity"],
+        ["Id", "PurchaseId", "ReceivedAt", "Note"],
+        ["Id", "ReceiptId", "PurchaseItemId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "ReceivedQuantity", "DefectQuantity", "StockedQuantity"],
         ["Id", "Name", "Company", "ChinaWarehouseAddress", "ContactName", "Telegram", "WeChat", "Phone", "RatePerKgUsd", "CommissionPercent", "MinimumWeightKg", "EstimatedDays", "OfficialImport", "Notes", "CreatedAt", "Rating"]
     ];
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -52,14 +54,14 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
     {
         var service = await EnsureAsync(cancellationToken);
         var request = service.Spreadsheets.Values.BatchGet(settings.SpreadsheetId);
-        request.Ranges = new[] { "Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "Intermediaries!A2:P" };
+        request.Ranges = new[] { "Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "PurchaseReceipts!A2:D", "PurchaseReceiptItems!A2:K", "Intermediaries!A2:P" };
         var ranges = (await request.ExecuteAsync(cancellationToken)).ValueRanges;
         var data = new CommerceData
         {
             Suppliers = Rows(ranges, 0).Select(ParseSupplier).Where(x => x is not null).Cast<Supplier>().ToList(),
             Categories = Rows(ranges, 1).Select(ParseCategory).Where(x => x is not null).Cast<Category>().ToList(),
             Purchases = Rows(ranges, 2).Select(ParsePurchase).Where(x => x is not null).Cast<Purchase>().ToList(),
-            Intermediaries = Rows(ranges, 4).Select(ParseIntermediary).Where(x => x is not null).Cast<Intermediary>().ToList()
+            Intermediaries = Rows(ranges, 6).Select(ParseIntermediary).Where(x => x is not null).Cast<Intermediary>().ToList()
         };
         if (data.Categories.Count == 0) data.Categories = JsonDefaultCategories();
         var purchases = data.Purchases.ToDictionary(x => x.Id);
@@ -69,18 +71,34 @@ public sealed class GoogleSheetsCommerceRepository(GoogleSheetsSettingsStore set
             if (purchaseId is null || !purchases.TryGetValue(purchaseId.Value, out var purchase)) continue;
             purchase.Items.Add(new PurchaseItem { Id = GuidValue(Cell(row, 0)) ?? Guid.NewGuid(), ProductId = GuidValue(Cell(row, 2)), ProductName = Cell(row, 3), Quantity = NullableInt(Cell(row, 4)), UnitPriceCny = NullableDecimal(Cell(row, 5)), UnitWeightKg = NullableDecimal(Cell(row, 6)), ProductVariantId = GuidValue(Cell(row, 7)), Color = Cell(row, 8), Size = Cell(row, 9), ReceivedQuantity = NullableInt(Cell(row, 10)), DefectQuantity = NullableInt(Cell(row, 11)), StockedQuantity = IntValue(Cell(row, 12)) });
         }
+        var receipts = new Dictionary<Guid, PurchaseReceipt>();
+        foreach (var row in Rows(ranges, 4))
+        {
+            var id = GuidValue(Cell(row, 0)); var purchaseId = GuidValue(Cell(row, 1));
+            if (id is null || purchaseId is null || !purchases.TryGetValue(purchaseId.Value, out var purchase)) continue;
+            var receipt = new PurchaseReceipt { Id = id.Value, ReceivedAt = DateValue(Cell(row, 2)), Note = Empty(Cell(row, 3)) };
+            purchase.Receipts.Add(receipt); receipts[id.Value] = receipt;
+        }
+        foreach (var row in Rows(ranges, 5))
+        {
+            var receiptId = GuidValue(Cell(row, 1));
+            if (receiptId is null || !receipts.TryGetValue(receiptId.Value, out var receipt)) continue;
+            receipt.Lines.Add(new PurchaseReceiptLine { Id = GuidValue(Cell(row, 0)) ?? Guid.NewGuid(), PurchaseItemId = GuidValue(Cell(row, 2)) ?? Guid.Empty, ProductId = GuidValue(Cell(row, 3)), ProductVariantId = GuidValue(Cell(row, 4)), ProductName = Cell(row, 5), Color = Cell(row, 6), Size = Cell(row, 7), ReceivedQuantity = IntValue(Cell(row, 8)), DefectQuantity = IntValue(Cell(row, 9)), StockedQuantity = IntValue(Cell(row, 10)) });
+        }
         return data;
     }
     private async Task WriteCoreAsync(CommerceData data, CancellationToken cancellationToken)
     {
         var service = await EnsureAsync(cancellationToken);
-        var clear = new BatchClearValuesRequest { Ranges = ["Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "Intermediaries!A2:P"] };
+        var clear = new BatchClearValuesRequest { Ranges = ["Suppliers!A2:K", "Categories!A2:D", "Purchases!A2:M", "PurchaseItems!A2:M", "PurchaseReceipts!A2:D", "PurchaseReceiptItems!A2:K", "Intermediaries!A2:P"] };
         await service.Spreadsheets.Values.BatchClear(clear, settings.SpreadsheetId).ExecuteAsync(cancellationToken);
         var values = new List<ValueRange>();
         Add(values, "Suppliers!A2:K", data.Suppliers.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Platform, x.StoreUrl ?? "", Obj(x.Rating), Obj(x.Moq), x.Contact ?? "", x.WeChat ?? "", x.Intermediary ?? "", x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
         Add(values, "Categories!A2:D", data.Categories.Select(x => (IList<object>)[x.Id.ToString(), x.Name, Obj(x.SortOrder), x.IsActive]).ToList());
         Add(values, "Purchases!A2:M", data.Purchases.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.SupplierId?.ToString() ?? "", x.SupplierName ?? "", x.Status?.ToString() ?? "", x.OrderedAt.ToString("O"), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.InternationalShippingUzs), Obj(x.OtherCostsUzs), x.Notes ?? "", x.TrackingCode ?? "", x.EstimatedDeliveryDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""]).ToList());
         Add(values, "PurchaseItems!A2:M", data.Purchases.SelectMany(p => p.Items.Select(x => (IList<object>)[x.Id.ToString(), p.Id.ToString(), x.ProductId?.ToString() ?? "", x.ProductName, Obj(x.Quantity), Obj(x.UnitPriceCny), Obj(x.UnitWeightKg), x.ProductVariantId?.ToString() ?? "", x.Color, x.Size, Obj(x.ReceivedQuantity), Obj(x.DefectQuantity), x.StockedQuantity])).ToList());
+        Add(values, "PurchaseReceipts!A2:D", data.Purchases.SelectMany(p => p.Receipts.Select(x => (IList<object>)[x.Id.ToString(), p.Id.ToString(), x.ReceivedAt.ToString("O"), x.Note ?? ""])).ToList());
+        Add(values, "PurchaseReceiptItems!A2:K", data.Purchases.SelectMany(p => p.Receipts.SelectMany(r => r.Lines.Select(x => (IList<object>)[x.Id.ToString(), r.Id.ToString(), x.PurchaseItemId.ToString(), x.ProductId?.ToString() ?? "", x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Color, x.Size, x.ReceivedQuantity, x.DefectQuantity, x.StockedQuantity]))).ToList());
         Add(values, "Intermediaries!A2:P", data.Intermediaries.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Company ?? "", x.ChinaWarehouseAddress ?? "", x.ContactName ?? "", x.Telegram ?? "", x.WeChat ?? "", x.Phone ?? "", Obj(x.RatePerKgUsd), Obj(x.CommissionPercent), Obj(x.MinimumWeightKg), Obj(x.EstimatedDays), x.OfficialImport, x.Notes ?? "", x.CreatedAt.ToString("O"), Obj(x.Rating)]).ToList());
         if (values.Count > 0) await service.Spreadsheets.Values.BatchUpdate(new BatchUpdateValuesRequest { ValueInputOption = "RAW", Data = values }, settings.SpreadsheetId).ExecuteAsync(cancellationToken);
     }
