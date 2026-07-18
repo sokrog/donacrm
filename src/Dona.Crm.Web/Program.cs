@@ -14,6 +14,7 @@ builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(Stor
 builder.Services.Configure<GoogleSheetsOptions>(builder.Configuration.GetSection(GoogleSheetsOptions.SectionName));
 builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
 builder.Services.AddScoped<LoadingState>();
+builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<JsonCatalogRepository>();
 builder.Services.AddScoped<GoogleSheetsCatalogRepository>();
 builder.Services.AddScoped<SwitchingCatalogRepository>();
@@ -42,6 +43,7 @@ builder.Services.AddScoped<IMarketingRepository>(services => services.GetRequire
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
+builder.Services.AddScoped<InventoryAnalyticsService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
 builder.Services.AddScoped<SwitchingBusinessSettingsRepository>();

@@ -1,5 +1,6 @@
 @page "/settings"
 @attribute [StreamRendering]
+@implements IDisposable
 @using Microsoft.Extensions.Options
 @inject IOptions<StorageOptions> StorageConfiguration
 @inject GoogleSheetsSettingsStore SettingsStore
@@ -9,6 +10,7 @@
 @inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject ICatalogRepository Catalog
 @inject ProductStatusService ProductStatusService
+@inject InterfaceModeState InterfaceMode
 
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
@@ -19,6 +21,7 @@
 <EditForm Model="_business" class="panel form-section business-settings">
     <div class="section-title"><span>⚙</span><div><h2>Бизнес-правила</h2><p>Автоматические статусы и горизонты предупреждений</p></div></div>
     <div class="form-grid settings-form">
+        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.SimpleInterfaceMode" /><span><strong>Простой интерфейс</strong><small>Оставляет базовую аналитику, каталог, продажи и маркетинг; расширенные разделы можно вернуть в любой момент</small></span></label>
         <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.AutoUpdateStockStatus" /><span><strong>Автоматически обновлять статус товара</strong><small>Архивные товары и позиции без вариантов не изменяются</small></span></label>
         <label>Порог «Заканчивается», шт.<InputNumber @bind-Value="_business.LowStockThreshold" min="0" /></label>
         <label>При нулевом остатке<InputSelect @bind-Value="_business.ZeroStockStatus"><option value="@ProductStatus.OutOfStock">Нет в наличии</option><option value="@ProductStatus.OnOrder">Под заказ</option></InputSelect></label>
@@ -26,6 +29,7 @@
         <label>Поставка скоро, дней<InputNumber @bind-Value="_business.PurchaseDueSoonDays" min="0" /></label>
         <label>Горизонт контент-плана, дней<InputNumber @bind-Value="_business.ContentPlanningHorizonDays" min="1" /></label>
         <label>Период аналитики по умолчанию, дней<InputNumber @bind-Value="_business.DefaultAnalyticsPeriodDays" min="1" /></label>
+        <label>Товар считается залежавшимся через, дней<InputNumber @bind-Value="_business.StaleInventoryDays" min="1" /></label>
     </div>
     @if (!string.IsNullOrWhiteSpace(_businessMessage)) { <div class="notice @(_businessSuccess ? "success" : "error")">@_businessMessage</div> }
     <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button><button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
@@ -101,11 +105,11 @@
     private string? _businessMessage;
     private bool _businessSuccess;
     private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
-    protected override async Task OnInitializedAsync() { _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
+    protected override async Task OnInitializedAsync() { InterfaceMode.Changed += InterfaceModeChanged; _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
 
     private async Task SaveBusinessSettingsAsync()
     {
-        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
+        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
         catch (Exception exception) { _businessMessage = $"Не удалось сохранить: {exception.Message}"; _businessSuccess = false; }
     }
 
@@ -121,7 +125,7 @@
         catch (Exception exception) { _businessMessage = $"Ошибка пересчёта: {exception.Message}"; _businessSuccess = false; }
     }
 
-    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); }
+    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
     {
@@ -166,4 +170,6 @@
         catch (Exception exception) { _message = $"Ошибка: {exception.Message}"; _success = false; }
         finally { _busy = false; }
     }
+    private void InterfaceModeChanged() { _business.SimpleInterfaceMode = InterfaceMode.IsSimple; _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() => InterfaceMode.Changed -= InterfaceModeChanged;
 }

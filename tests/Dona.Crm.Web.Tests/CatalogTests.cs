@@ -260,6 +260,34 @@ public sealed class IntermediaryAnalyticsServiceTests
     }
 }
 
+public sealed class InventoryAnalyticsServiceTests
+{
+    [Fact]
+    public void Calculates_inventory_value_turnover_cover_and_stale_stock()
+    {
+        var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 10, ReservedQuantity = 2 };
+        var product = new Product { Name = "Футболка", Sku = "TS-1", Category = "Футболки", PurchasePriceCny = 10, CnyRateUzs = 1_000, DeliveryCostUzs = 1_000, SellingPriceUzs = 25_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [variant] };
+        var staleVariant = new ProductVariant { Color = "Белый", Size = "L", Quantity = 5 };
+        var stale = new Product { Name = "Худи", Sku = "HD-1", Category = "Худи", PurchasePriceCny = 5, CnyRateUzs = 1_000, SellingPriceUzs = 15_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [staleVariant] };
+        var sale = new Sale { Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.FromHours(5)), Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, SoldQuantity = 2 }] };
+        var receipt = new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, CreatedAt = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.FromHours(5)), QuantityDelta = 10 };
+
+        var report = new InventoryAnalyticsService().Build([product, stale], [sale], [receipt], new BusinessSettings { StaleInventoryDays = 60, LowStockThreshold = 3 }, new DateTimeOffset(2026, 7, 18, 0, 0, 0, TimeSpan.FromHours(5)));
+
+        Assert.Equal(15, report.PhysicalUnits);
+        Assert.Equal(2, report.ReservedUnits);
+        Assert.Equal(13, report.AvailableUnits);
+        Assert.Equal(135_000m, report.InventoryCostUzs);
+        var active = report.Rows.Single(x => x.ProductId == product.Id);
+        Assert.Equal(2, active.Sold30Days);
+        Assert.Equal(360m, active.DaysOfCover);
+        Assert.False(active.IsStale);
+        var staleRow = report.Rows.Single(x => x.ProductId == stale.Id);
+        Assert.True(staleRow.IsStale);
+        Assert.Equal(25_000m, report.StaleInventoryCostUzs);
+    }
+}
+
 public sealed class JsonCatalogRepositoryTests
 {
     [Fact]

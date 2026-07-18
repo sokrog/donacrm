@@ -1,0 +1,76 @@
+@page "/inventory-analytics"
+@attribute [StreamRendering]
+@inject ICatalogRepository Catalog
+@inject ISalesRepository Sales
+@inject IStockMovementRepository Movements
+@inject IBusinessSettingsRepository SettingsRepository
+@inject InventoryAnalyticsService Analytics
+@inject InterfaceModeState Mode
+
+<PageTitle>Складская аналитика — Dona CRM</PageTitle>
+<div class="page-heading"><div><span class="eyebrow">Каталог и склад</span><h1>Складская аналитика</h1><p>@(Mode.IsSimple ? "Главные показатели остатков и продаж." : "Стоимость склада, оборачиваемость и деньги в залежавшихся товарах.")</p></div>@if (!Mode.IsSimple) { <a class="button secondary" href="/inventory">Движения склада</a> }</div>
+
+<div class="metric-grid inventory-metrics">
+    <div class="metric-card accent"><span>Физический остаток</span><strong>@_report.PhysicalUnits шт.</strong><small>доступно @_report.AvailableUnits · резерв @_report.ReservedUnits</small></div>
+    <div class="metric-card"><span>Себестоимость склада</span><strong>@Money(_report.InventoryCostUzs)</strong><small>деньги в текущем остатке</small></div>
+    <div class="metric-card"><span>Потенциальная выручка</span><strong>@Money(_report.PotentialRevenueUzs)</strong><small>потенциальная прибыль @Money(_report.PotentialProfitUzs)</small></div>
+    <div class="metric-card"><span>Залежавшийся запас</span><strong>@Money(_report.StaleInventoryCostUzs)</strong><small>без движения от @_settings.StaleInventoryDays дней</small></div>
+</div>
+
+@if (_report.LowStockVariants > 0) { <div class="notice warning">Заканчиваются варианты: @_report.LowStockVariants. Проверьте продажи перед повторной закупкой.</div> }
+
+<div class="toolbar inventory-analytics-toolbar">
+    <input class="search" placeholder="Товар, SKU, цвет или размер" @bind="_query" @bind:event="oninput" />
+    @if (!Mode.IsSimple)
+    {
+        <select @bind="_category"><option value="">Все категории</option>@foreach (var category in Categories) { <option value="@category">@category</option> }</select>
+        <select @bind="_risk"><option value="">Все остатки</option><option value="stale">Залежавшиеся</option><option value="low">Заканчиваются</option><option value="no-sales">Без продаж 90 дней</option><option value="overstock">Запаса больше чем на 120 дней</option></select>
+    }
+</div>
+
+<section class="panel table-panel inventory-analytics-table @(Mode.IsSimple ? "simple" : "advanced")">
+    <div class="data-table">
+        @if (Mode.IsSimple)
+        {
+            <div class="table-header"><span>Товар</span><span>Вариант</span><span>Доступно</span><span>Продано 30 дней</span><span>Стоимость остатка</span><span>Состояние</span></div>
+            @foreach (var item in Filtered.OrderByDescending(x => x.InventoryCostUzs)) { <div class="table-row"><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku</small></a></span><span>@Variant(item)</span><span>@item.AvailableQuantity</span><span>@item.Sold30Days</span><span>@Money(item.InventoryCostUzs)</span><span><em class="badge @RiskClass(item)">@Risk(item)</em></span></div> }
+        }
+        else
+        {
+            <div class="table-header"><span>Товар</span><span>Вариант</span><span>Остаток</span><span>Продажи</span><span>Запас</span><span>Без движения</span><span>Сумма</span></div>
+            @foreach (var item in Filtered.OrderByDescending(x => x.IsStale).ThenByDescending(x => x.InventoryCostUzs)) { <div class="table-row"><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku · @item.Category</small></a></span><span>@Variant(item)</span><span><strong>@item.Quantity</strong><small>доступно @item.AvailableQuantity · резерв @item.ReservedQuantity</small></span><span><strong>@item.Sold30Days / @item.Sold90Days</strong><small>за 30 / 90 дней</small></span><span>@Cover(item)</span><span><strong>@item.InactiveDays дн.</strong><small>@LastActivity(item)</small></span><span><strong>@Money(item.InventoryCostUzs)</strong><small>@Risk(item)</small></span></div> }
+        }
+    </div>
+    @if (!Filtered.Any()) { <div class="empty-state">Товары по выбранным условиям не найдены.</div> }
+</section>
+
+@if (!Mode.IsSimple)
+{
+    <div class="inventory-analysis-grid">
+        <section class="panel">
+            <div class="panel-header"><div><h2>Деньги по категориям</h2><p>Текущий остаток и потенциальный результат.</p></div></div>
+            <div class="category-analytics-header"><span>Категория</span><span>Единиц</span><span>Себестоимость</span><span>Выручка</span><span>Залежалось</span></div>
+            @foreach (var category in CategorySummary) { <div class="category-analytics-row"><strong>@category.Name</strong><span>@category.Units</span><span>@Money(category.Cost)</span><span>@Money(category.Revenue)</span><span class="@(category.Stale > 0 ? "negative" : null)">@Money(category.Stale)</span></div> }
+        </section>
+        <section class="panel">
+            <div class="panel-header"><div><h2>Что требует внимания</h2><p>Рекомендации по текущим остаткам.</p></div></div>
+            @foreach (var item in Attention.Take(10)) { <a class="attention-row" href="/products/@item.ProductId"><span><strong>@item.ProductName</strong><small>@Variant(item) · @item.AvailableQuantity шт. · @Money(item.InventoryCostUzs)</small></span><em>@Recommendation(item)</em></a> }
+            @if (Attention.Count == 0) { <div class="empty-state small">Критичных остатков не найдено.</div> }
+        </section>
+    </div>
+}
+
+@code {
+    private InventoryAnalyticsReport _report = new(); private BusinessSettings _settings = new(); private string _query = string.Empty; private string _category = string.Empty; private string _risk = string.Empty;
+    private IEnumerable<InventoryAnalyticsRow> Filtered => _report.Rows.Where(x => (string.IsNullOrWhiteSpace(_query) || x.ProductName.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Color.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Size.Contains(_query, StringComparison.OrdinalIgnoreCase)) && (string.IsNullOrWhiteSpace(_category) || x.Category == _category) && (_risk switch { "stale" => x.IsStale, "low" => x.IsLowStock, "no-sales" => x.Sold90Days == 0 && x.AvailableQuantity > 0, "overstock" => x.DaysOfCover > 120, _ => true }));
+    private List<string> Categories => _report.Rows.Select(x => x.Category).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
+    private List<InventoryAnalyticsRow> Attention => _report.Rows.Where(x => x.IsStale || x.IsLowStock || x.DaysOfCover > 120).OrderByDescending(x => x.IsStale).ThenByDescending(x => x.InventoryCostUzs).ToList();
+    private List<CategoryRow> CategorySummary => _report.Rows.GroupBy(x => x.Category).Select(x => new CategoryRow(x.Key, x.Sum(v => v.Quantity), x.Sum(v => v.InventoryCostUzs), x.Sum(v => v.PotentialRevenueUzs), x.Where(v => v.IsStale).Sum(v => v.InventoryCostUzs))).OrderByDescending(x => x.Cost).ToList();
+    protected override async Task OnInitializedAsync() { await Mode.EnsureLoadedAsync(); var products = Catalog.GetProductsAsync(); var sales = Sales.GetSalesAsync(); var movements = Movements.GetAsync(); var settings = SettingsRepository.GetAsync(); await Task.WhenAll(products, sales, movements, settings); _settings = await settings; _report = Analytics.Build(await products, await sales, await movements, _settings); }
+    private static string Money(decimal value) => $"{value:N0} сум"; private static string Variant(InventoryAnalyticsRow x) => string.Join(" · ", new[] { x.Color, x.Size }.Where(v => !string.IsNullOrWhiteSpace(v))) is { Length: > 0 } result ? result : "—";
+    private static string Cover(InventoryAnalyticsRow x) => x.DaysOfCover is null ? "нет продаж" : $"{x.DaysOfCover:N0} дн."; private static string LastActivity(InventoryAnalyticsRow x) => x.LastSaleAt is not null ? $"продажа {x.LastSaleAt.Value.ToLocalTime():dd.MM.yyyy}" : x.LastReceiptAt is not null ? $"приход {x.LastReceiptAt.Value.ToLocalTime():dd.MM.yyyy}" : "движений нет";
+    private static string Risk(InventoryAnalyticsRow x) => x.IsStale ? "Залежался" : x.IsLowStock ? "Заканчивается" : x.AvailableQuantity == 0 ? "Нет в наличии" : x.DaysOfCover > 120 ? "Избыточный запас" : "Норма";
+    private static string RiskClass(InventoryAnalyticsRow x) => x.IsStale ? "outofstock" : x.IsLowStock ? "lowstock" : x.AvailableQuantity == 0 ? "archived" : "instock";
+    private static string Recommendation(InventoryAnalyticsRow x) => x.IsStale ? "Скидка или продвижение" : x.IsLowStock && x.Sold30Days > 0 ? "Рассмотреть закупку" : x.DaysOfCover > 120 ? "Не закупать повторно" : "Проверить остаток";
+    private sealed record CategoryRow(string Name, int Units, decimal Cost, decimal Revenue, decimal Stale);
+}
