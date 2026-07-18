@@ -4,6 +4,7 @@ using Dona.Crm.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using SkiaSharp;
 
 namespace Dona.Crm.Web.Tests;
 
@@ -779,10 +780,10 @@ public sealed class ProductImageStorageServiceTests
         {
             var environment = new ImageEnvironment(root);
             var google = new GoogleSheetsSettingsStore(environment, Options.Create(new GoogleSheetsOptions()));
-            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google);
-            await using var content = new MemoryStream(new byte[] { 1, 2, 3, 4 });
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google, new ImageHttpClientFactory());
+            await using var content = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 
-            var image = await service.UploadAsync(Guid.NewGuid(), content, "photo.jpg", "image/jpeg", content.Length);
+            var image = await service.UploadAsync(Guid.NewGuid(), content, "photo.png", "image/png", content.Length);
 
             Assert.Equal(ProductImageStorage.Local, image.Storage);
             Assert.StartsWith("/uploads/products/", image.Url);
@@ -790,6 +791,25 @@ public sealed class ProductImageStorageServiceTests
             Assert.True(File.Exists(fullPath));
             await service.DeleteAsync(image);
             Assert.False(File.Exists(fullPath));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task Resizes_large_image_and_stores_it_as_webp()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-image-tests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var environment = new ImageEnvironment(root); var google = new GoogleSheetsSettingsStore(environment, Options.Create(new GoogleSheetsOptions()));
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google, new ImageHttpClientFactory());
+            await using var content = new MemoryStream(); using (var bitmap = new SKBitmap(3000, 1000)) { bitmap.Erase(new SKColor(30, 90, 60)); using var source = SKImage.FromBitmap(bitmap); using var encoded = source.Encode(SKEncodedImageFormat.Jpeg, 92); encoded.SaveTo(content); } content.Position = 0;
+
+            var image = await service.UploadAsync(Guid.NewGuid(), content, "large.jpg", "image/jpeg", content.Length);
+
+            Assert.Equal("image/webp", image.ContentType); Assert.EndsWith(".webp", image.StorageKey);
+            var fullPath = Path.Combine(root, image.StorageKey.Replace('/', Path.DirectorySeparatorChar)); using var stored = SKBitmap.Decode(fullPath);
+            Assert.True(stored.Width <= 2048); Assert.True(stored.Height <= 2048);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
@@ -804,6 +824,7 @@ public sealed class ProductImageStorageServiceTests
     {
         public string ApplicationName { get; set; } = "Dona.Crm.Web.Tests"; public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider(); public string WebRootPath { get; set; } = root; public string EnvironmentName { get; set; } = "Test"; public string ContentRootPath { get; set; } = root; public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
+    private sealed class ImageHttpClientFactory : IHttpClientFactory { public HttpClient CreateClient(string name) => new(); }
 }
 
 internal sealed class MemoryStockMovements : IStockMovementRepository

@@ -55,11 +55,14 @@
             }
         </section>
         <section class="panel form-section span-all">
-            <div class="section-title with-action"><span>03</span><div><h2>Изображения</h2><p>Главное фото используется в каталоге; максимум 10 МБ на файл</p></div>@if (!_isNew) { <label class="button secondary image-upload-button">@(_imageBusy ? "Загрузка…" : "＋ Загрузить")<InputFile OnChange="UploadImagesAsync" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled="@_imageBusy" /></label> }</div>
+            <div class="section-title with-action"><span>03</span><div><h2>Изображения</h2><p>Большие фото автоматически уменьшаются до 2048 px и сохраняются в WebP</p></div>@if (!_isNew) { <label class="button secondary image-upload-button">@(_imageBusy ? "Загрузка…" : "＋ Загрузить")<InputFile OnChange="UploadImagesAsync" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled="@_imageBusy" /></label> }</div>
             @if (_isNew) { <div class="empty-state small">Сначала сохраните товар, затем откройте его карточку и добавьте фотографии.</div> }
-            else if (Model.Images.Count == 0) { <div class="empty-state small">Изображений пока нет. Можно загрузить JPG, PNG, WebP или GIF.</div> }
             else
             {
+                <div class="image-url-row"><InputText @bind-Value="_imageUrl" placeholder="https://example.com/photo.jpg" /><button type="button" class="button secondary" disabled="@(_imageBusy || string.IsNullOrWhiteSpace(_imageUrl))" @onclick="UploadImageFromUrlAsync">Добавить по ссылке</button></div>
+                @if (Model.Images.Count == 0) { <div class="empty-state small">Изображений пока нет. Можно загрузить JPG, PNG, WebP или GIF до 25 МБ.</div> }
+                else
+                {
                 <div class="product-image-gallery">
                     @foreach (var image in Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt))
                     {
@@ -71,6 +74,7 @@
                         </div>
                     }
                 </div>
+                }
             }
             @if (!string.IsNullOrWhiteSpace(_imageMessage)) { <div class="notice @(_imageSuccess ? "success" : "error")">@_imageMessage</div> }
         </section>
@@ -84,8 +88,8 @@
     private Product Model { get; set; } = new();
     private bool _saving;
     private bool _confirmDelete;
-    private bool _imageBusy; private bool _imageSuccess; private string? _imageMessage;
-    private const long MaxImageSize = 10 * 1024 * 1024;
+    private bool _imageBusy; private bool _imageSuccess; private string? _imageMessage; private string? _imageUrl;
+    private const long MaxImageSize = 25 * 1024 * 1024;
     private bool _isNew => Id is null;
     private IReadOnlyList<string> Categories { get; set; } = [];
     private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
@@ -102,6 +106,13 @@
         _imageBusy = true; _imageMessage = null;
         try { var files = args.GetMultipleFiles(12); foreach (var file in files) { await using var stream = file.OpenReadStream(MaxImageSize); var image = await ImageStorage.UploadAsync(Model.Id, stream, file.Name, file.ContentType, file.Size); image.SortOrder = Model.Images.Count; image.IsMain = Model.Images.Count == 0; Model.Images.Add(image); } NormalizeImages(); await Repository.UpsertProductAsync(Model); _imageMessage = $"Загружено изображений: {files.Count}."; _imageSuccess = true; }
         catch (Exception exception) { _imageMessage = $"Ошибка загрузки: {exception.Message}"; _imageSuccess = false; }
+        finally { _imageBusy = false; }
+    }
+    private async Task UploadImageFromUrlAsync()
+    {
+        _imageBusy = true; _imageMessage = null;
+        try { var image = await ImageStorage.UploadFromUrlAsync(Model.Id, _imageUrl ?? string.Empty); image.SortOrder = Model.Images.Count; image.IsMain = Model.Images.Count == 0; Model.Images.Add(image); NormalizeImages(); await Repository.UpsertProductAsync(Model); _imageUrl = null; _imageMessage = "Изображение скачано и сохранено."; _imageSuccess = true; }
+        catch (Exception exception) { _imageMessage = $"Не удалось загрузить ссылку: {exception.Message}"; _imageSuccess = false; }
         finally { _imageBusy = false; }
     }
     private async Task SetMainImageAsync(ProductImage selected) { foreach (var image in Model.Images) image.IsMain = image.Id == selected.Id; NormalizeImages(); await Repository.UpsertProductAsync(Model); }

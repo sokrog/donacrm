@@ -45,6 +45,7 @@ builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<InventoryAnalyticsService>();
 builder.Services.AddScoped<ProfitAnalyticsService>();
+builder.Services.AddHttpClient("product-images").ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = System.Net.DecompressionMethods.All });
 builder.Services.AddScoped<ProductImageStorageService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
