@@ -16,8 +16,8 @@
 
 <EditForm Model="Model" OnValidSubmit="SaveAsync">
     <DataAnnotationsValidator />
-    <div class="editor-grid">
-        <section class="panel form-section">
+    <div class="editor-grid product-editor-grid">
+        <section class="panel form-section product-details-card">
             <div class="section-title"><span>01</span><div><h2>Основное</h2><p>Данные, которые увидит покупатель</p></div></div>
             <div class="form-grid">
                 <label class="span-2">Название<InputText @bind-Value="Model.Name" placeholder="Например, Oversize футболка Basic" /><ValidationMessage For="() => Model.Name" /></label>
@@ -28,6 +28,7 @@
                 <label>Сезон<InputSelect @bind-Value="Model.Season"><option value="">Выберите сезон</option>@foreach (var item in Seasons) { <option>@item</option> }</InputSelect></label>
                 <label>Поставщик<InputText @bind-Value="Model.SupplierName" placeholder="Название магазина" /></label>
                 <label class="span-2">Ссылка 1688<InputText @bind-Value="Model.SourceUrl" placeholder="https://detail.1688.com/..." /></label>
+                <label class="span-2">Описание<InputTextArea @bind-Value="Model.Notes" rows="6" placeholder="Материал, посадка, особенности модели и рекомендации покупателю" /></label>
             </div>
         </section>
 
@@ -41,8 +42,8 @@
             <div class="calculation"><span>Себестоимость <strong>@Money(Model.CostUzs)</strong></span><span>Прибыль <strong class="positive">@Money(Model.ProfitUzs)</strong></span><span>Наценка <strong>@Model.MarkupPercent%</strong></span></div>
         </aside>
 
-        <section class="panel form-section span-all">
-            <div class="section-title with-action"><span>02</span><div><h2>Варианты</h2><p>Размеры, цвета и фактический остаток</p></div><button type="button" class="button secondary" @onclick="AddVariant">＋ Вариант</button></div>
+        <section class="panel form-section product-variants-section">
+            <div class="section-title with-action"><span>03</span><div><h2>Варианты</h2><p>Размеры, цвета и фактический остаток</p></div><button type="button" class="button secondary" @onclick="AddVariant">＋ Вариант</button></div>
             @if (Model.Variants.Count == 0) { <div class="empty-state small">Вариантов пока нет — товар будет считаться доступным только под заказ.</div> }
             @foreach (var variant in Model.Variants)
             {
@@ -54,8 +55,8 @@
                 </div>
             }
         </section>
-        <section class="panel form-section span-all">
-            <div class="section-title with-action"><span>03</span><div><h2>Изображения</h2><p>Большие фото автоматически уменьшаются до 2048 px и сохраняются в WebP</p></div>@if (!_isNew) { <label class="button secondary image-upload-button">@(_imageBusy ? "Загрузка…" : "＋ Загрузить")<InputFile OnChange="UploadImagesAsync" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled="@_imageBusy" /></label> }</div>
+        <section class="panel form-section product-images-section">
+            <div class="section-title with-action"><span>02</span><div><h2>Изображения</h2><p>Фото товара и миниатюра каталога</p></div>@if (!_isNew) { <label class="button secondary image-upload-button">@(_imageBusy ? "Загрузка…" : "＋ Загрузить")<InputFile OnChange="UploadImagesAsync" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled="@_imageBusy" /></label> }</div>
             @if (_isNew) { <div class="empty-state small">Сначала сохраните товар, затем откройте его карточку и добавьте фотографии.</div> }
             else
             {
