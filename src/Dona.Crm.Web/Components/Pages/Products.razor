@@ -18,19 +18,7 @@
 </div>
 
 <section class="panel table-panel">
-    <div class="data-table">
-        <div class="table-header"><span>Товар</span><span>Статус</span><span>Остаток</span><span>Себестоимость</span><span>Цена</span><span>Наценка</span></div>
-        @foreach (var product in FilteredProducts)
-        {
-            <a class="table-row" href="/products/@product.Id">
-                <span class="product-cell">@if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <img class="product-list-image" src="@product.PrimaryImageUrl" alt="" loading="lazy" /> } else { <i>@(string.IsNullOrWhiteSpace(product.Name) ? "?" : product.Name[..1])</i> }<span><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></span></span>
-                <span><em class="badge @((product.Status?.ToString() ?? "none").ToLowerInvariant())">@product.Status.Display()</em></span>
-                <span>@product.Quantity шт.</span><span>@Money(product.CostUzs)</span><span><strong>@Money(product.SellingPriceUzs)</strong></span>
-                <span class="@(product.ProfitUzs >= 0 ? "positive" : "negative")">@product.MarkupPercent%</span>
-            </a>
-        }
-    </div>
-    @if (!FilteredProducts.Any()) { <div class="empty-state">Ничего не найдено. Измените фильтры или добавьте товар.</div> }
+    <ProductCollectionView Products="FilteredProducts" EmptyText="Ничего не найдено. Измените фильтры или добавьте товар." />
 </section>
 
 @code {
@@ -48,5 +36,4 @@
         (_stock != "available" || x.Quantity > 0) && (_stock != "empty" || x.Quantity == 0) &&
         (_showArchived || _status == ProductStatus.Archived.ToString() || x.Status != ProductStatus.Archived));
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
-    private static string Money(decimal? value) => $"{value ?? 0:N0} сум";
 }

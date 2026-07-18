@@ -23,17 +23,7 @@ else
 
     <section class="panel">
         <div class="panel-header"><div><h2>Последние товары</h2><p>Недавно добавленные позиции</p></div><a href="/products">Весь каталог →</a></div>
-        <div class="product-list compact">
-            @foreach (var product in _products.Where(x => x.Status != ProductStatus.Archived).OrderByDescending(x => x.CreatedAt).Take(5))
-            {
-                <div class="product-row">
-                    <div class="product-thumb">@product.Name[..1]</div>
-                    <div class="product-name"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></div>
-                    <span class="badge @((product.Status?.ToString() ?? "none").ToLowerInvariant())">@product.Status.Display()</span>
-                    <div class="number"><strong>@Money(product.SellingPriceUzs)</strong><small>прибыль @Money(product.ProfitUzs)</small></div>
-                </div>
-            }
-        </div>
+        <ProductCollectionView Products="_products.Where(x => x.Status != ProductStatus.Archived).OrderByDescending(x => x.CreatedAt).Take(8)" Compact="true" />
     </section>
 }
 

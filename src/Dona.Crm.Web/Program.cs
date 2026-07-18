@@ -16,6 +16,7 @@ builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
 builder.Services.AddSingleton<GoogleDriveOAuthStore>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
+builder.Services.AddScoped<ProductViewPreferences>();
 builder.Services.AddScoped<JsonCatalogRepository>();
 builder.Services.AddScoped<GoogleSheetsCatalogRepository>();
 builder.Services.AddScoped<SwitchingCatalogRepository>();
