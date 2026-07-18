@@ -768,6 +768,44 @@ public sealed class GoogleSheetsSettingsStoreTests
     }
 }
 
+public sealed class ProductImageStorageServiceTests
+{
+    [Fact]
+    public async Task Stores_and_deletes_local_product_image_inside_web_root()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-image-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var environment = new ImageEnvironment(root);
+            var google = new GoogleSheetsSettingsStore(environment, Options.Create(new GoogleSheetsOptions()));
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google);
+            await using var content = new MemoryStream(new byte[] { 1, 2, 3, 4 });
+
+            var image = await service.UploadAsync(Guid.NewGuid(), content, "photo.jpg", "image/jpeg", content.Length);
+
+            Assert.Equal(ProductImageStorage.Local, image.Storage);
+            Assert.StartsWith("/uploads/products/", image.Url);
+            var fullPath = Path.Combine(root, image.StorageKey.Replace('/', Path.DirectorySeparatorChar));
+            Assert.True(File.Exists(fullPath));
+            await service.DeleteAsync(image);
+            Assert.False(File.Exists(fullPath));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    private sealed class ImageBusinessSettings : IBusinessSettingsRepository
+    {
+        private readonly BusinessSettings _settings = new();
+        public Task<BusinessSettings> GetAsync(CancellationToken token = default) => Task.FromResult(_settings);
+        public Task SaveAsync(BusinessSettings settings, CancellationToken token = default) => Task.CompletedTask;
+    }
+    private sealed class ImageEnvironment(string root) : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "Dona.Crm.Web.Tests"; public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider(); public string WebRootPath { get; set; } = root; public string EnvironmentName { get; set; } = "Test"; public string ContentRootPath { get; set; } = root; public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+}
+
 internal sealed class MemoryStockMovements : IStockMovementRepository
 {
     private readonly List<StockMovement> _items = [];

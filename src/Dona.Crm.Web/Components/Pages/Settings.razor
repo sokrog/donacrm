@@ -11,6 +11,7 @@
 @inject ICatalogRepository Catalog
 @inject ProductStatusService ProductStatusService
 @inject InterfaceModeState InterfaceMode
+@inject ProductImageStorageService ImageStorage
 
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
@@ -30,9 +31,11 @@
         <label>Горизонт контент-плана, дней<InputNumber @bind-Value="_business.ContentPlanningHorizonDays" min="1" /></label>
         <label>Период аналитики по умолчанию, дней<InputNumber @bind-Value="_business.DefaultAnalyticsPeriodDays" min="1" /></label>
         <label>Товар считается залежавшимся через, дней<InputNumber @bind-Value="_business.StaleInventoryDays" min="1" /></label>
+        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.UseGoogleDriveImages" /><span><strong>Хранить новые изображения в Google Drive</strong><small>Если выключено, файлы сохраняются локально в приложении</small></span></label>
+        @if (_business.UseGoogleDriveImages) { <label class="span-2">ID или ссылка на папку Google Drive<InputText @bind-Value="_business.GoogleDriveFolderId" placeholder="https://drive.google.com/drive/folders/..." /><small>Откройте папку для client_email сервисного аккаунта с правом редактора</small></label> }
     </div>
     @if (!string.IsNullOrWhiteSpace(_businessMessage)) { <div class="notice @(_businessSuccess ? "success" : "error")">@_businessMessage</div> }
-    <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button><button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
+    <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button>@if (_business.UseGoogleDriveImages) { <button type="button" class="button secondary" @onclick="CheckDriveAsync">Проверить Drive</button> }<button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
 </EditForm>
 
 <div class="settings-grid">
@@ -78,6 +81,8 @@
         <h2>Официальные сервисы Google</h2>
         <a class="external-card" href="https://console.cloud.google.com/iam-admin/serviceaccounts/create" target="_blank" rel="noopener noreferrer"><i>1</i><div><strong>Создать сервисный аккаунт ↗</strong><small>Google Cloud Console</small></div></a>
         <a class="external-card" href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noopener noreferrer"><i>2</i><div><strong>Включить Sheets API ↗</strong><small>Библиотека Google API</small></div></a>
+        <a class="external-card" href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer"><i>D</i><div><strong>Включить Drive API ↗</strong><small>Для хранения изображений</small></div></a>
+        <a class="external-card" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener noreferrer"><i>F</i><div><strong>Создать папку Drive ↗</strong><small>Откройте доступ сервисному аккаунту</small></div></a>
         <a class="external-card" href="https://sheets.new/" target="_blank" rel="noopener noreferrer"><i>3</i><div><strong>Создать Google-таблицу ↗</strong><small>Новая пустая таблица</small></div></a>
         <div class="setup-guide compact-guide">
             <strong>После создания</strong>
@@ -125,7 +130,14 @@
         catch (Exception exception) { _businessMessage = $"Ошибка пересчёта: {exception.Message}"; _businessSuccess = false; }
     }
 
-    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); }
+    private async Task CheckDriveAsync()
+    {
+        try { NormalizeBusinessSettings(); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); await BusinessSettingsRepository.SaveAsync(_business); await ImageStorage.CheckGoogleDriveAsync(); _businessMessage = "Папка Google Drive доступна сервисному аккаунту."; _businessSuccess = true; }
+        catch (Exception exception) { _businessMessage = $"Не удалось открыть папку Drive: {exception.Message}"; _businessSuccess = false; }
+    }
+
+    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); }
+    private static string? ExtractDriveFolderId(string? value) { if (string.IsNullOrWhiteSpace(value)) return null; var marker = "/folders/"; var index = value.IndexOf(marker, StringComparison.OrdinalIgnoreCase); if (index < 0) return value.Trim(); return value[(index + marker.Length)..].Split('?', '/', '#')[0]; }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
     {

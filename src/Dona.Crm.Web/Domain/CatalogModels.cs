@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Dona.Crm.Web.Domain;
 
 public enum ProductStatus { InStock, OnOrder, LowStock, OutOfStock, Archived }
+public enum ProductImageStorage { Local, GoogleDrive, External }
 
 public sealed class Product
 {
@@ -24,10 +25,27 @@ public sealed class Product
     [Range(0, 1_000_000_000)] public decimal? SellingPriceUzs { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ProductVariant> Variants { get; set; } = [];
+    public List<ProductImage> Images { get; set; } = [];
+    public string? PrimaryImageUrl => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault()?.Url ?? ImageUrl;
     public decimal CostUzs => Math.Round((PurchasePriceCny ?? 0) * (CnyRateUzs ?? 0) * (1 + (AgentCommissionPercent ?? 0) / 100) + (DeliveryCostUzs ?? 0));
     public decimal ProfitUzs => (SellingPriceUzs ?? 0) - CostUzs;
     public decimal MarkupPercent => CostUzs == 0 ? 0 : Math.Round(ProfitUzs / CostUzs * 100, 1);
     public int Quantity => Variants.Sum(x => x.Quantity ?? 0);
+}
+
+public sealed class ProductImage
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long SizeBytes { get; set; }
+    public ProductImageStorage Storage { get; set; }
+    public string StorageKey { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string? Caption { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsMain { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public sealed class ProductVariant

@@ -23,7 +23,7 @@
         @foreach (var product in FilteredProducts)
         {
             <a class="table-row" href="/products/@product.Id">
-                <span class="product-cell"><i>@product.Name[..1]</i><span><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></span></span>
+                <span class="product-cell">@if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <img class="product-list-image" src="@product.PrimaryImageUrl" alt="" loading="lazy" /> } else { <i>@(string.IsNullOrWhiteSpace(product.Name) ? "?" : product.Name[..1])</i> }<span><strong>@product.Name</strong><small>@product.Sku · @product.Category</small></span></span>
                 <span><em class="badge @((product.Status?.ToString() ?? "none").ToLowerInvariant())">@product.Status.Display()</em></span>
                 <span>@product.Quantity шт.</span><span>@Money(product.CostUzs)</span><span><strong>@Money(product.SellingPriceUzs)</strong></span>
                 <span class="@(product.ProfitUzs >= 0 ? "positive" : "negative")">@product.MarkupPercent%</span>

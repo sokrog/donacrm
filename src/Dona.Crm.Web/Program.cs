@@ -45,6 +45,7 @@ builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<InventoryAnalyticsService>();
 builder.Services.AddScoped<ProfitAnalyticsService>();
+builder.Services.AddScoped<ProductImageStorageService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
 builder.Services.AddScoped<SwitchingBusinessSettingsRepository>();
@@ -71,6 +72,11 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGet("/media/drive/{fileId}", async (string fileId, ProductImageStorageService storage, CancellationToken token) =>
+{
+    var image = await storage.DownloadDriveAsync(fileId, token);
+    return Results.Stream(image.Content, image.ContentType, enableRangeProcessing: true);
+});
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

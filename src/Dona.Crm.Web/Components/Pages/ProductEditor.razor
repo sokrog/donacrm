@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject ProductStatusService ProductStatusService
+@inject ProductImageStorageService ImageStorage
 
 <PageTitle>@(_isNew ? "Новый товар" : "Редактирование") — Dona CRM</PageTitle>
 
@@ -53,6 +54,26 @@
                 </div>
             }
         </section>
+        <section class="panel form-section span-all">
+            <div class="section-title with-action"><span>03</span><div><h2>Изображения</h2><p>Главное фото используется в каталоге; максимум 10 МБ на файл</p></div>@if (!_isNew) { <label class="button secondary image-upload-button">@(_imageBusy ? "Загрузка…" : "＋ Загрузить")<InputFile OnChange="UploadImagesAsync" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled="@_imageBusy" /></label> }</div>
+            @if (_isNew) { <div class="empty-state small">Сначала сохраните товар, затем откройте его карточку и добавьте фотографии.</div> }
+            else if (Model.Images.Count == 0) { <div class="empty-state small">Изображений пока нет. Можно загрузить JPG, PNG, WebP или GIF.</div> }
+            else
+            {
+                <div class="product-image-gallery">
+                    @foreach (var image in Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt))
+                    {
+                        <div class="product-image-card @(image.IsMain ? "main" : null)" @key="image.Id">
+                            <div class="product-image-preview"><img src="@image.Url" alt="@image.Caption" loading="lazy" />@if (image.IsMain) { <em>Главное</em> }</div>
+                            <InputText @bind-Value="image.Caption" placeholder="Подпись" />
+                            <small>@image.FileName · @Size(image.SizeBytes) · @(image.Storage == ProductImageStorage.GoogleDrive ? "Drive" : "Локально")</small>
+                            <div class="image-card-actions"><button type="button" title="Раньше" @onclick="() => MoveImageAsync(image, -1)">←</button><button type="button" title="Позже" @onclick="() => MoveImageAsync(image, 1)">→</button>@if (!image.IsMain) { <button type="button" @onclick="() => SetMainImageAsync(image)">Сделать главным</button> }<button type="button" class="danger" @onclick="() => DeleteImageAsync(image)">Удалить</button></div>
+                        </div>
+                    }
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_imageMessage)) { <div class="notice @(_imageSuccess ? "success" : "error")">@_imageMessage</div> }
+        </section>
     </div>
     @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить товар без возможности восстановления?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да, удалить</button></div> }
     <div class="form-actions"><a class="button ghost" href="/products">Отмена</a>@if (!_isNew && Model.Status == ProductStatus.Archived) { <button class="button secondary" type="button" @onclick="RestoreAsync">Вернуть из архива</button> } else if (!_isNew) { <button class="button ghost" type="button" @onclick="ArchiveAsync">В архив</button> }@if (!_isNew) { <button class="button danger-button" type="button" @onclick="() => _confirmDelete = true">Удалить товар</button> }<button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
@@ -63,16 +84,30 @@
     private Product Model { get; set; } = new();
     private bool _saving;
     private bool _confirmDelete;
+    private bool _imageBusy; private bool _imageSuccess; private string? _imageMessage;
+    private const long MaxImageSize = 10 * 1024 * 1024;
     private bool _isNew => Id is null;
     private IReadOnlyList<string> Categories { get; set; } = [];
     private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
     private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
-    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); Model = Id is null ? new Product() : await Repository.GetProductAsync(Id.Value) ?? new Product(); _confirmDelete = false; }
+    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); Model = Id is null ? new Product() : await Repository.GetProductAsync(Id.Value) ?? new Product(); NormalizeImages(); _confirmDelete = false; _imageMessage = null; }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
-    private async Task SaveAsync() { _saving = true; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private async Task SaveAsync() { _saving = true; NormalizeImages(); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task ArchiveAsync() { _saving = true; Model.Status = ProductStatus.Archived; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task RestoreAsync() { _saving = true; Model.Status = ProductStatus.OnOrder; Model.Status = ProductStatusService.Calculate(Model, await BusinessSettingsRepository.GetAsync()); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
-    private async Task DeleteAsync() { _saving = true; await Repository.DeleteProductAsync(Model.Id); Navigation.NavigateTo("/products"); }
+    private async Task DeleteAsync() { _saving = true; foreach (var image in Model.Images.ToList()) await ImageStorage.DeleteAsync(image); await Repository.DeleteProductAsync(Model.Id); Navigation.NavigateTo("/products"); }
+    private async Task UploadImagesAsync(InputFileChangeEventArgs args)
+    {
+        _imageBusy = true; _imageMessage = null;
+        try { var files = args.GetMultipleFiles(12); foreach (var file in files) { await using var stream = file.OpenReadStream(MaxImageSize); var image = await ImageStorage.UploadAsync(Model.Id, stream, file.Name, file.ContentType, file.Size); image.SortOrder = Model.Images.Count; image.IsMain = Model.Images.Count == 0; Model.Images.Add(image); } NormalizeImages(); await Repository.UpsertProductAsync(Model); _imageMessage = $"Загружено изображений: {files.Count}."; _imageSuccess = true; }
+        catch (Exception exception) { _imageMessage = $"Ошибка загрузки: {exception.Message}"; _imageSuccess = false; }
+        finally { _imageBusy = false; }
+    }
+    private async Task SetMainImageAsync(ProductImage selected) { foreach (var image in Model.Images) image.IsMain = image.Id == selected.Id; NormalizeImages(); await Repository.UpsertProductAsync(Model); }
+    private async Task MoveImageAsync(ProductImage selected, int direction) { var ordered = Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToList(); var index = ordered.FindIndex(x => x.Id == selected.Id); var target = index + direction; if (index < 0 || target < 0 || target >= ordered.Count) return; (ordered[index], ordered[target]) = (ordered[target], ordered[index]); for (var i = 0; i < ordered.Count; i++) ordered[i].SortOrder = i; Model.Images = ordered; await Repository.UpsertProductAsync(Model); }
+    private async Task DeleteImageAsync(ProductImage image) { _imageBusy = true; try { await ImageStorage.DeleteAsync(image); Model.Images.RemoveAll(x => x.Id == image.Id); NormalizeImages(); await Repository.UpsertProductAsync(Model); _imageMessage = "Изображение удалено."; _imageSuccess = true; } catch (Exception exception) { _imageMessage = $"Не удалось удалить изображение: {exception.Message}"; _imageSuccess = false; } finally { _imageBusy = false; } }
+    private void NormalizeImages() { var ordered = Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToList(); if (ordered.Count > 0 && ordered.All(x => !x.IsMain)) ordered[0].IsMain = true; var mainFound = false; for (var i = 0; i < ordered.Count; i++) { ordered[i].SortOrder = i; if (ordered[i].IsMain && !mainFound) mainFound = true; else if (ordered[i].IsMain) ordered[i].IsMain = false; } Model.Images = ordered; if (ordered.Count > 0) Model.ImageUrl = ordered.First(x => x.IsMain).Url; else if (Model.ImageUrl?.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) == true || Model.ImageUrl?.StartsWith("/media/drive/", StringComparison.OrdinalIgnoreCase) == true) Model.ImageUrl = null; }
+    private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024m / 1024m:N1} МБ" : $"{bytes / 1024m:N0} КБ";
     private static string Money(decimal value) => $"{value:N0} сум";
 }

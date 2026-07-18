@@ -12,6 +12,7 @@
 |---|---|---|
 | Products | Карточки моделей | Id, Sku, Name, CategoryId, SupplierId, Status, PurchasePriceCny, CostUzs, SellingPriceUzs |
 | ProductVariants | Цвета, размеры, остатки | Id, ProductId, Color, Size, Quantity, ReservedQuantity |
+| ProductImages | Галерея товара | Id, ProductId, FileName, Storage, StorageKey, Url, Caption, SortOrder, IsMain |
 | Suppliers | Поставщики 1688/Taobao | Id, Name, StoreUrl, Rating, Mooq, Notes |
 | Categories | Справочник категорий | Id, Name, SortOrder |
 | Collections | Сезонные и маркетинговые подборки | Id, Name, Description, Status |
@@ -48,8 +49,10 @@
 - пакетное чтение и запись;
 - импорт локального каталога в Google Sheets;
 - переключение хранилища через конфигурацию;
+- локальное хранение изображений и загрузка в выбранную папку Google Drive;
+- галерея товара, главное фото, сортировка, подписи и удаление файлов;
+- защищённая выдача непубличных файлов Drive через приложение;
 - optimistic concurrency и журнал операций — далее;
-- загрузка фотографий в заданную папку Drive;
 - резервный экспорт.
 
 ### 3. Справочники и закупки — первый рабочий срез реализован

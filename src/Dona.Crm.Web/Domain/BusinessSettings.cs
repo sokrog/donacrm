@@ -11,4 +11,6 @@ public sealed class BusinessSettings
     public int ContentPlanningHorizonDays { get; set; } = 7;
     public int DefaultAnalyticsPeriodDays { get; set; } = 30;
     public int StaleInventoryDays { get; set; } = 60;
+    public bool UseGoogleDriveImages { get; set; }
+    public string? GoogleDriveFolderId { get; set; }
 }
