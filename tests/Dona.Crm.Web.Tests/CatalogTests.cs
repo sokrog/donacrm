@@ -235,6 +235,31 @@ public sealed class SupplierAnalyticsServiceTests
     }
 }
 
+public sealed class IntermediaryAnalyticsServiceTests
+{
+    [Fact]
+    public void Calculates_actual_shipping_cost_transit_delay_and_reliability()
+    {
+        var intermediary = new Intermediary { Name = "Cargo A", Rating = 4.5m, EstimatedDays = 10 };
+        var purchase = new Purchase
+        {
+            Number = "PO-CARGO", IntermediaryId = intermediary.Id, IntermediaryName = intermediary.Name, Status = PurchaseStatus.Received,
+            OrderedAt = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.FromHours(5)), EstimatedDeliveryDate = new DateTime(2026, 7, 11), InternationalShippingUzs = 200_000,
+            Items = [new PurchaseItem { ProductName = "Худи", Quantity = 10, UnitWeightKg = 0.5m }],
+            Receipts = [new PurchaseReceipt { ReceivedAt = new DateTimeOffset(2026, 7, 13, 12, 0, 0, TimeSpan.FromHours(5)) }]
+        };
+
+        var analytics = Assert.Single(new IntermediaryAnalyticsService().Calculate([intermediary], [purchase]));
+
+        Assert.Equal(5m, analytics.TotalWeightKg);
+        Assert.Equal(40_000m, analytics.AverageShippingPerKgUzs);
+        Assert.Equal(12m, analytics.AverageTransitDays);
+        Assert.Equal(2m, analytics.AverageDelayDays);
+        Assert.Equal(0m, analytics.OnTimePercent);
+        Assert.Equal(90m, analytics.ReliabilityScore);
+    }
+}
+
 public sealed class JsonCatalogRepositoryTests
 {
     [Fact]

@@ -53,6 +53,8 @@ public sealed class Purchase
     [Required] public string Number { get; set; } = string.Empty;
     public Guid? SupplierId { get; set; }
     public string? SupplierName { get; set; }
+    public Guid? IntermediaryId { get; set; }
+    public string? IntermediaryName { get; set; }
     public PurchaseStatus? Status { get; set; }
     public DateTimeOffset OrderedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? TrackingCode { get; set; }

@@ -2,8 +2,51 @@
 @page "/intermediaries/{Id:guid}"
 @attribute [StreamRendering]
 @inject ICommerceRepository Repository
+@inject IntermediaryAnalyticsService AnalyticsService
 @inject NavigationManager Navigation
-<PageTitle>Посредник — Dona CRM</PageTitle>
-<div class="page-heading"><div><a class="back-link" href="/intermediaries">← Посредники</a><h1>@(_isNew?"Новый посредник":_model.Name)</h1><p>Контакты и условия доставки.</p></div></div>
-<EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section narrow-panel"><DataAnnotationsValidator/><div class="section-title"><span>⇄</span><div><h2>Карточка посредника</h2><p>Склад, тариф и контакты</p></div></div><div class="stack-form"><label>Название<InputText @bind-Value="_model.Name"/><ValidationMessage For="() => _model.Name"/></label><label>Компания<InputText @bind-Value="_model.Company"/></label><label>Адрес склада в Китае<InputTextArea @bind-Value="_model.ChinaWarehouseAddress"/></label><div class="form-grid"><label>Контактное лицо<InputText @bind-Value="_model.ContactName"/></label><label>Телефон<InputText @bind-Value="_model.Phone"/></label></div><div class="form-grid"><label>Telegram<InputText @bind-Value="_model.Telegram"/></label><label>WeChat<InputText @bind-Value="_model.WeChat"/></label></div><div class="form-grid"><label>Тариф, $/кг<InputNumber @bind-Value="_model.RatePerKgUsd" step="0.01"/></label><label>Комиссия, %<InputNumber @bind-Value="_model.CommissionPercent" step="0.1"/></label></div><div class="form-grid"><label>Минимальный вес, кг<InputNumber @bind-Value="_model.MinimumWeightKg" step="0.1"/></label><label>Срок, дней<InputNumber @bind-Value="_model.EstimatedDays"/></label></div><label>Рейтинг 0–5<InputNumber @bind-Value="_model.Rating" min="0" max="5" step="0.1"/></label><label class="toggle-row"><InputCheckbox @bind-Value="_model.OfficialImport"/><span><strong>Официальный импорт</strong><small>Предоставляет документы</small></span></label><label>Заметки<InputTextArea @bind-Value="_model.Notes"/></label></div>@if(_confirmDelete){<div class="delete-confirmation"><span>Удалить посредника?</span><button type="button" class="button ghost" @onclick="()=>_confirmDelete=false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div>}<div class="form-actions"><a class="button ghost" href="/intermediaries">Отмена</a>@if(!_isNew){<button type="button" class="button danger-button" @onclick="()=>_confirmDelete=true">Удалить</button>}<button class="button primary">Сохранить</button></div></EditForm>
-@code { [Parameter]public Guid? Id{get;set;} private Intermediary _model=new(); private bool _confirmDelete; private bool _isNew=>Id is null; protected override async Task OnParametersSetAsync()=>_model=Id is null?new Intermediary():(await Repository.GetIntermediariesAsync()).FirstOrDefault(x=>x.Id==Id)??new Intermediary(); private async Task SaveAsync(){await Repository.UpsertIntermediaryAsync(_model);Navigation.NavigateTo("/intermediaries");} private async Task DeleteAsync(){await Repository.DeleteIntermediaryAsync(_model.Id);Navigation.NavigateTo("/intermediaries");} }
+
+<PageTitle>@(_isNew ? "Новый посредник" : _model.Name) — Dona CRM</PageTitle>
+<div class="page-heading"><div><a class="back-link" href="/intermediaries">← Посредники</a><h1>@(_isNew ? "Новый посредник" : _model.Name)</h1><p>Контакты, условия и фактическая эффективность доставки.</p></div></div>
+<EditForm Model="_model" OnValidSubmit="SaveAsync" class="panel form-section narrow-panel">
+    <DataAnnotationsValidator /><div class="section-title"><span>⇄</span><div><h2>Карточка посредника</h2><p>Склад, тариф и контакты</p></div></div>
+    <div class="stack-form"><label>Название<InputText @bind-Value="_model.Name" /><ValidationMessage For="() => _model.Name" /></label><label>Компания<InputText @bind-Value="_model.Company" /></label><label>Адрес склада в Китае<InputTextArea @bind-Value="_model.ChinaWarehouseAddress" /></label><div class="form-grid"><label>Контактное лицо<InputText @bind-Value="_model.ContactName" /></label><label>Телефон<InputText @bind-Value="_model.Phone" /></label></div><div class="form-grid"><label>Telegram<InputText @bind-Value="_model.Telegram" /></label><label>WeChat<InputText @bind-Value="_model.WeChat" /></label></div><div class="form-grid"><label>Тариф, $/кг<InputNumber @bind-Value="_model.RatePerKgUsd" step="0.01" /></label><label>Комиссия, %<InputNumber @bind-Value="_model.CommissionPercent" step="0.1" /></label></div><div class="form-grid"><label>Минимальный вес, кг<InputNumber @bind-Value="_model.MinimumWeightKg" step="0.1" /></label><label>Обещанный срок, дней<InputNumber @bind-Value="_model.EstimatedDays" /></label></div><label>Ручной рейтинг 0–5<InputNumber @bind-Value="_model.Rating" min="0" max="5" step="0.1" /></label><label class="toggle-row"><InputCheckbox @bind-Value="_model.OfficialImport" /><span><strong>Официальный импорт</strong><small>Предоставляет документы</small></span></label><label>Заметки<InputTextArea @bind-Value="_model.Notes" /></label></div>
+    @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить посредника?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да</button></div> }
+    <div class="form-actions"><a class="button ghost" href="/intermediaries">Отмена</a>@if (!_isNew) { <button type="button" class="button danger-button" @onclick="() => _confirmDelete = true">Удалить</button> }<button class="button primary">Сохранить</button></div>
+</EditForm>
+
+@if (!_isNew && _analytics is not null)
+{
+    <div class="section-break"><span class="eyebrow">Фактические показатели</span><h2>Эффективность доставки</h2></div>
+    <div class="metric-grid compact-metrics">
+        <div class="metric-card accent"><span>Рейтинг надёжности</span><strong>@Score(_analytics.ReliabilityScore)</strong><small>фактические сроки и ручная оценка</small></div>
+        <div class="metric-card"><span>Стоимость доставки</span><strong>@Money(_analytics.AverageShippingPerKgUzs)</strong><small>сум/кг · всего @Money(_analytics.TotalShippingUzs) сум</small></div>
+        <div class="metric-card"><span>Фактический срок</span><strong>@Days(_analytics.AverageTransitDays)</strong><small>среднее по @_analytics.CompletedCount завершённым поставкам</small></div>
+        <div class="metric-card"><span>Поставки вовремя</span><strong>@Percent(_analytics.OnTimePercent)</strong><small>@Delay(_analytics)</small></div>
+    </div>
+    <section class="panel table-panel intermediary-purchases-table">
+        <div class="panel-header"><div><h2>Связанные закупки</h2><p>@_analytics.TotalUnits единиц · @_analytics.TotalWeightKg.ToString("N2") кг</p></div></div>
+        <div class="data-table"><div class="table-header"><span>Закупка</span><span>Поставщик</span><span>Статус</span><span>Вес</span><span>Доставка</span><span>Получено</span></div>
+            @foreach (var purchase in _purchases.OrderByDescending(x => x.OrderedAt)) { <a class="table-row" href="/purchases/@purchase.Id"><span><strong>@purchase.Number</strong><small>@purchase.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</small></span><span>@(purchase.SupplierName ?? "—")</span><span>@purchase.Status.Display()</span><span>@purchase.TotalWeightKg.ToString("N2") кг</span><span>@Money(purchase.InternationalShippingUzs ?? 0)</span><span>@(purchase.Receipts.Count == 0 ? "—" : purchase.Receipts.Max(x => x.ReceivedAt).ToLocalTime().ToString("dd.MM.yyyy"))</span></a> }
+        </div>
+        @if (_purchases.Count == 0) { <div class="empty-state">Выберите этого посредника в закупке, чтобы появились фактические показатели.</div> }
+    </section>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private Intermediary _model = new(); private bool _confirmDelete; private IntermediaryAnalytics? _analytics; private List<Purchase> _purchases = [];
+    private bool _isNew => Id is null;
+    protected override async Task OnParametersSetAsync()
+    {
+        _confirmDelete = false; _analytics = null; _purchases = [];
+        if (_isNew) { _model = new Intermediary(); return; }
+        var intermediaries = Repository.GetIntermediariesAsync(); var purchases = Repository.GetPurchasesAsync(); await Task.WhenAll(intermediaries, purchases);
+        _model = (await intermediaries).FirstOrDefault(x => x.Id == Id) ?? new Intermediary();
+        _purchases = (await purchases).Where(x => x.IntermediaryId == _model.Id || (x.IntermediaryId is null && x.IntermediaryName?.Equals(_model.Name, StringComparison.OrdinalIgnoreCase) == true)).ToList();
+        _analytics = AnalyticsService.Calculate([_model], _purchases).Single();
+    }
+    private async Task SaveAsync() { await Repository.UpsertIntermediaryAsync(_model); Navigation.NavigateTo("/intermediaries"); }
+    private async Task DeleteAsync() { await Repository.DeleteIntermediaryAsync(_model.Id); Navigation.NavigateTo("/intermediaries"); }
+    private static string Money(decimal value) => value.ToString("N0"); private static string Percent(decimal value) => $"{value:N1}%"; private static string Days(decimal value) => value == 0 ? "—" : $"{value:N1} дн."; private static string Score(decimal? value) => value is null ? "—" : $"{value:N0}/100";
+    private static string Delay(IntermediaryAnalytics value) => value.DeliverySamples == 0 ? "нет данных о плановом сроке" : value.AverageDelayDays <= 0 ? "без средней задержки" : $"средняя задержка +{value.AverageDelayDays:N1} дн.";
+}

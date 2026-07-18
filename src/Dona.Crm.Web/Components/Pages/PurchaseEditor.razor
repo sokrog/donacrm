@@ -16,6 +16,7 @@
             <div class="form-grid">
                 <label>Номер<InputText @bind-Value="_model.Number" /></label><label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Выберите статус</option>@foreach (var status in Enum.GetValues<PurchaseStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label>
                 <label class="span-2">Поставщик<InputSelect @bind-Value="_model.SupplierId" @bind-Value:after="SupplierChanged"><option value="">Не выбран</option>@foreach (var supplier in _suppliers) { <option value="@supplier.Id">@supplier.Name</option> }</InputSelect></label>
+                <label class="span-2">Посредник и доставка<InputSelect @bind-Value="_model.IntermediaryId" @bind-Value:after="IntermediaryChanged"><option value="">Не выбран</option>@foreach (var intermediary in _intermediaries) { <option value="@intermediary.Id">@intermediary.Name</option> }</InputSelect></label>
                 <label>Трек-код<InputText @bind-Value="_model.TrackingCode" placeholder="Код отслеживания" /></label><label>Предполагаемая дата поставки<InputDate @bind-Value="_model.EstimatedDeliveryDate" /></label>
                 <label>Курс ¥ → сум<InputNumber @bind-Value="_model.CnyRateUzs" /></label><label>Комиссия, %<InputNumber @bind-Value="_model.AgentCommissionPercent" /></label>
                 <label>Международная доставка<InputNumber @bind-Value="_model.InternationalShippingUzs" /></label><label>Прочие расходы<InputNumber @bind-Value="_model.OtherCostsUzs" /></label>
@@ -62,7 +63,7 @@
 </EditForm>
 @code {
     [Parameter] public Guid? Id { get; set; }
-    private Purchase _model = new(); private List<Supplier> _suppliers = []; private IReadOnlyList<Product> _products = []; private bool _isNew => Id is null;
+    private Purchase _model = new(); private List<Supplier> _suppliers = []; private List<Intermediary> _intermediaries = []; private IReadOnlyList<Product> _products = []; private bool _isNew => Id is null;
     private string? _message; private bool _receiptSuccess;
     private readonly Dictionary<Guid, ReceiptFormLine> _receiptLines = [];
     private DateTime? _receiptDate;
@@ -71,9 +72,10 @@
     private bool _receiving;
     private Supplier? SelectedSupplier => _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId);
     private bool HasMoqWarning => SelectedSupplier?.Moq is > 1 && _model.Items.Any(x => (x.Quantity ?? 0) < SelectedSupplier.Moq.Value);
-    protected override async Task OnParametersSetAsync() { _suppliers = (await Commerce.GetSuppliersAsync()).ToList(); _model = Id is null ? new Purchase() : await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); var referenced = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet(); _products = (await Catalog.GetProductsAsync()).Where(x => x.Status != ProductStatus.Archived || referenced.Contains(x.Id)).ToList(); _receiptLines.Clear(); _receiptDate = null; _receiptNote = null; _receiptId = Guid.NewGuid(); _message = null; }
+    protected override async Task OnParametersSetAsync() { var suppliers = Commerce.GetSuppliersAsync(); var intermediaries = Commerce.GetIntermediariesAsync(); await Task.WhenAll(suppliers, intermediaries); _suppliers = (await suppliers).ToList(); _intermediaries = (await intermediaries).ToList(); _model = Id is null ? new Purchase() : await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); var referenced = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet(); _products = (await Catalog.GetProductsAsync()).Where(x => x.Status != ProductStatus.Archived || referenced.Contains(x.Id)).ToList(); _receiptLines.Clear(); _receiptDate = null; _receiptNote = null; _receiptId = Guid.NewGuid(); _message = null; }
     private void AddItem() => _model.Items.Add(new PurchaseItem());
     private void SupplierChanged() { _model.SupplierName = _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId)?.Name; }
+    private void IntermediaryChanged() { _model.IntermediaryName = _model.IntermediaryId is null ? null : _intermediaries.FirstOrDefault(x => x.Id == _model.IntermediaryId)?.Name; }
     private void ProductChanged(PurchaseItem item, Product? product) { if (product is null) { item.ProductId = null; item.ProductVariantId = null; return; } item.ProductId = product.Id; item.ProductName = product.Name; item.UnitPriceCny = product.PurchasePriceCny; var variant = product.Variants.FirstOrDefault(); if (variant is not null) { item.ProductVariantId = variant.Id; item.Color = variant.Color; item.Size = variant.Size; } }
     private async Task SaveAsync() { await Commerce.UpsertPurchaseAsync(_model); Navigation.NavigateTo("/purchases"); }
     private ReceiptFormLine ReceiptInput(Guid itemId) { if (!_receiptLines.TryGetValue(itemId, out var value)) _receiptLines[itemId] = value = new(); return value; }

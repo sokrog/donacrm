@@ -41,6 +41,7 @@ builder.Services.AddScoped<SwitchingMarketingRepository>();
 builder.Services.AddScoped<IMarketingRepository>(services => services.GetRequiredService<SwitchingMarketingRepository>());
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<SupplierAnalyticsService>();
+builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
 builder.Services.AddScoped<SwitchingBusinessSettingsRepository>();
