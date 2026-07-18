@@ -288,6 +288,34 @@ public sealed class InventoryAnalyticsServiceTests
     }
 }
 
+public sealed class ProfitAnalyticsServiceTests
+{
+    [Fact]
+    public void Attributes_profit_to_purchase_source_collections_outfits_and_published_content()
+    {
+        var product = new Product { Name = "Футболка", Sku = "TS-1", SupplierName = "Fallback" };
+        var unsold = new Product { Name = "Сумка", Sku = "BG-1" };
+        var purchase = new Purchase { SupplierName = "Store A", IntermediaryName = "Cargo A", Items = [new PurchaseItem { ProductId = product.Id, ProductName = product.Name }], Receipts = [new PurchaseReceipt { ReceivedAt = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.FromHours(5)), Lines = [new PurchaseReceiptLine { ProductId = product.Id }] }] };
+        var sale = new Sale { Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.FromHours(5)), Items = [new SaleItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2, SoldQuantity = 2, UnitPriceUzs = 100, UnitCostUzs = 50 }] };
+        var collection = new ProductCollection { Name = "Лето", Products = [new CollectionProduct { ProductId = product.Id }, new CollectionProduct { ProductId = unsold.Id }] };
+        var outfit = new Outfit { Name = "Образ 1", Products = [new OutfitProduct { ProductId = product.Id }] };
+        var marketing = new MarketingData { Collections = [collection], Outfits = [outfit], ContentPosts = [new ContentPost { Title = "Летняя публикация", Status = ContentStatus.Published, Type = ContentType.Reels, ScheduledAt = new DateTime(2026, 7, 5), CollectionId = collection.Id }] };
+
+        var report = new ProfitAnalyticsService().Build([sale], [product, unsold], [purchase], marketing, null, null);
+
+        var supplier = Assert.Single(report.Suppliers);
+        Assert.Equal("Store A", supplier.Name);
+        Assert.Equal(100m, supplier.ProfitUzs);
+        Assert.Equal("Cargo A", Assert.Single(report.Intermediaries).Name);
+        Assert.Equal("Лето", Assert.Single(report.Collections).Name);
+        Assert.Equal("Образ 1", Assert.Single(report.Outfits).Name);
+        var content = Assert.Single(report.Content);
+        Assert.Equal(2, content.Products);
+        Assert.Equal(1, content.ProductsWithoutSales);
+        Assert.Equal(200m, content.RevenueUzs);
+    }
+}
+
 public sealed class JsonCatalogRepositoryTests
 {
     [Fact]

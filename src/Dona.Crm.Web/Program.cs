@@ -44,6 +44,7 @@ builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<InventoryAnalyticsService>();
+builder.Services.AddScoped<ProfitAnalyticsService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
 builder.Services.AddScoped<SwitchingBusinessSettingsRepository>();

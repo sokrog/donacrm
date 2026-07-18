@@ -3,7 +3,10 @@
 @inject ISalesRepository Sales
 @inject ICatalogRepository Catalog
 @inject AnalyticsService AnalyticsService
+@inject ProfitAnalyticsService ProfitAnalytics
 @inject IBusinessSettingsRepository BusinessSettingsRepository
+@inject ICommerceRepository Commerce
+@inject IMarketingRepository Marketing
 
 <PageTitle>Аналитика — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Результаты</span><h1>Аналитика продаж</h1><p>Только завершённые продажи; отмены и возвраты исключены.</p></div></div>
@@ -19,6 +22,7 @@
     <div class="metric-card"><span>Средний чек</span><strong>@Money(_report.AverageCheckUzs)</strong><small>@_report.Units проданных единиц</small></div>
     <div class="metric-card"><span>Себестоимость</span><strong>@Money(_report.CostUzs)</strong><small>зафиксирована в продажах</small></div>
 </div>
+<div class="notice attribution-note">Поставщик и посредник определяются по последней приёмке товара до продажи. Выручка коллекций и образов не суммируется между собой: один товар может входить в несколько подборок.</div>
 
 <div class="analytics-grid">
     <section class="panel analytics-panel">
@@ -31,42 +35,50 @@
     </section>
 
     <section class="panel analytics-panel">
-        <div class="analytics-tabs"><button class="@(_tab == "products" ? "active" : null)" @onclick="ShowProducts">Товары</button><button class="@(_tab == "categories" ? "active" : null)" @onclick="ShowCategories">Категории</button><button class="@(_tab == "customers" ? "active" : null)" @onclick="ShowCustomers">Клиенты</button></div>
-        <div class="ranking-header"><span>Название</span><span>Заказы</span><span>Кол-во</span><span>Выручка</span><span>Прибыль</span></div>
-        @foreach (var row in CurrentRows.Take(15))
+        <div class="analytics-tabs"><button class="@(_tab == "products" ? "active" : null)" @onclick='() => _tab = "products"'>Товары</button><button class="@(_tab == "categories" ? "active" : null)" @onclick='() => _tab = "categories"'>Категории</button><button class="@(_tab == "customers" ? "active" : null)" @onclick='() => _tab = "customers"'>Клиенты</button><button class="@(_tab == "suppliers" ? "active" : null)" @onclick='() => _tab = "suppliers"'>Поставщики</button><button class="@(_tab == "intermediaries" ? "active" : null)" @onclick='() => _tab = "intermediaries"'>Посредники</button><button class="@(_tab == "collections" ? "active" : null)" @onclick='() => _tab = "collections"'>Коллекции</button><button class="@(_tab == "outfits" ? "active" : null)" @onclick='() => _tab = "outfits"'>Образы</button><button class="@(_tab == "content" ? "active" : null)" @onclick='() => _tab = "content"'>Контент</button></div>
+        @if (_tab == "content")
         {
-            <div class="ranking-row"><strong>@row.Name</strong><span>@row.Orders</span><span>@row.Quantity</span><span>@Money(row.RevenueUzs)</span><span class="@(row.ProfitUzs >= 0 ? "positive" : "negative")">@Money(row.ProfitUzs)</span></div>
+            <div class="content-profit-header"><span>Публикация</span><span>Дата</span><span>Товаров</span><span>Без продаж</span><span>Заказы</span><span>Выручка</span><span>Прибыль</span></div>
+            @foreach (var row in _profitReport.Content.Take(15)) { <div class="content-profit-row"><span><strong>@row.Name</strong><small>@row.Format</small></span><span>@row.Date.ToString("dd.MM.yyyy")</span><span>@row.Products</span><span class="@(row.ProductsWithoutSales > 0 ? "negative" : null)">@row.ProductsWithoutSales</span><span>@row.Orders</span><span>@Money(row.RevenueUzs)</span><span class="@(row.ProfitUzs >= 0 ? "positive" : "negative")">@Money(row.ProfitUzs)</span></div> }
+            @if (_profitReport.Content.Count == 0) { <div class="empty-state">Нет опубликованного контента, связанного с коллекциями или образами.</div> }
         }
-        @if (CurrentRows.Count == 0) { <div class="empty-state">Недостаточно данных для рейтинга.</div> }
+        else
+        {
+            <div class="ranking-header"><span>Название</span><span>Заказы</span><span>Кол-во</span><span>Выручка</span><span>Прибыль</span></div>
+            @foreach (var row in CurrentRows.Take(15)) { <div class="ranking-row"><strong>@row.Name</strong><span>@row.Orders</span><span>@row.Quantity</span><span>@Money(row.RevenueUzs)</span><span class="@(row.ProfitUzs >= 0 ? "positive" : "negative")">@Money(row.ProfitUzs)</span></div> }
+            @if (CurrentRows.Count == 0) { <div class="empty-state">Недостаточно данных для рейтинга.</div> }
+        }
     </section>
 </div>
 
 @code {
     private IReadOnlyList<Sale> _sales = [];
     private IReadOnlyList<Product> _products = [];
+    private IReadOnlyList<Purchase> _purchases = [];
+    private MarketingData _marketing = new();
     private DateTime? _from;
     private DateTime? _to = DateTime.Today;
     private AnalyticsReport _report = new();
+    private ProfitAnalyticsReport _profitReport = new();
     private string _tab = "products";
-    private IReadOnlyList<AnalyticsRow> CurrentRows => _tab switch { "categories" => _report.Categories, "customers" => _report.Customers, _ => _report.Products };
+    private IReadOnlyList<AnalyticsRow> CurrentRows => _tab switch { "categories" => _report.Categories, "customers" => _report.Customers, "suppliers" => _profitReport.Suppliers, "intermediaries" => _profitReport.Intermediaries, "collections" => _profitReport.Collections, "outfits" => _profitReport.Outfits, _ => _report.Products };
     private decimal MaxDaily => _report.Daily.Count == 0 ? 0 : _report.Daily.Max(x => x.RevenueUzs);
 
     protected override async Task OnInitializedAsync()
     {
         var salesTask = Sales.GetSalesAsync();
         var productsTask = Catalog.GetProductsAsync();
+        var purchasesTask = Commerce.GetPurchasesAsync();
+        var marketingTask = Marketing.GetDataAsync();
         var settingsTask = BusinessSettingsRepository.GetAsync();
-        await Task.WhenAll(salesTask, productsTask, settingsTask);
-        _sales = await salesTask; _products = await productsTask;
+        await Task.WhenAll(salesTask, productsTask, purchasesTask, marketingTask, settingsTask);
+        _sales = await salesTask; _products = await productsTask; _purchases = await purchasesTask; _marketing = await marketingTask;
         var days = Math.Max(1, (await settingsTask).DefaultAnalyticsPeriodDays); _from = DateTime.Today.AddDays(-(days - 1)); _to = DateTime.Today;
         Rebuild();
     }
-    private void Rebuild() => _report = AnalyticsService.Build(_sales, _products, _from, _to);
+    private void Rebuild() { _report = AnalyticsService.Build(_sales, _products, _from, _to); _profitReport = ProfitAnalytics.Build(_sales, _products, _purchases, _marketing, _from, _to); }
     private void SetPeriod(int days) { _to = DateTime.Today; _from = _to.Value.AddDays(-(days - 1)); Rebuild(); }
     private void AllTime() { _from = null; _to = null; Rebuild(); }
-    private void ShowProducts() => _tab = "products";
-    private void ShowCategories() => _tab = "categories";
-    private void ShowCustomers() => _tab = "customers";
     private decimal BarWidth(decimal value) => MaxDaily == 0 ? 0 : Math.Max(2, Math.Round(value / MaxDaily * 100, 1));
     private static string Money(decimal value) => $"{value:N0} сум";
 }
