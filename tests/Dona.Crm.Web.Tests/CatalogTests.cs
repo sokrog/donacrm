@@ -779,8 +779,7 @@ public sealed class ProductImageStorageServiceTests
         try
         {
             var environment = new ImageEnvironment(root);
-            var google = new GoogleSheetsSettingsStore(environment, Options.Create(new GoogleSheetsOptions()));
-            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google, new ImageHttpClientFactory());
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory());
             await using var content = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 
             var image = await service.UploadAsync(Guid.NewGuid(), content, "photo.png", "image/png", content.Length);
@@ -801,8 +800,8 @@ public sealed class ProductImageStorageServiceTests
         var root = Path.Combine(Path.GetTempPath(), "dona-crm-image-tests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         try
         {
-            var environment = new ImageEnvironment(root); var google = new GoogleSheetsSettingsStore(environment, Options.Create(new GoogleSheetsOptions()));
-            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), google, new ImageHttpClientFactory());
+            var environment = new ImageEnvironment(root);
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory());
             await using var content = new MemoryStream(); using (var bitmap = new SKBitmap(3000, 1000)) { bitmap.Erase(new SKColor(30, 90, 60)); using var source = SKImage.FromBitmap(bitmap); using var encoded = source.Encode(SKEncodedImageFormat.Jpeg, 92); encoded.SaveTo(content); } content.Position = 0;
 
             var image = await service.UploadAsync(Guid.NewGuid(), content, "large.jpg", "image/jpeg", content.Length);
@@ -810,6 +809,22 @@ public sealed class ProductImageStorageServiceTests
             Assert.Equal("image/webp", image.ContentType); Assert.EndsWith(".webp", image.StorageKey);
             var fullPath = Path.Combine(root, image.StorageKey.Replace('/', Path.DirectorySeparatorChar)); using var stored = SKBitmap.Decode(fullPath);
             Assert.True(stored.Width <= 2048); Assert.True(stored.Height <= 2048);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task Personal_drive_store_accepts_desktop_oauth_client_and_removes_local_token()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-drive-tests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        try
+        {
+            var store = new GoogleDriveOAuthStore(new ImageEnvironment(root));
+            await store.SaveClientCredentialsAsync("""{"installed":{"client_id":"client.apps.googleusercontent.com","client_secret":"secret"}}""");
+            var tokenDirectory = Path.Combine(root, "credentials", "google-drive-token"); Directory.CreateDirectory(tokenDirectory); await File.WriteAllTextAsync(Path.Combine(tokenDirectory, "token.json"), "{}");
+            Assert.True(store.HasClientCredentials); Assert.True(store.IsConnected);
+            store.Disconnect();
+            Assert.False(store.IsConnected);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }

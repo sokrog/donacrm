@@ -13,6 +13,7 @@ builder.Services.AddDataProtection()
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<GoogleSheetsOptions>(builder.Configuration.GetSection(GoogleSheetsOptions.SectionName));
 builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
+builder.Services.AddSingleton<GoogleDriveOAuthStore>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<JsonCatalogRepository>();

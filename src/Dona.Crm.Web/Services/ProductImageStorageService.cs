@@ -11,7 +11,7 @@ namespace Dona.Crm.Web.Services;
 
 public sealed record ProductImageDownload(Stream Content, string ContentType);
 
-public sealed class ProductImageStorageService(IWebHostEnvironment environment, IBusinessSettingsRepository businessSettings, GoogleSheetsSettingsStore googleSettings, IHttpClientFactory httpClientFactory)
+public sealed class ProductImageStorageService(IWebHostEnvironment environment, IBusinessSettingsRepository businessSettings, GoogleDriveOAuthStore driveOAuth, IHttpClientFactory httpClientFactory)
 {
     private static readonly IReadOnlyDictionary<string, string> Extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp", ["image/gif"] = ".gif" };
     private readonly string _localRoot = Path.Combine(environment.WebRootPath, "uploads", "products");
@@ -57,7 +57,7 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
         }
         if (image.Storage == ProductImageStorage.GoogleDrive && !string.IsNullOrWhiteSpace(image.StorageKey))
         {
-            using var service = CreateDriveService();
+            using var service = await driveOAuth.CreateDriveServiceAsync(token);
             var request = service.Files.Delete(image.StorageKey); request.SupportsAllDrives = true;
             await request.ExecuteAsync(token);
         }
@@ -66,7 +66,7 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
     public async Task<ProductImageDownload> DownloadDriveAsync(string fileId, CancellationToken token = default)
     {
         if (string.IsNullOrWhiteSpace(fileId) || fileId.Any(x => !char.IsLetterOrDigit(x) && x is not '-' and not '_')) throw new InvalidOperationException("Некорректный ID файла.");
-        using var service = CreateDriveService();
+        using var service = await driveOAuth.CreateDriveServiceAsync(token);
         var metadataRequest = service.Files.Get(fileId); metadataRequest.Fields = "id,mimeType"; metadataRequest.SupportsAllDrives = true;
         var metadata = await metadataRequest.ExecuteAsync(token);
         var stream = new MemoryStream();
@@ -78,8 +78,11 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
     public async Task CheckGoogleDriveAsync(CancellationToken token = default)
     {
         var settings = await businessSettings.GetAsync(token);
-        if (string.IsNullOrWhiteSpace(settings.GoogleDriveFolderId)) throw new InvalidOperationException("Укажите ID папки Google Drive.");
-        using var service = CreateDriveService();
+        using var service = await driveOAuth.CreateDriveServiceAsync(token);
+        if (string.IsNullOrWhiteSpace(settings.GoogleDriveFolderId))
+        {
+            var aboutRequest = service.About.Get(); aboutRequest.Fields = "user(emailAddress)"; await aboutRequest.ExecuteAsync(token); return;
+        }
         var request = service.Files.Get(settings.GoogleDriveFolderId); request.Fields = "id,name,mimeType"; request.SupportsAllDrives = true;
         var folder = await request.ExecuteAsync(token);
         if (folder.MimeType != "application/vnd.google-apps.folder") throw new InvalidOperationException("Указанный ID не является папкой Google Drive.");
@@ -95,23 +98,14 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
 
     private async Task<ProductImage> UploadDriveAsync(Guid productId, Stream content, string originalName, string contentType, string extension, long sizeBytes, BusinessSettings settings, CancellationToken token)
     {
-        if (!googleSettings.HasCredentials) throw new InvalidOperationException("Сначала сохраните JSON-ключ сервисного аккаунта.");
-        if (string.IsNullOrWhiteSpace(settings.GoogleDriveFolderId)) throw new InvalidOperationException("Укажите папку Google Drive в настройках.");
-        using var service = CreateDriveService();
+        using var service = await driveOAuth.CreateDriveServiceAsync(token);
         var safeName = $"{productId:N}_{Guid.NewGuid():N}{extension}";
-        var metadata = new DriveFile { Name = safeName, Parents = [settings.GoogleDriveFolderId], AppProperties = new Dictionary<string, string> { ["productId"] = productId.ToString(), ["originalName"] = Path.GetFileName(originalName) } };
+        var metadata = new DriveFile { Name = safeName, Parents = string.IsNullOrWhiteSpace(settings.GoogleDriveFolderId) ? null : [settings.GoogleDriveFolderId], AppProperties = new Dictionary<string, string> { ["productId"] = productId.ToString(), ["originalName"] = Path.GetFileName(originalName) } };
         var request = service.Files.Create(metadata, content, contentType); request.Fields = "id,name,mimeType,size"; request.SupportsAllDrives = true;
         var result = await request.UploadAsync(token);
         if (result.Status != Google.Apis.Upload.UploadStatus.Completed || request.ResponseBody is null) throw new InvalidOperationException(result.Exception?.Message ?? "Google Drive не завершил загрузку файла.");
         var file = request.ResponseBody;
         return new ProductImage { FileName = Path.GetFileName(originalName), ContentType = file.MimeType ?? contentType, SizeBytes = file.Size ?? sizeBytes, Storage = ProductImageStorage.GoogleDrive, StorageKey = file.Id, Url = $"/media/drive/{file.Id}" };
-    }
-
-    private DriveService CreateDriveService()
-    {
-        if (!googleSettings.HasCredentials) throw new InvalidOperationException("JSON-ключ сервисного аккаунта не найден.");
-        var credential = CredentialFactory.FromFile<ServiceAccountCredential>(googleSettings.CredentialsFullPath).ToGoogleCredential().CreateScoped(DriveService.Scope.Drive);
-        return new DriveService(new BaseClientService.Initializer { HttpClientInitializer = credential, ApplicationName = "Dona CRM" });
     }
 
     private static async Task<OptimizedImage> OptimizeAsync(Stream source, string fileName, string contentType, long sizeBytes, CancellationToken token)
