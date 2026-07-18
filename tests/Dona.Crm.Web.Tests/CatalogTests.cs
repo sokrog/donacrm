@@ -108,11 +108,13 @@ public sealed class PurchaseReceivingServiceTests
         var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 2 };
         var product = new Product { Name = "Футболка", Sku = "TS-1", Variants = [variant] };
         var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPriceCny = 20 };
-        var purchase = new Purchase { Number = "PO-1", Items = [item] };
+        var supplierId = Guid.NewGuid();
+        var purchase = new Purchase { Number = "PO-1", SupplierId = supplierId, SupplierName = "1688 Store", CnyRateUzs = 1_800, AgentCommissionPercent = 5, InternationalShippingUzs = 90_000, Items = [item] };
         var catalog = new MemoryCatalog(product);
         var commerce = new MemoryCommerce();
         var movements = new MemoryStockMovements();
-        var service = new PurchaseReceivingService(catalog, commerce, movements);
+        var purchaseHistory = new MemoryPurchaseHistory();
+        var service = new PurchaseReceivingService(catalog, commerce, movements, purchaseHistory);
 
         var firstReceiptId = Guid.NewGuid();
         var first = await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 8, 1)], firstReceiptId);
@@ -135,6 +137,12 @@ public sealed class PurchaseReceivingServiceTests
         Assert.Collection(history,
             x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(7, x.QuantityDelta); },
             x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(2, x.QuantityDelta); });
+        var costs = await purchaseHistory.GetAsync();
+        Assert.Equal(2, costs.ProductCosts.Count);
+        Assert.Equal(2, costs.ExchangeRates.Count);
+        Assert.All(costs.ProductCosts, x => { Assert.Equal("TS-1", x.Sku); Assert.Equal("1688 Store", x.SupplierName); Assert.Equal(1_800, x.CnyRateUzs); Assert.True(x.UnitLandedCostUzs > 0); });
+        Assert.Equal(7, costs.ProductCosts[0].Quantity);
+        Assert.Equal(2, costs.ProductCosts[1].Quantity);
     }
 
     [Fact]
@@ -177,6 +185,18 @@ public sealed class PurchaseReceivingServiceTests
         public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Purchase>>([]);
         public Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Purchase?>(null);
         public Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+    private sealed class MemoryPurchaseHistory : IPurchaseHistoryRepository
+    {
+        private readonly PurchaseHistoryData _data = new();
+        public Task<PurchaseHistoryData> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_data);
+        public Task AddAsync(IEnumerable<ProductCostHistoryEntry> productCosts, ExchangeRateHistoryEntry? exchangeRate, CancellationToken cancellationToken = default)
+        {
+            var ids = _data.ProductCosts.Select(x => x.Id).ToHashSet();
+            _data.ProductCosts.AddRange(productCosts.Where(x => ids.Add(x.Id)));
+            if (exchangeRate is not null && _data.ExchangeRates.All(x => x.Id != exchangeRate.Id)) _data.ExchangeRates.Add(exchangeRate);
+            return Task.CompletedTask;
+        }
     }
 }
 
