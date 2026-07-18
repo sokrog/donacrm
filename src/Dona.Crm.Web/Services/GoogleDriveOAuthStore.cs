@@ -20,7 +20,7 @@ public sealed class GoogleDriveOAuthStore
     }
 
     public bool HasClientCredentials => File.Exists(_clientPath);
-    public bool IsConnected => HasClientCredentials && Directory.Exists(_tokenDirectory) && Directory.EnumerateFiles(_tokenDirectory, "*.json").Any();
+    public bool IsConnected => HasClientCredentials && Directory.Exists(_tokenDirectory) && Directory.EnumerateFiles(_tokenDirectory).Any();
 
     public async Task SaveClientCredentialsAsync(string json, CancellationToken token = default)
     {

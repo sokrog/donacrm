@@ -821,7 +821,7 @@ public sealed class ProductImageStorageServiceTests
         {
             var store = new GoogleDriveOAuthStore(new ImageEnvironment(root));
             await store.SaveClientCredentialsAsync("""{"installed":{"client_id":"client.apps.googleusercontent.com","client_secret":"secret"}}""");
-            var tokenDirectory = Path.Combine(root, "credentials", "google-drive-token"); Directory.CreateDirectory(tokenDirectory); await File.WriteAllTextAsync(Path.Combine(tokenDirectory, "token.json"), "{}");
+            var tokenDirectory = Path.Combine(root, "credentials", "google-drive-token"); Directory.CreateDirectory(tokenDirectory); await File.WriteAllTextAsync(Path.Combine(tokenDirectory, "Google.Apis.Auth.OAuth2.Responses.TokenResponse-dona-crm-personal-drive"), "{}");
             Assert.True(store.HasClientCredentials); Assert.True(store.IsConnected);
             store.Disconnect();
             Assert.False(store.IsConnected);
