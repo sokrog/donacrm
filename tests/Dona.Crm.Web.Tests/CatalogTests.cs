@@ -200,6 +200,41 @@ public sealed class PurchaseReceivingServiceTests
     }
 }
 
+public sealed class SupplierAnalyticsServiceTests
+{
+    [Fact]
+    public void Calculates_quality_completeness_delivery_and_product_comparison()
+    {
+        var supplier = new Supplier { Name = "Store A" };
+        var productId = Guid.NewGuid();
+        var purchase = new Purchase
+        {
+            Number = "PO-10", SupplierId = supplier.Id, SupplierName = supplier.Name, Status = PurchaseStatus.Received,
+            EstimatedDeliveryDate = new DateTime(2026, 7, 10),
+            Items = [new PurchaseItem { ProductId = productId, ProductName = "Футболка", Quantity = 10 }],
+            Receipts = [new PurchaseReceipt { ReceivedAt = new DateTimeOffset(2026, 7, 12, 12, 0, 0, TimeSpan.FromHours(5)), Lines = [new PurchaseReceiptLine { ProductId = productId, ReceivedQuantity = 9, DefectQuantity = 1, StockedQuantity = 8 }] }]
+        };
+        var secondSupplier = new Supplier { Name = "Store B" };
+        var history = new PurchaseHistoryData { ProductCosts =
+        [
+            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = supplier.Id, SupplierName = supplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 8, UnitPriceCny = 20, UnitLandedCostUzs = 50_000 },
+            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = secondSupplier.Id, SupplierName = secondSupplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 5, UnitPriceCny = 18, UnitLandedCostUzs = 47_000 }
+        ] };
+        var service = new SupplierAnalyticsService();
+
+        var analytics = Assert.Single(service.Calculate([supplier], [purchase], history));
+        Assert.Equal(11.1m, analytics.DefectRatePercent);
+        Assert.Equal(90m, analytics.CompletenessPercent);
+        Assert.Equal(2m, analytics.AverageDelayDays);
+        Assert.Equal(0m, analytics.OnTimePercent);
+        Assert.Equal(50_000m, analytics.AverageUnitCostUzs);
+        Assert.Equal(74m, analytics.ReliabilityScore);
+        var comparison = service.CompareProducts(history);
+        Assert.Equal(2, comparison.Count);
+        Assert.Equal(47_000m, comparison.Single(x => x.SupplierId == secondSupplier.Id).AverageUnitCostUzs);
+    }
+}
+
 public sealed class JsonCatalogRepositoryTests
 {
     [Fact]

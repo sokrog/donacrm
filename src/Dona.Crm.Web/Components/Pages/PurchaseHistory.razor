@@ -1,6 +1,8 @@
 @page "/purchase-history"
 @attribute [StreamRendering]
 @inject IPurchaseHistoryRepository Repository
+@inject ICommerceRepository Commerce
+@inject SupplierAnalyticsService Analytics
 
 <PageTitle>Цены и курсы — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Закупки</span><h1>Цены и курсы</h1><p>Фактическая стоимость товара в каждой приёмке и сравнение поставщиков.</p></div></div>
@@ -30,26 +32,48 @@
         </div>
         @if (!Filtered.Any()) { <div class="empty-state">История не найдена. Она появится после приёмки закупки.</div> }
     </section>
-    <section class="panel supplier-comparison">
-        <div class="panel-header"><div><h2>Сравнение поставщиков</h2><p>По фактически принятым единицам.</p></div></div>
-        <div class="supplier-summary-header"><span>Поставщик</span><span>Поставок</span><span>Единиц</span><span>Ср. себестоимость</span></div>
-        @foreach (var supplier in SupplierComparison) { <div class="supplier-summary-row"><strong>@supplier.Name</strong><span>@supplier.Receipts</span><span>@supplier.Quantity</span><span>@Money(supplier.AverageCost)</span></div> }
+    <section class="panel table-panel supplier-analytics-table">
+        <div class="panel-header"><div><h2>Надёжность поставщиков</h2><p>Закупки, качество, полнота и соблюдение плановых сроков за всё время.</p></div></div>
+        <div class="data-table">
+            <div class="table-header"><span>Поставщик</span><span>Рейтинг</span><span>Закупок</span><span>Брак</span><span>Получено</span><span>Срок</span><span>Себестоимость</span></div>
+            @foreach (var supplier in SupplierComparison)
+            {
+                <a class="table-row" href="/suppliers/@supplier.SupplierId"><span><strong>@supplier.SupplierName</strong><small>@supplier.ReceiptCount приёмок</small></span><span><em class="reliability @ScoreClass(supplier.ReliabilityScore)">@Score(supplier.ReliabilityScore)</em></span><span>@supplier.PurchaseCount</span><span>@Percent(supplier.DefectRatePercent)</span><span>@Percent(supplier.CompletenessPercent)</span><span>@Delay(supplier)</span><span>@Money(supplier.AverageUnitCostUzs)</span></a>
+            }
+        </div>
         @if (SupplierComparison.Count == 0) { <div class="empty-state small">Пока недостаточно данных для сравнения.</div> }
     </section>
 </div>
 
+<section class="panel table-panel product-supplier-table">
+    <div class="panel-header"><div><h2>Где выгоднее покупать товар</h2><p>Сравнение фактической цены одного товара у разных поставщиков.</p></div></div>
+    <div class="data-table">
+        <div class="table-header"><span>Товар</span><span>Поставщик</span><span>Приёмок</span><span>Единиц</span><span>Средняя цена ¥</span><span>Себестоимость</span></div>
+        @foreach (var item in ProductComparison.OrderBy(x => x.ProductName).ThenBy(x => x.AverageUnitCostUzs))
+        {
+            <div class="table-row"><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku</small></a></span><span>@item.SupplierName</span><span>@item.ReceiptCount</span><span>@item.Quantity</span><span>@item.AverageUnitPriceCny.ToString("N2")</span><span><strong>@Money(item.AverageUnitCostUzs)</strong></span></div>
+        }
+    </div>
+    @if (ProductComparison.Count == 0) { <div class="empty-state">Добавьте приёмки от нескольких поставщиков, чтобы сравнить цены одного товара.</div> }
+</section>
+
 @code {
     private PurchaseHistoryData _data = new();
+    private IReadOnlyList<SupplierAnalytics> _supplierAnalytics = [];
     private string _query = string.Empty; private string _supplier = string.Empty; private DateTime? _from; private DateTime? _to;
     private IEnumerable<ProductCostHistoryEntry> Filtered => _data.ProductCosts.Where(x => (string.IsNullOrWhiteSpace(_query) || x.ProductName.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.PurchaseNumber.Contains(_query, StringComparison.OrdinalIgnoreCase)) && (string.IsNullOrWhiteSpace(_supplier) || x.SupplierName == _supplier) && (_from is null || x.RecordedAt.ToLocalTime().Date >= _from.Value.Date) && (_to is null || x.RecordedAt.ToLocalTime().Date <= _to.Value.Date));
     private List<string> Suppliers => _data.ProductCosts.Select(x => x.SupplierName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
     private decimal LatestRate => _data.ExchangeRates.OrderByDescending(x => x.RecordedAt).FirstOrDefault()?.RateUzs ?? 0;
     private decimal AverageRate { get { var values = Filtered.Where(x => x.CnyRateUzs > 0).ToList(); return values.Count == 0 ? 0 : Math.Round(values.Average(x => x.CnyRateUzs), 2); } }
     private decimal WeightedCost { get { var values = Filtered.ToList(); var quantity = values.Sum(x => x.Quantity); return quantity == 0 ? 0 : Math.Round(values.Sum(x => x.UnitLandedCostUzs * x.Quantity) / quantity); } }
-    private List<SupplierSummary> SupplierComparison => Filtered.GroupBy(x => string.IsNullOrWhiteSpace(x.SupplierName) ? "Без поставщика" : x.SupplierName).Select(x => new SupplierSummary(x.Key, x.Select(v => v.ReceiptId).Distinct().Count(), x.Sum(v => v.Quantity), x.Sum(v => v.Quantity) == 0 ? 0 : Math.Round(x.Sum(v => v.UnitLandedCostUzs * v.Quantity) / x.Sum(v => v.Quantity)))).OrderBy(x => x.AverageCost).ToList();
-    protected override async Task OnInitializedAsync() => _data = await Repository.GetAsync();
+    private List<SupplierAnalytics> SupplierComparison => _supplierAnalytics.Where(x => string.IsNullOrWhiteSpace(_supplier) || x.SupplierName == _supplier).OrderByDescending(x => x.ReliabilityScore).ToList();
+    private List<ProductSupplierComparison> ProductComparison { get { var comparisons = Analytics.CompareProducts(new PurchaseHistoryData { ProductCosts = Filtered.ToList() }); var comparable = comparisons.GroupBy(x => x.ProductId).Where(x => x.Select(v => v.SupplierName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1).SelectMany(x => x).ToList(); return comparable; } }
+    protected override async Task OnInitializedAsync() { var history = Repository.GetAsync(); var suppliers = Commerce.GetSuppliersAsync(); var purchases = Commerce.GetPurchasesAsync(); await Task.WhenAll(history, suppliers, purchases); _data = await history; _supplierAnalytics = Analytics.Calculate(await suppliers, await purchases, _data); }
     private static string Money(decimal value) => value.ToString("N0");
     private static string Empty(string value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
     private static string Variant(ProductCostHistoryEntry item) => string.Join(" · ", new[] { item.Color, item.Size }.Where(x => !string.IsNullOrWhiteSpace(x)));
-    private sealed record SupplierSummary(string Name, int Receipts, int Quantity, decimal AverageCost);
+    private static string Percent(decimal value) => $"{value:N1}%";
+    private static string Score(decimal? value) => value is null ? "—" : $"{value:N0}/100";
+    private static string ScoreClass(decimal? value) => value switch { >= 85 => "excellent", >= 70 => "good", >= 50 => "warning", null => "neutral", _ => "poor" };
+    private static string Delay(SupplierAnalytics value) => value.DeliverySamples == 0 ? "нет данных" : value.AverageDelayDays <= 0 ? $"в срок · {value.OnTimePercent:N0}%" : $"+{value.AverageDelayDays:N1} дн. · {value.OnTimePercent:N0}%";
 }
