@@ -5,6 +5,7 @@
 @inject ICatalogRepository Catalog
 @inject PurchaseReceivingService Receiving
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Закупка — Dona CRM</PageTitle>
 <div class="page-heading"><div><a class="back-link" href="/purchases">← Закупки</a><h1>@(_isNew ? "Новая закупка" : _model.Number)</h1><p>Стоимость партии и движение из Китая.</p></div></div>
@@ -29,7 +30,7 @@
             @foreach (var item in _model.Items)
             {
                 <div class="purchase-item-card" @key="item.Id">
-                    <div class="purchase-item"><label>Товар<ProductAutocomplete Products="_products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" Placeholder="Название или SKU" /></label><label>Название<InputText @bind-Value="item.ProductName" /></label><label>Заказано<InputNumber @bind-Value="item.Quantity" /></label><label>Цена, ¥<InputNumber @bind-Value="item.UnitPriceCny" /></label><label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" step="0.01" /></label><button type="button" class="icon-button danger" @onclick="() => _model.Items.Remove(item)">×</button></div>
+                    <div class="purchase-item"><label>Товар<ProductAutocomplete Products="_products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" Placeholder="Название или SKU" /></label><label>Название<InputText @bind-Value="item.ProductName" /></label><label>Заказано<InputNumber @bind-Value="item.Quantity" /></label><label>Цена, ¥<InputNumber @bind-Value="item.UnitPriceCny" /></label><label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" step="0.01" /></label><button type="button" class="icon-button danger" @onclick="() => RemoveItemAsync(item)">×</button></div>
                     <div class="receipt-row"><label>Цвет<InputText @bind-Value="item.Color" /></label><label>Размер<InputText @bind-Value="item.Size" /></label><div class="receipt-metric"><span>Всего получено</span><strong>@(item.ReceivedQuantity ?? 0)</strong></div><div class="receipt-metric"><span>Всего брака</span><strong>@(item.DefectQuantity ?? 0)</strong></div><div class="receipt-metric"><span>Осталось принять</span><strong class="@(item.MissingQuantity > 0 ? "negative" : null)">@item.MissingQuantity</strong></div><div class="receipt-metric"><span>Себестоимость ед.</span><strong>@Money(_model.ItemUnitLandedCostUzs(item))</strong></div><div class="receipt-metric"><span>Оприходовано</span><strong>@item.StockedQuantity</strong></div></div>
                 </div>
             }
@@ -74,6 +75,7 @@
     private bool HasMoqWarning => SelectedSupplier?.Moq is > 1 && _model.Items.Any(x => (x.Quantity ?? 0) < SelectedSupplier.Moq.Value);
     protected override async Task OnParametersSetAsync() { var suppliers = Commerce.GetSuppliersAsync(); var intermediaries = Commerce.GetIntermediariesAsync(); await Task.WhenAll(suppliers, intermediaries); _suppliers = (await suppliers).ToList(); _intermediaries = (await intermediaries).ToList(); _model = Id is null ? new Purchase() : await Commerce.GetPurchaseAsync(Id.Value) ?? new Purchase(); var referenced = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet(); _products = (await Catalog.GetProductsAsync()).Where(x => x.Status != ProductStatus.Archived || referenced.Contains(x.Id)).ToList(); _receiptLines.Clear(); _receiptDate = null; _receiptNote = null; _receiptId = Guid.NewGuid(); _message = null; }
     private void AddItem() => _model.Items.Add(new PurchaseItem());
+    private async Task RemoveItemAsync(PurchaseItem item) { if (await JS.InvokeAsync<bool>("confirm", $"Удалить позицию «{item.ProductName}» из закупки?")) _model.Items.Remove(item); }
     private void SupplierChanged() { _model.SupplierName = _model.SupplierId is null ? null : _suppliers.FirstOrDefault(x => x.Id == _model.SupplierId)?.Name; }
     private void IntermediaryChanged() { _model.IntermediaryName = _model.IntermediaryId is null ? null : _intermediaries.FirstOrDefault(x => x.Id == _model.IntermediaryId)?.Name; }
     private void ProductChanged(PurchaseItem item, Product? product) { if (product is null) { item.ProductId = null; item.ProductVariantId = null; return; } item.ProductId = product.Id; item.ProductName = product.Name; item.UnitPriceCny = product.PurchasePriceCny; var variant = product.Variants.FirstOrDefault(); if (variant is not null) { item.ProductVariantId = variant.Id; item.Color = variant.Color; item.Size = variant.Size; } }

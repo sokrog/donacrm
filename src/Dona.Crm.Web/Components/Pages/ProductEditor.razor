@@ -51,7 +51,7 @@
                     <label>Цвет<InputText @bind-Value="variant.Color" /></label>
                     <label>Размер<InputText @bind-Value="variant.Size" /></label>
                     <label>Количество<InputNumber @bind-Value="variant.Quantity" /></label>
-                    <button type="button" class="icon-button danger" title="Удалить" @onclick="() => RemoveVariant(variant)">×</button>
+                    <button type="button" class="icon-button danger" title="Удалить" @onclick="() => _variantToDelete = variant">×</button>
                 </div>
             }
         </section>
@@ -68,10 +68,10 @@
                     @foreach (var image in Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt))
                     {
                         <div class="product-image-card @(image.IsMain ? "main" : null)" @key="image.Id">
-                            <div class="product-image-preview"><img src="@image.Url" alt="@image.Caption" loading="lazy" />@if (image.IsMain) { <em>Главное</em> }</div>
+                            <button type="button" class="product-image-preview" title="Открыть на весь экран" @onclick="() => _previewImage = image"><img src="@image.Url" alt="@image.Caption" loading="lazy" />@if (image.IsMain) { <em>Главное</em> }</button>
                             <InputText @bind-Value="image.Caption" placeholder="Подпись" />
                             <small>@image.FileName · @Size(image.SizeBytes) · @(image.Storage == ProductImageStorage.GoogleDrive ? "Drive" : "Локально")</small>
-                            <div class="image-card-actions"><button type="button" title="Раньше" @onclick="() => MoveImageAsync(image, -1)">←</button><button type="button" title="Позже" @onclick="() => MoveImageAsync(image, 1)">→</button>@if (!image.IsMain) { <button type="button" @onclick="() => SetMainImageAsync(image)">Сделать главным</button> }<button type="button" class="danger" @onclick="() => DeleteImageAsync(image)">Удалить</button></div>
+                            <div class="image-card-actions"><button type="button" title="Раньше" @onclick="() => MoveImageAsync(image, -1)">←</button><button type="button" title="Позже" @onclick="() => MoveImageAsync(image, 1)">→</button>@if (!image.IsMain) { <button type="button" @onclick="() => SetMainImageAsync(image)">Сделать главным</button> }<button type="button" class="danger" @onclick="() => _imageToDelete = image">Удалить</button></div>
                         </div>
                     }
                 </div>
@@ -80,15 +80,26 @@
             @if (!string.IsNullOrWhiteSpace(_imageMessage)) { <div class="notice @(_imageSuccess ? "success" : "error")">@_imageMessage</div> }
         </section>
     </div>
+    @if (_variantToDelete is not null) { <div class="delete-confirmation"><span>Удалить вариант «@_variantToDelete.Color / @_variantToDelete.Size»?</span><button type="button" class="button ghost" @onclick="() => _variantToDelete = null">Нет</button><button type="button" class="button danger-button" @onclick="ConfirmVariantDelete">Да, удалить</button></div> }
+    @if (_imageToDelete is not null) { <div class="delete-confirmation"><span>Удалить изображение «@_imageToDelete.FileName» без возможности восстановления?</span><button type="button" class="button ghost" @onclick="() => _imageToDelete = null">Нет</button><button type="button" class="button danger-button" @onclick="ConfirmImageDeleteAsync">Да, удалить</button></div> }
     @if (_confirmDelete) { <div class="delete-confirmation"><span>Удалить товар без возможности восстановления?</span><button type="button" class="button ghost" @onclick="() => _confirmDelete = false">Нет</button><button type="button" class="button danger-button" @onclick="DeleteAsync">Да, удалить</button></div> }
     <div class="form-actions"><a class="button ghost" href="/products">Отмена</a>@if (!_isNew && Model.Status == ProductStatus.Archived) { <button class="button secondary" type="button" @onclick="RestoreAsync">Вернуть из архива</button> } else if (!_isNew) { <button class="button ghost" type="button" @onclick="ArchiveAsync">В архив</button> }@if (!_isNew) { <button class="button danger-button" type="button" @onclick="() => _confirmDelete = true">Удалить товар</button> }<button class="button primary" type="submit" disabled="@_saving">@(_saving ? "Сохраняем…" : "Сохранить товар")</button></div>
 </EditForm>
+@if (_previewImage is not null)
+{
+    <div class="image-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр изображения" @onclick="() => _previewImage = null">
+        <div class="image-lightbox-content" @onclick:stopPropagation="true"><button type="button" class="image-lightbox-close" aria-label="Закрыть" @onclick="() => _previewImage = null">×</button><img src="@_previewImage.Url" alt="@_previewImage.Caption" /><div><strong>@(_previewImage.Caption ?? _previewImage.FileName)</strong>@if (_previewImage.IsMain) { <span>Главная миниатюра</span> }</div></div>
+    </div>
+}
 
 @code {
     [Parameter] public Guid? Id { get; set; }
     private Product Model { get; set; } = new();
     private bool _saving;
     private bool _confirmDelete;
+    private ProductVariant? _variantToDelete;
+    private ProductImage? _imageToDelete;
+    private ProductImage? _previewImage;
     private bool _imageBusy; private bool _imageSuccess; private string? _imageMessage; private string? _imageUrl;
     private const long MaxImageSize = 25 * 1024 * 1024;
     private bool _isNew => Id is null;
@@ -97,7 +108,7 @@
     private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
     protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); Model = Id is null ? new Product() : await Repository.GetProductAsync(Id.Value) ?? new Product(); NormalizeImages(); _confirmDelete = false; _imageMessage = null; }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
-    private void RemoveVariant(ProductVariant variant) => Model.Variants.Remove(variant);
+    private void ConfirmVariantDelete() { if (_variantToDelete is null) return; Model.Variants.Remove(_variantToDelete); _variantToDelete = null; }
     private async Task SaveAsync() { _saving = true; NormalizeImages(); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task ArchiveAsync() { _saving = true; Model.Status = ProductStatus.Archived; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task RestoreAsync() { _saving = true; Model.Status = ProductStatus.OnOrder; Model.Status = ProductStatusService.Calculate(Model, await BusinessSettingsRepository.GetAsync()); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
@@ -118,7 +129,7 @@
     }
     private async Task SetMainImageAsync(ProductImage selected) { foreach (var image in Model.Images) image.IsMain = image.Id == selected.Id; NormalizeImages(); await Repository.UpsertProductAsync(Model); }
     private async Task MoveImageAsync(ProductImage selected, int direction) { var ordered = Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToList(); var index = ordered.FindIndex(x => x.Id == selected.Id); var target = index + direction; if (index < 0 || target < 0 || target >= ordered.Count) return; (ordered[index], ordered[target]) = (ordered[target], ordered[index]); for (var i = 0; i < ordered.Count; i++) ordered[i].SortOrder = i; Model.Images = ordered; await Repository.UpsertProductAsync(Model); }
-    private async Task DeleteImageAsync(ProductImage image) { _imageBusy = true; try { await ImageStorage.DeleteAsync(image); Model.Images.RemoveAll(x => x.Id == image.Id); NormalizeImages(); await Repository.UpsertProductAsync(Model); _imageMessage = "Изображение удалено."; _imageSuccess = true; } catch (Exception exception) { _imageMessage = $"Не удалось удалить изображение: {exception.Message}"; _imageSuccess = false; } finally { _imageBusy = false; } }
+    private async Task ConfirmImageDeleteAsync() { var image = _imageToDelete; if (image is null) return; _imageToDelete = null; _imageBusy = true; try { await ImageStorage.DeleteAsync(image); Model.Images.RemoveAll(x => x.Id == image.Id); NormalizeImages(); await Repository.UpsertProductAsync(Model); if (_previewImage?.Id == image.Id) _previewImage = null; _imageMessage = "Изображение удалено."; _imageSuccess = true; } catch (Exception exception) { _imageMessage = $"Не удалось удалить изображение: {exception.Message}"; _imageSuccess = false; } finally { _imageBusy = false; } }
     private void NormalizeImages() { var ordered = Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToList(); if (ordered.Count > 0 && ordered.All(x => !x.IsMain)) ordered[0].IsMain = true; var mainFound = false; for (var i = 0; i < ordered.Count; i++) { ordered[i].SortOrder = i; if (ordered[i].IsMain && !mainFound) mainFound = true; else if (ordered[i].IsMain) ordered[i].IsMain = false; } Model.Images = ordered; if (ordered.Count > 0) Model.ImageUrl = ordered.First(x => x.IsMain).Url; else if (Model.ImageUrl?.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) == true || Model.ImageUrl?.StartsWith("/media/drive/", StringComparison.OrdinalIgnoreCase) == true) Model.ImageUrl = null; }
     private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024m / 1024m:N1} МБ" : $"{bytes / 1024m:N0} КБ";
     private static string Money(decimal value) => $"{value:N0} сум";
