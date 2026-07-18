@@ -9,12 +9,15 @@ namespace Dona.Crm.Web.Storage;
 
 public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settings) : ISalesRepository, IDisposable
 {
-    private static readonly string[] SheetNames = ["Customers", "Sales", "SaleItems"];
+    private static readonly string[] SheetNames = ["Customers", "Sales", "SaleItems", "SaleReturns", "SaleReturnItems", "Payments"];
     private static readonly string[][] Headers =
     [
         ["Id", "Name", "Phone", "Instagram", "Telegram", "Address", "Notes", "CreatedAt"],
         ["Id", "Number", "CustomerId", "CustomerName", "Status", "PaymentMethod", "DeliveryMethod", "DiscountUzs", "DeliveryChargeUzs", "Notes", "CreatedAt"],
-        ["Id", "SaleId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "Quantity", "UnitPriceUzs", "UnitCostUzs", "ReservedQuantity", "SoldQuantity", "ReturnedQuantity"]
+        ["Id", "SaleId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "Quantity", "UnitPriceUzs", "UnitCostUzs", "ReservedQuantity", "SoldQuantity", "ReturnedQuantity"],
+        ["Id", "SaleId", "CreatedAt", "Reason", "RefundAmountUzs", "Notes"],
+        ["Id", "ReturnId", "SaleItemId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "Quantity", "Disposition"],
+        ["Id", "SaleId", "CreatedAt", "Type", "Status", "Method", "AmountUzs", "Reference", "Notes"]
     ];
     private readonly SemaphoreSlim _gate = new(1, 1);
     private SheetsService? _service;
@@ -34,7 +37,7 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
     {
         var service = await EnsureAsync(token);
         var request = service.Spreadsheets.Values.BatchGet(settings.SpreadsheetId);
-        request.Ranges = new[] { "Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M" };
+        request.Ranges = new[] { "Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I" };
         var ranges = (await request.ExecuteAsync(token)).ValueRanges;
         var data = new SalesData
         {
@@ -48,16 +51,39 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
             if (saleId is null || !sales.TryGetValue(saleId.Value, out var sale)) continue;
             sale.Items.Add(new SaleItem { Id = GuidValue(Cell(row, 0)) ?? Guid.NewGuid(), ProductId = GuidValue(Cell(row, 2)), ProductVariantId = GuidValue(Cell(row, 3)), ProductName = Cell(row, 4), Color = Cell(row, 5), Size = Cell(row, 6), Quantity = NullableInt(Cell(row, 7)), UnitPriceUzs = NullableDecimal(Cell(row, 8)), UnitCostUzs = NullableDecimal(Cell(row, 9)), ReservedQuantity = IntValue(Cell(row, 10)), SoldQuantity = IntValue(Cell(row, 11)), ReturnedQuantity = IntValue(Cell(row, 12)) });
         }
+        var returns = new Dictionary<Guid, SaleReturn>();
+        foreach (var row in Rows(ranges, 3))
+        {
+            var id = GuidValue(Cell(row, 0)); var saleId = GuidValue(Cell(row, 1));
+            if (id is null || saleId is null || !sales.TryGetValue(saleId.Value, out var sale)) continue;
+            var document = new SaleReturn { Id = id.Value, CreatedAt = DateValue(Cell(row, 2)), Reason = Cell(row, 3), RefundAmountUzs = NullableDecimal(Cell(row, 4)), Notes = Empty(Cell(row, 5)) };
+            sale.Returns.Add(document); returns[id.Value] = document;
+        }
+        foreach (var row in Rows(ranges, 4))
+        {
+            var returnId = GuidValue(Cell(row, 1));
+            if (returnId is null || !returns.TryGetValue(returnId.Value, out var document)) continue;
+            document.Items.Add(new SaleReturnItem { Id = GuidValue(Cell(row, 0)) ?? Guid.NewGuid(), SaleItemId = GuidValue(Cell(row, 2)) ?? Guid.Empty, ProductId = GuidValue(Cell(row, 3)), ProductVariantId = GuidValue(Cell(row, 4)), ProductName = Cell(row, 5), Color = Cell(row, 6), Size = Cell(row, 7), Quantity = NullableInt(Cell(row, 8)), Disposition = Enum.TryParse<ReturnDisposition>(Cell(row, 9), true, out var disposition) ? disposition : null });
+        }
+        foreach (var row in Rows(ranges, 5))
+        {
+            var saleId = GuidValue(Cell(row, 1));
+            if (saleId is null || !sales.TryGetValue(saleId.Value, out var sale)) continue;
+            sale.Payments.Add(new SalePayment { Id = GuidValue(Cell(row, 0)) ?? Guid.NewGuid(), CreatedAt = DateValue(Cell(row, 2)), Type = Enum.TryParse<PaymentOperationType>(Cell(row, 3), true, out var type) ? type : null, Status = Enum.TryParse<PaymentStatus>(Cell(row, 4), true, out var status) ? status : null, Method = Enum.TryParse<PaymentMethod>(Cell(row, 5), true, out var method) ? method : null, AmountUzs = NullableDecimal(Cell(row, 6)), Reference = Empty(Cell(row, 7)), Notes = Empty(Cell(row, 8)) });
+        }
         return data;
     }
     private async Task WriteCoreAsync(SalesData data, CancellationToken token)
     {
         var service = await EnsureAsync(token);
-        await service.Spreadsheets.Values.BatchClear(new BatchClearValuesRequest { Ranges = ["Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M"] }, settings.SpreadsheetId).ExecuteAsync(token);
+        await service.Spreadsheets.Values.BatchClear(new BatchClearValuesRequest { Ranges = ["Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I"] }, settings.SpreadsheetId).ExecuteAsync(token);
         var values = new List<ValueRange>();
         Add(values, "Customers!A2:H", data.Customers.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Phone ?? "", x.Instagram ?? "", x.Telegram ?? "", x.Address ?? "", x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
         Add(values, "Sales!A2:K", data.Sales.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.CustomerId?.ToString() ?? "", x.CustomerName ?? "", x.Status?.ToString() ?? "", x.PaymentMethod?.ToString() ?? "", x.DeliveryMethod?.ToString() ?? "", Obj(x.DiscountUzs), Obj(x.DeliveryChargeUzs), x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
         Add(values, "SaleItems!A2:M", data.Sales.SelectMany(s => s.Items.Select(x => (IList<object>)[x.Id.ToString(), s.Id.ToString(), x.ProductId?.ToString() ?? "", x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Color, x.Size, Obj(x.Quantity), Obj(x.UnitPriceUzs), Obj(x.UnitCostUzs), x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity])).ToList());
+        Add(values, "SaleReturns!A2:F", data.Sales.SelectMany(s => s.Returns.Select(x => (IList<object>)[x.Id.ToString(), s.Id.ToString(), x.CreatedAt.ToString("O"), x.Reason, Obj(x.RefundAmountUzs), x.Notes ?? ""])).ToList());
+        Add(values, "SaleReturnItems!A2:J", data.Sales.SelectMany(s => s.Returns.SelectMany(r => r.Items.Select(x => (IList<object>)[x.Id.ToString(), r.Id.ToString(), x.SaleItemId.ToString(), x.ProductId?.ToString() ?? "", x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Color, x.Size, Obj(x.Quantity), x.Disposition?.ToString() ?? ""]))).ToList());
+        Add(values, "Payments!A2:I", data.Sales.SelectMany(s => s.Payments.Select(x => (IList<object>)[x.Id.ToString(), s.Id.ToString(), x.CreatedAt.ToString("O"), x.Type?.ToString() ?? "", x.Status?.ToString() ?? "", x.Method?.ToString() ?? "", Obj(x.AmountUzs), x.Reference ?? "", x.Notes ?? ""])).ToList());
         if (values.Count > 0) await service.Spreadsheets.Values.BatchUpdate(new BatchUpdateValuesRequest { ValueInputOption = "RAW", Data = values }, settings.SpreadsheetId).ExecuteAsync(token);
     }
     private async Task<SheetsService> EnsureAsync(CancellationToken token)

@@ -1,0 +1,52 @@
+@page "/sales/{SaleId:guid}/returns/new"
+@attribute [StreamRendering]
+@inject ISalesRepository Sales
+@inject SalesReturnService ReturnService
+@inject NavigationManager Navigation
+
+<PageTitle>Новый возврат — Dona CRM</PageTitle>
+
+<div class="page-heading"><div><a class="back-link" href="/sales/@SaleId">← Продажа</a><h1>Новый возврат</h1><p>@(_sale is null ? "Загрузка заказа" : $"Заказ {_sale.Number}: выберите позиции и результат проверки")</p></div></div>
+
+@if (_sale is not null)
+{
+    <EditForm Model="_model" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="validation-errors" />
+        <div class="editor-grid">
+            <section class="panel form-section">
+                <div class="section-title"><span>01</span><div><h2>Документ возврата</h2><p>Причина и сумма возврата клиенту</p></div></div>
+                <div class="form-grid"><label class="span-2">Причина<InputText @bind-Value="_model.Reason" placeholder="Например, не подошёл размер" /><ValidationMessage For="() => _model.Reason" /></label><label>Сумма возврата, сум<InputNumber @bind-Value="_model.RefundAmountUzs" /></label><label>Доступно к возврату<div class="readonly-field">@Money(Math.Max(0, _sale.TotalUzs - _sale.RefundedUzs))</div></label><label class="span-2">Комментарий<InputTextArea @bind-Value="_model.Notes" /></label></div>
+            </section>
+            <aside class="panel economics-card"><div class="section-title"><span>₸</span><div><h2>Итог</h2><p>по выбранным строкам</p></div></div><div class="calculation large"><span>Принять <strong>@_model.AcceptedQuantity шт.</strong></span><span>Вернуть на склад <strong>@_model.RestockedQuantity шт.</strong></span><span>Списать как брак <strong>@_model.DefectQuantity шт.</strong></span><span>Отказать <strong>@_model.RejectedQuantity шт.</strong></span><span class="total-line">Вернуть денег <strong>@Money(_model.RefundAmountUzs ?? 0)</strong></span></div></aside>
+            <section class="panel form-section span-all">
+                <div class="section-title"><span>02</span><div><h2>Позиции</h2><p>Пустые строки не попадут в документ</p></div></div>
+                @foreach (var line in _model.Items)
+                {
+                    <div class="sale-return-line" @key="line.Id"><div><strong>@line.ProductName</strong><small>@Variant(line) · можно вернуть @Remaining(line.SaleItemId) шт.</small></div><label>Количество<InputNumber @bind-Value="line.Quantity" /></label><label>Результат<InputSelect @bind-Value="line.Disposition"><option value="">Выберите</option>@foreach (var disposition in Enum.GetValues<ReturnDisposition>()) { <option value="@disposition">@disposition.Display()</option> }</InputSelect></label></div>
+                }
+            </section>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_error)) { <div class="notice error">@_error</div> }
+        <div class="form-actions"><a class="button ghost" href="/sales/@SaleId">Отмена</a><button class="button primary" disabled="@_saving">@(_saving ? "Сохраняем…" : "Оформить возврат")</button></div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public Guid SaleId { get; set; }
+    private Sale? _sale;
+    private SaleReturn _model = new();
+    private bool _saving;
+    private string? _error;
+    protected override async Task OnParametersSetAsync()
+    {
+        _sale = await Sales.GetSaleAsync(SaleId);
+        _model = new SaleReturn();
+        if (_sale is null) { Navigation.NavigateTo("/not-found"); return; }
+        _model.Items = _sale.Items.Where(x => x.SoldQuantity > x.ReturnedQuantity).Select(x => new SaleReturnItem { SaleItemId = x.Id, ProductId = x.ProductId, ProductVariantId = x.ProductVariantId, ProductName = x.ProductName, Color = x.Color, Size = x.Size }).ToList();
+    }
+    private int Remaining(Guid saleItemId) { var item = _sale?.Items.FirstOrDefault(x => x.Id == saleItemId); return item is null ? 0 : Math.Max(0, item.SoldQuantity - item.ReturnedQuantity); }
+    private static string Variant(SaleReturnItem line) => string.Join(" · ", new[] { line.Color, line.Size }.Where(x => !string.IsNullOrWhiteSpace(x))) is { Length: > 0 } value ? value : "Без варианта";
+    private async Task SaveAsync() { if (_sale is null || _saving) return; _saving = true; try { await ReturnService.CreateAsync(_sale, _model); Navigation.NavigateTo($"/sales/{SaleId}"); } catch (Exception exception) { _error = exception.Message; } finally { _saving = false; } }
+    private static string Money(decimal value) => $"{value:N0} сум";
+}

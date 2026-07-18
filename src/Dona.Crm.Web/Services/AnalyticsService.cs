@@ -9,17 +9,18 @@ public sealed class AnalyticsService
         var productCategories = products.ToDictionary(x => x.Id, x => string.IsNullOrWhiteSpace(x.Category) ? "Без категории" : x.Category);
         var start = from?.Date;
         var end = to?.Date;
-        var sales = source.Where(x => x.Status == SaleStatus.Completed)
+        var sales = source.Where(x => x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0)
             .Where(x => start is null || x.CreatedAt.ToLocalTime().Date >= start)
             .Where(x => end is null || x.CreatedAt.ToLocalTime().Date <= end)
             .ToList();
 
         var lines = sales.SelectMany(sale => sale.Items.Select(item =>
         {
-            var quantity = item.SoldQuantity > 0 ? item.SoldQuantity : item.Quantity ?? 0;
-            var gross = (item.UnitPriceUzs ?? 0) * quantity;
-            var revenue = sale.SubtotalUzs == 0 ? 0 : sale.TotalUzs * gross / sale.SubtotalUzs;
-            var cost = (item.UnitCostUzs ?? 0) * quantity;
+            var soldQuantity = item.SoldQuantity > 0 ? item.SoldQuantity : item.Quantity ?? 0;
+            var quantity = Math.Max(0, soldQuantity - item.ReturnedQuantity);
+            var gross = (item.UnitPriceUzs ?? 0) * soldQuantity;
+            var revenue = sale.SubtotalUzs == 0 ? 0 : sale.NetTotalUzs * gross / sale.SubtotalUzs;
+            var cost = (item.UnitCostUzs ?? 0) * Math.Max(0, soldQuantity - sale.RestockedQuantity(item.Id));
             var category = item.ProductId is not null && productCategories.TryGetValue(item.ProductId.Value, out var value) ? value : "Без категории";
             return new Line(sale.Id, sale.CustomerName ?? "Без имени", item.ProductName, category, quantity, revenue, cost);
         })).ToList();
@@ -28,9 +29,9 @@ public sealed class AnalyticsService
         {
             Orders = sales.Count,
             Units = lines.Sum(x => x.Quantity),
-            RevenueUzs = sales.Sum(x => x.TotalUzs),
+            RevenueUzs = sales.Sum(x => x.NetTotalUzs),
             CostUzs = lines.Sum(x => x.CostUzs),
-            Daily = sales.GroupBy(x => x.CreatedAt.ToLocalTime().Date).OrderBy(x => x.Key).Select(x => new AnalyticsPoint(x.Key, x.Sum(y => y.TotalUzs), x.Count())).ToList(),
+            Daily = sales.GroupBy(x => x.CreatedAt.ToLocalTime().Date).OrderBy(x => x.Key).Select(x => new AnalyticsPoint(x.Key, x.Sum(y => y.NetTotalUzs), x.Count())).ToList(),
             Products = Group(lines, x => string.IsNullOrWhiteSpace(x.Product) ? "Без названия" : x.Product),
             Categories = Group(lines, x => x.Category),
             Customers = Group(lines, x => x.Customer)

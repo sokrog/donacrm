@@ -22,6 +22,9 @@
 | AppSettings | Бизнес-правила | Key, Value |
 | Sales | Заказы | Id, Number, CustomerName, Status, PaymentMethod, CreatedAt |
 | SaleItems | Позиции заказа | Id, SaleId, ProductVariantId, Quantity, UnitPriceUzs, UnitCostUzs |
+| SaleReturns | Документы возврата продажи | Id, SaleId, CreatedAt, Reason, RefundAmountUzs |
+| SaleReturnItems | Позиции частичного возврата | ReturnId, SaleItemId, Quantity, Disposition |
+| Payments | Оплаты и возвраты денег | Id, SaleId, Type, Status, Method, AmountUzs, CreatedAt |
 | StockMovements | История изменения склада | Id, Type, ProductId, ProductVariantId, QuantityDelta, ReservedDelta, SourceId, CreatedAt |
 | PurchaseReceipts | Документы частичной приёмки | Id, PurchaseId, ReceivedAt, Note |
 | PurchaseReceiptItems | Фактические строки приёмки | ReceiptId, PurchaseItemId, ReceivedQuantity, DefectQuantity, StockedQuantity |
@@ -74,6 +77,9 @@
 - прибыль по зафиксированной фактической себестоимости;
 - доступный остаток при выборе варианта;
 - отдельные листы Google Sheets `Customers`, `Sales` и `SaleItems`;
+- частичные возвраты отдельными документами с возвратом на склад, списанием брака или отказом — реализовано;
+- чистая выручка и себестоимость учитывают частичные возвраты;
+- частичные оплаты, несколько платежей, задолженность и фактические возвраты денег — реализовано;
 - далее: частичные возвраты, журнал складских движений и статусы оплаты.
 
 ### 5. Instagram-контент и аналитика — первый срез контент-плана реализован

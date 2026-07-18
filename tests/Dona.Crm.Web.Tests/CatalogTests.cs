@@ -333,6 +333,66 @@ public sealed class SalesInventoryServiceTests
     }
 
     [Fact]
+    public async Task Partial_returns_restock_only_saleable_items_and_update_net_economics()
+    {
+        var variant = new ProductVariant { Quantity = 7 };
+        var product = new Product { Name = "Футболка", Sku = "TS-R", Variants = [variant] };
+        var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 3, SoldQuantity = 3, UnitPriceUzs = 100, UnitCostUzs = 40 };
+        var sale = new Sale { Number = "SALE-R", Status = SaleStatus.Completed, Items = [item] };
+        var movements = new MemoryStockMovements();
+        var service = new SalesReturnService(new SalesMemoryCatalog(product), new MemorySales(), movements);
+        var first = new SaleReturn { Reason = "Не подошёл размер", RefundAmountUzs = 100, Items = [new SaleReturnItem { SaleItemId = item.Id, Quantity = 1, Disposition = ReturnDisposition.Restock }] };
+
+        await service.CreateAsync(sale, first);
+        await service.CreateAsync(sale, first);
+
+        Assert.Equal(8, variant.Quantity);
+        Assert.Equal(1, item.ReturnedQuantity);
+        Assert.Equal(SaleStatus.Completed, sale.Status);
+        Assert.Equal(200, sale.NetTotalUzs);
+        Assert.Equal(80, sale.CostUzs);
+        Assert.Single(sale.Returns);
+
+        var second = new SaleReturn { Reason = "Повреждение", RefundAmountUzs = 200, Items = [new SaleReturnItem { SaleItemId = item.Id, Quantity = 2, Disposition = ReturnDisposition.Defect }] };
+        await service.CreateAsync(sale, second);
+
+        Assert.Equal(8, variant.Quantity);
+        Assert.Equal(3, item.ReturnedQuantity);
+        Assert.Equal(SaleStatus.Returned, sale.Status);
+        Assert.Equal(0, sale.NetTotalUzs);
+        Assert.Equal(80, sale.CostUzs);
+        var movement = Assert.Single(await movements.GetAsync());
+        Assert.Equal(1, movement.QuantityDelta);
+        Assert.Equal("SaleReturn", movement.SourceType);
+    }
+
+    [Fact]
+    public async Task Multiple_payments_close_debt_and_money_refund_tracks_return_document()
+    {
+        var sale = new Sale { Number = "SALE-P", Status = SaleStatus.Reserved, Items = [new SaleItem { ProductName = "Худи", Quantity = 3, UnitPriceUzs = 100 }] };
+        var service = new SalesPaymentService(new MemorySales());
+        var first = new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, Method = PaymentMethod.Payme, AmountUzs = 100 };
+
+        await service.AddAsync(sale, first);
+        await service.AddAsync(sale, first);
+        Assert.Equal(100, sale.PaidUzs);
+        Assert.Equal(200, sale.BalanceDueUzs);
+        Assert.Equal(SaleStatus.Reserved, sale.Status);
+        Assert.Single(sale.Payments);
+
+        await service.AddAsync(sale, new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = 200 });
+        Assert.Equal(300, sale.PaidUzs);
+        Assert.Equal(0, sale.BalanceDueUzs);
+        Assert.Equal(SaleStatus.Paid, sale.Status);
+
+        sale.Returns.Add(new SaleReturn { Reason = "Размер", RefundAmountUzs = 100 });
+        await service.AddAsync(sale, new SalePayment { Type = PaymentOperationType.Refund, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = 100 });
+        Assert.Equal(200, sale.PaidUzs);
+        Assert.Equal(0, sale.RefundDueUzs);
+        Assert.Equal(3, sale.Payments.Count);
+    }
+
+    [Fact]
     public void New_sale_and_customer_have_no_prefilled_form_values()
     {
         var sale = new Sale();
@@ -462,6 +522,34 @@ public sealed class AnalyticsServiceTests
         var service = new AnalyticsService();
         Assert.Equal(1, service.Build([sale], [], new DateTime(2026, 7, 17), new DateTime(2026, 7, 17)).Orders);
         Assert.Equal(0, service.Build([sale], [], new DateTime(2026, 7, 18), null).Orders);
+    }
+
+    [Fact]
+    public void Partial_return_reduces_revenue_units_and_only_restocked_cost()
+    {
+        var item = new SaleItem { ProductName = "Футболка", Quantity = 3, SoldQuantity = 3, ReturnedQuantity = 1, UnitPriceUzs = 100, UnitCostUzs = 40 };
+        var sale = new Sale { Number = "S-R", Status = SaleStatus.Completed, Items = [item], Returns = [new SaleReturn { RefundAmountUzs = 100, Reason = "Размер", Items = [new SaleReturnItem { SaleItemId = item.Id, Quantity = 1, Disposition = ReturnDisposition.Restock }] }] };
+
+        var report = new AnalyticsService().Build([sale], [], null, null);
+
+        Assert.Equal(2, report.Units);
+        Assert.Equal(200, report.RevenueUzs);
+        Assert.Equal(80, report.CostUzs);
+        Assert.Equal(120, report.ProfitUzs);
+    }
+
+    [Fact]
+    public void Documented_full_defect_return_keeps_loss_in_analytics()
+    {
+        var item = new SaleItem { ProductName = "Сумка", Quantity = 2, SoldQuantity = 2, ReturnedQuantity = 2, UnitPriceUzs = 100, UnitCostUzs = 30 };
+        var sale = new Sale { Number = "S-LOSS", Status = SaleStatus.Returned, Items = [item], Returns = [new SaleReturn { RefundAmountUzs = 200, Reason = "Брак", Items = [new SaleReturnItem { SaleItemId = item.Id, Quantity = 2, Disposition = ReturnDisposition.Defect }] }] };
+
+        var report = new AnalyticsService().Build([sale], [], null, null);
+
+        Assert.Equal(1, report.Orders);
+        Assert.Equal(0, report.RevenueUzs);
+        Assert.Equal(60, report.CostUzs);
+        Assert.Equal(-60, report.ProfitUzs);
     }
 }
 

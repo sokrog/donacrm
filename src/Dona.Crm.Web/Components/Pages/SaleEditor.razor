@@ -34,7 +34,7 @@
         </section>
         <aside class="panel economics-card">
             <div class="section-title"><span>₸</span><div><h2>Итог заказа</h2><p>@_model.TotalQuantity товаров</p></div></div>
-            <div class="calculation large"><span>Товары <strong>@Money(_model.SubtotalUzs)</strong></span><span>Скидка <strong>− @Money(_model.DiscountUzs ?? 0)</strong></span><span>Доставка <strong>@Money(_model.DeliveryChargeUzs ?? 0)</strong></span><span class="total-line">К оплате <strong>@Money(_model.TotalUzs)</strong></span>@if (!_isNew) { <span>Себестоимость <strong>@Money(_model.CostUzs)</strong></span><span>Прибыль <strong class="@(_model.ProfitUzs >= 0 ? "positive" : "negative")">@Money(_model.ProfitUzs)</strong></span> }</div>
+            <div class="calculation large"><span>Товары <strong>@Money(_model.SubtotalUzs)</strong></span><span>Скидка <strong>− @Money(_model.DiscountUzs ?? 0)</strong></span><span>Доставка <strong>@Money(_model.DeliveryChargeUzs ?? 0)</strong></span><span class="total-line">К оплате <strong>@Money(_model.TotalUzs)</strong></span>@if (_model.RefundedUzs > 0) { <span>По возвратам <strong class="negative">− @Money(_model.RefundedUzs)</strong></span><span>Чистая выручка <strong>@Money(_model.NetTotalUzs)</strong></span> }@if (_model.Payments.Count > 0) { <span>Фактически оплачено <strong>@Money(_model.PaidUzs)</strong></span><span>Осталось оплатить <strong>@Money(_model.BalanceDueUzs)</strong></span>@if (_model.RefundDueUzs > 0) { <span>Нужно вернуть денег <strong class="negative">@Money(_model.RefundDueUzs)</strong></span> } }@if (!_isNew) { <span>Себестоимость <strong>@Money(_model.CostUzs)</strong></span><span>Прибыль <strong class="@(_model.ProfitUzs >= 0 ? "positive" : "negative")">@Money(_model.ProfitUzs)</strong></span> }</div>
         </aside>
         <section class="panel form-section span-all">
             <div class="section-title with-action"><span>02</span><div><h2>Товары</h2><p>Варианты и количество</p></div><button type="button" class="button secondary" @onclick="AddItem">＋ Позиция</button></div>
@@ -54,15 +54,36 @@
     </div>
     </fieldset>
 
+    @if (!_isNew && _model.Returns.Count > 0)
+    {
+        <section class="panel form-section sale-return-history">
+            <div class="section-title"><span>03</span><div><h2>История возвратов</h2><p>@_model.Returns.Count документов · @Money(_model.RefundedUzs)</p></div></div>
+            @foreach (var document in _model.Returns.OrderByDescending(x => x.CreatedAt))
+            {
+                <div class="sale-return-history-row"><span><strong>@document.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @document.Reason</strong><small>@ReturnSummary(document)</small></span><span>Принято <strong>@document.AcceptedQuantity</strong></span><span>На склад <strong>@document.RestockedQuantity</strong></span><span>Брак <strong>@document.DefectQuantity</strong></span><span>Деньги <strong>@Money(document.RefundAmountUzs ?? 0)</strong></span></div>
+            }
+        </section>
+    }
+    @if (!_isNew && _model.Payments.Count > 0)
+    {
+        <section class="panel form-section sale-return-history">
+            <div class="section-title"><span>04</span><div><h2>История платежей</h2><p>Оплачено @Money(_model.PaidUzs) · долг @Money(_model.BalanceDueUzs)</p></div></div>
+            @foreach (var payment in _model.Payments.OrderByDescending(x => x.CreatedAt))
+            {
+                <div class="payment-history-row"><span><strong>@payment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @payment.Type?.Display()</strong><small>@(payment.Reference ?? payment.Notes ?? "Без комментария")</small></span><span>@payment.Method?.Display()</span><span><em class="badge">@payment.Status?.Display()</em></span><span class="@(payment.Type == PaymentOperationType.Refund ? "negative" : "positive")">@Money(payment.AmountUzs ?? 0)</span></div>
+            }
+        </section>
+    }
+
     @if (!string.IsNullOrWhiteSpace(_message)) { <div class="notice @(_success ? "success" : "error")">@_message</div> }
     <div class="form-actions">
         <a class="button ghost" href="/sales">Отмена</a>
         @if (!_isNew && _model.Status is SaleStatus.Draft or SaleStatus.Reserved or SaleStatus.Paid) { <button type="button" class="button ghost" @onclick="CancelAsync">Отменить заказ</button> }
         @if (!_isNew && _model.Status is SaleStatus.Draft or null) { <button type="button" class="button secondary" @onclick="ReserveAsync">Зарезервировать</button> }
-        @if (!_isNew && _model.Status is SaleStatus.Reserved) { <button type="button" class="button secondary" @onclick="MarkPaidAsync">Отметить оплаченным</button> }
+        @if (!_isNew && (_model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped or SaleStatus.Completed or SaleStatus.Returned) && (_model.BalanceDueUzs > 0 || _model.RefundDueUzs > 0)) { <a class="button secondary" href="/sales/@_model.Id/payments/new">Добавить платёж</a> }
         @if (!_isNew && _model.Status is SaleStatus.Reserved or SaleStatus.Paid) { <button type="button" class="button secondary" @onclick="MarkShippedAsync">Отметить отправленным</button> }
         @if (!_isNew && _model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped) { <button type="button" class="button secondary" @onclick="CompleteAsync">Завершить продажу</button> }
-        @if (!_isNew && _model.Status is SaleStatus.Completed) { <button type="button" class="button danger-button" @onclick="ReturnAsync">Оформить возврат</button> }
+        @if (!_isNew && _model.Status is SaleStatus.Completed && HasReturnableItems) { <a class="button danger-button" href="/sales/@_model.Id/returns/new">Оформить возврат</a> }
         @if (!IsReadOnly) { <button class="button primary">Сохранить</button> }
     </div>
 </EditForm>
@@ -75,6 +96,7 @@
     private bool _isNew => Id is null;
     private bool IsClosed => _model.Status is SaleStatus.Completed or SaleStatus.Cancelled or SaleStatus.Returned;
     private bool IsReadOnly => IsClosed || _model.Status == SaleStatus.Shipped;
+    private bool HasReturnableItems => _model.Items.Any(x => x.SoldQuantity > x.ReturnedQuantity);
     private static readonly SaleStatus[] WorkflowStatuses = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped, SaleStatus.Completed];
     private string? _message;
     private bool _success;
@@ -121,11 +143,10 @@
     }
     private async Task ReserveAsync() => await RunInventoryAsync(() => Inventory.ReserveAsync(_model), "Товар зарезервирован.");
     private async Task CancelAsync() => await RunInventoryAsync(() => Inventory.CancelAsync(_model), "Заказ отменён, резерв снят.");
-    private async Task MarkPaidAsync() => await RunInventoryAsync(() => Inventory.MarkPaidAsync(_model), "Заказ отмечен оплаченным.");
     private async Task MarkShippedAsync() => await RunInventoryAsync(() => Inventory.MarkShippedAsync(_model), "Заказ отмечен отправленным.");
     private async Task CompleteAsync() => await RunInventoryAsync(() => Inventory.CompleteAsync(_model), "Продажа завершена, остатки списаны.");
-    private async Task ReturnAsync() => await RunInventoryAsync(() => Inventory.ReturnAsync(_model), "Возврат оформлен, товар возвращён на склад.");
     private async Task RunInventoryAsync(Func<Task> action, string success) { try { await action(); _products = await Catalog.GetProductsAsync(); Show(success, true); } catch (Exception exception) { Show(exception.Message, false); } }
     private void Show(string message, bool success) { _message = message; _success = success; }
+    private static string ReturnSummary(SaleReturn document) => string.Join("; ", document.Items.Select(x => $"{x.ProductName}: {x.Quantity} · {x.Disposition?.Display()}"));
     private static string Money(decimal value) => $"{value:N0} сум";
 }
