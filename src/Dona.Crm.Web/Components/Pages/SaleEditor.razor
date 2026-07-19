@@ -4,6 +4,7 @@
 @inject ISalesRepository Sales
 @inject ICatalogRepository Catalog
 @inject SalesInventoryService Inventory
+@inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -106,7 +107,8 @@
     protected override async Task OnParametersSetAsync()
     {
         _customers = await Sales.GetCustomersAsync();
-        _model = Id is null ? new Sale() : await Sales.GetSaleAsync(Id.Value) ?? new Sale();
+        if (Id is null) { var existing = await Sales.GetSalesAsync(); var settings = await BusinessSettingsRepository.GetAsync(); _model = new Sale { Number = SaleNumberGenerator.Generate(existing, settings.SaleNumberPrefix, DateTimeOffset.Now) }; }
+        else _model = await Sales.GetSaleAsync(Id.Value) ?? new Sale();
         var allProducts = await Catalog.GetProductsAsync();
         var referencedIds = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet();
         _products = allProducts.Where(x => x.Status != ProductStatus.Archived || referencedIds.Contains(x.Id)).ToList();
@@ -143,6 +145,7 @@
     {
         try
         {
+            if ((await Sales.GetSalesAsync()).Any(x => x.Id != _model.Id && x.Number.Equals(_model.Number, StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Продажа с таким номером уже существует.");
             _model.Status ??= SaleStatus.Draft;
             if (_model.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped) await Inventory.ReserveAsync(_model); else await Sales.UpsertSaleAsync(_model);
             if (_isNew) Navigation.NavigateTo($"/sales/{_model.Id}"); else { _products = await Catalog.GetProductsAsync(); Show("Заказ сохранён, резерв синхронизирован.", true); }

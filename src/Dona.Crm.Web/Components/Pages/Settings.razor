@@ -32,6 +32,7 @@
         <label>Горизонт контент-плана, дней<InputNumber @bind-Value="_business.ContentPlanningHorizonDays" min="1" /></label>
         <label>Период аналитики по умолчанию, дней<InputNumber @bind-Value="_business.DefaultAnalyticsPeriodDays" min="1" /></label>
         <label>Товар считается залежавшимся через, дней<InputNumber @bind-Value="_business.StaleInventoryDays" min="1" /></label>
+        <label>Префикс номера продажи<InputText @bind-Value="_business.SaleNumberPrefix" placeholder="SALE" /><small>Например: SALE-20260720-001</small></label>
     </div>
     @if (!string.IsNullOrWhiteSpace(_businessMessage)) { <div class="notice @(_businessSuccess ? "success" : "error")">@_businessMessage</div> }
     <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button><button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
@@ -176,7 +177,7 @@
         finally { _driveBusy = false; }
     }
 
-    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); }
+    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); _business.SaleNumberPrefix = SaleNumberGenerator.NormalizePrefix(_business.SaleNumberPrefix); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); }
     private static string? ExtractDriveFolderId(string? value) { if (string.IsNullOrWhiteSpace(value)) return null; var marker = "/folders/"; var index = value.IndexOf(marker, StringComparison.OrdinalIgnoreCase); if (index < 0) return value.Trim(); return value[(index + marker.Length)..].Split('?', '/', '#')[0]; }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)

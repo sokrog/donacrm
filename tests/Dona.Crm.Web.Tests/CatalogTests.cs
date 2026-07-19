@@ -859,6 +859,23 @@ public sealed class BackupServiceTests
     }
 }
 
+public sealed class SaleNumberGeneratorTests
+{
+    [Fact]
+    public void Generates_next_daily_number_with_normalized_prefix()
+    {
+        var date = new DateTimeOffset(2026, 7, 20, 12, 0, 0, TimeSpan.FromHours(5));
+        var sales = new[] { new Sale { Number = "SHOP-20260720-001" }, new Sale { Number = "SHOP-20260720-004" }, new Sale { Number = "SHOP-20260719-099" } };
+        Assert.Equal("SHOP-20260720-005", SaleNumberGenerator.Generate(sales, " shop! ", date));
+    }
+
+    [Theory]
+    [InlineData(null, "SALE")]
+    [InlineData("", "SALE")]
+    [InlineData("my shop", "MYSHOP")]
+    public void Normalizes_prefix(string? value, string expected) => Assert.Equal(expected, SaleNumberGenerator.NormalizePrefix(value));
+}
+
 internal sealed class MemoryStockMovements : IStockMovementRepository
 {
     private readonly List<StockMovement> _items = [];
