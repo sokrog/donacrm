@@ -30,7 +30,9 @@
                 <label class="span-2">Клиент<InputSelect @bind-Value="_model.CustomerId" @bind-Value:after="CustomerChanged"><option value="">Без клиента</option>@foreach (var customer in _customers) { <option value="@customer.Id">@customer.Name</option> }</InputSelect></label>
                 <label>Способ оплаты<InputSelect @bind-Value="_model.PaymentMethod"><option value="">Не выбран</option>@foreach (var method in Enum.GetValues<PaymentMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
                 <label>Доставка<InputSelect @bind-Value="_model.DeliveryMethod"><option value="">Не выбрана</option>@foreach (var method in Enum.GetValues<DeliveryMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
-                <label>Скидка, сум<InputNumber @bind-Value="_model.DiscountUzs" /></label><label>Стоимость доставки, сум<InputNumber @bind-Value="_model.DeliveryChargeUzs" /></label>
+                <label>Скидка, %<InputNumber @bind-Value="_model.DiscountPercent" @bind-Value:after="DiscountPercentChanged" /></label>
+                <label>Скидка, сум<InputNumber @bind-Value="_model.DiscountUzs" @bind-Value:after="DiscountAmountChanged" /></label>
+                <label>Стоимость доставки, сум<InputNumber @bind-Value="_model.DeliveryChargeUzs" /></label>
                 <label class="span-2">Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
             </div>
         </section>
@@ -45,8 +47,8 @@
                 <div class="sale-item" @key="item.Id">
                     <label>Товар<ProductAutocomplete Products="_products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                     <label>Вариант<select value="@item.ProductVariantId" @onchange="e => VariantChanged(item, e.Value?.ToString())"><option value="">Выберите вариант</option>@foreach (var variant in Variants(item)) { <option value="@variant.Id">@VariantName(variant)</option> }</select></label>
-                    <label>Количество<InputNumber @bind-Value="item.Quantity" /></label>
-                    <label>Цена, сум<InputNumber @bind-Value="item.UnitPriceUzs" /></label>
+                    <label>Количество<InputNumber @bind-Value="item.Quantity" @bind-Value:after="OrderLinesChanged" /></label>
+                    <label>Цена, сум<InputNumber @bind-Value="item.UnitPriceUzs" @bind-Value:after="OrderLinesChanged" /></label>
                     <div class="stock-availability"><span>Доступно</span><strong>@Available(item) шт.</strong></div>
                     <button type="button" class="icon-button danger" @onclick="() => RemoveItemAsync(item)">×</button>
                 </div>
@@ -103,12 +105,14 @@
     private static readonly SaleStatus[] WorkflowStatuses = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped, SaleStatus.Completed];
     private string? _message;
     private bool _success;
+    private DiscountInput _discountInput;
 
     protected override async Task OnParametersSetAsync()
     {
         _customers = await Sales.GetCustomersAsync();
         if (Id is null) { var existing = await Sales.GetSalesAsync(); var settings = await BusinessSettingsRepository.GetAsync(); _model = new Sale { Number = SaleNumberGenerator.Generate(existing, settings.SaleNumberPrefix, DateTimeOffset.Now) }; }
         else _model = await Sales.GetSaleAsync(Id.Value) ?? new Sale();
+        InitializeDiscount();
         var allProducts = await Catalog.GetProductsAsync();
         var referencedIds = _model.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).ToHashSet();
         _products = allProducts.Where(x => x.Status != ProductStatus.Archived || referencedIds.Contains(x.Id)).ToList();
@@ -121,7 +125,7 @@
     }
 
     private void AddItem() => _model.Items.Add(new SaleItem());
-    private async Task RemoveItemAsync(SaleItem item) { if (await JS.InvokeAsync<bool>("confirm", $"Удалить позицию «{item.ProductName}» из продажи?")) _model.Items.Remove(item); }
+    private async Task RemoveItemAsync(SaleItem item) { if (await JS.InvokeAsync<bool>("confirm", $"Удалить позицию «{item.ProductName}» из продажи?")) { _model.Items.Remove(item); OrderLinesChanged(); } }
     private void CustomerChanged() => _model.CustomerName = _model.CustomerId is null ? null : _customers.FirstOrDefault(x => x.Id == _model.CustomerId)?.Name;
     private IEnumerable<ProductVariant> Variants(SaleItem item) => item.ProductId is null ? [] : _products.FirstOrDefault(x => x.Id == item.ProductId)?.Variants ?? [];
     private void ProductChanged(SaleItem item, Product? product)
@@ -131,6 +135,7 @@
         item.UnitPriceUzs = product?.SellingPriceUzs;
         item.UnitCostUzs = product?.CostUzs;
         item.ProductVariantId = null; item.Color = string.Empty; item.Size = string.Empty;
+        OrderLinesChanged();
     }
     private void VariantChanged(SaleItem item, string? value)
     {
@@ -139,6 +144,24 @@
         item.Color = variant?.Color ?? string.Empty; item.Size = variant?.Size ?? string.Empty;
     }
     private int Available(SaleItem item) => (Variants(item).FirstOrDefault(x => x.Id == item.ProductVariantId)?.AvailableQuantity ?? 0) + item.ReservedQuantity;
+    private void InitializeDiscount()
+    {
+        _discountInput = _model.DiscountPercent is not null ? DiscountInput.Percent : DiscountInput.Amount;
+        if (_discountInput == DiscountInput.Percent) DiscountPercentChanged(); else DiscountAmountChanged();
+    }
+    private void DiscountPercentChanged()
+    {
+        _discountInput = DiscountInput.Percent;
+        _model.DiscountPercent = SaleDiscountCalculator.NormalizePercent(_model.DiscountPercent);
+        _model.DiscountUzs = SaleDiscountCalculator.AmountFromPercent(_model.SubtotalUzs, _model.DiscountPercent);
+    }
+    private void DiscountAmountChanged()
+    {
+        _discountInput = DiscountInput.Amount;
+        _model.DiscountUzs = SaleDiscountCalculator.NormalizeAmount(_model.SubtotalUzs, _model.DiscountUzs);
+        _model.DiscountPercent = SaleDiscountCalculator.PercentFromAmount(_model.SubtotalUzs, _model.DiscountUzs);
+    }
+    private void OrderLinesChanged() { if (_discountInput == DiscountInput.Percent) DiscountPercentChanged(); else DiscountAmountChanged(); }
     private static string VariantName(ProductVariant variant) => $"{(string.IsNullOrWhiteSpace(variant.Color) ? "Без цвета" : variant.Color)} · {(string.IsNullOrWhiteSpace(variant.Size) ? "Без размера" : variant.Size)}";
     private string WorkflowClass(SaleStatus status) => _model.Status == status ? "active" : _model.Status is not null && _model.Status <= SaleStatus.Completed && status < _model.Status ? "done" : string.Empty;
     private async Task SaveAsync()
@@ -160,4 +183,5 @@
     private void Show(string message, bool success) { _message = message; _success = success; }
     private static string ReturnSummary(SaleReturn document) => string.Join("; ", document.Items.Select(x => $"{x.ProductName}: {x.Quantity} · {x.Disposition?.Display()}"));
     private static string Money(decimal value) => $"{value:N0} сум";
+    private enum DiscountInput { Amount, Percent }
 }

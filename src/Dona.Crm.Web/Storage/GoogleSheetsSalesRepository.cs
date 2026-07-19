@@ -13,7 +13,7 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
     private static readonly string[][] Headers =
     [
         ["Id", "Name", "Phone", "Instagram", "Telegram", "Address", "Notes", "CreatedAt"],
-        ["Id", "Number", "CustomerId", "CustomerName", "Status", "PaymentMethod", "DeliveryMethod", "DiscountUzs", "DeliveryChargeUzs", "Notes", "CreatedAt"],
+        ["Id", "Number", "CustomerId", "CustomerName", "Status", "PaymentMethod", "DeliveryMethod", "DiscountUzs", "DeliveryChargeUzs", "Notes", "CreatedAt", "DiscountPercent"],
         ["Id", "SaleId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "Quantity", "UnitPriceUzs", "UnitCostUzs", "ReservedQuantity", "SoldQuantity", "ReturnedQuantity"],
         ["Id", "SaleId", "CreatedAt", "Reason", "RefundAmountUzs", "Notes"],
         ["Id", "ReturnId", "SaleItemId", "ProductId", "ProductVariantId", "ProductName", "Color", "Size", "Quantity", "Disposition"],
@@ -37,7 +37,7 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
     {
         var service = await EnsureAsync(token);
         var request = service.Spreadsheets.Values.BatchGet(settings.SpreadsheetId);
-        request.Ranges = new[] { "Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I" };
+        request.Ranges = new[] { "Customers!A2:H", "Sales!A2:L", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I" };
         var ranges = (await request.ExecuteAsync(token)).ValueRanges;
         var data = new SalesData
         {
@@ -76,10 +76,10 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
     private async Task WriteCoreAsync(SalesData data, CancellationToken token)
     {
         var service = await EnsureAsync(token);
-        await service.Spreadsheets.Values.BatchClear(new BatchClearValuesRequest { Ranges = ["Customers!A2:H", "Sales!A2:K", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I"] }, settings.SpreadsheetId).ExecuteAsync(token);
+        await service.Spreadsheets.Values.BatchClear(new BatchClearValuesRequest { Ranges = ["Customers!A2:H", "Sales!A2:L", "SaleItems!A2:M", "SaleReturns!A2:F", "SaleReturnItems!A2:J", "Payments!A2:I"] }, settings.SpreadsheetId).ExecuteAsync(token);
         var values = new List<ValueRange>();
         Add(values, "Customers!A2:H", data.Customers.Select(x => (IList<object>)[x.Id.ToString(), x.Name, x.Phone ?? "", x.Instagram ?? "", x.Telegram ?? "", x.Address ?? "", x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
-        Add(values, "Sales!A2:K", data.Sales.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.CustomerId?.ToString() ?? "", x.CustomerName ?? "", x.Status?.ToString() ?? "", x.PaymentMethod?.ToString() ?? "", x.DeliveryMethod?.ToString() ?? "", Obj(x.DiscountUzs), Obj(x.DeliveryChargeUzs), x.Notes ?? "", x.CreatedAt.ToString("O")]).ToList());
+        Add(values, "Sales!A2:L", data.Sales.Select(x => (IList<object>)[x.Id.ToString(), x.Number, x.CustomerId?.ToString() ?? "", x.CustomerName ?? "", x.Status?.ToString() ?? "", x.PaymentMethod?.ToString() ?? "", x.DeliveryMethod?.ToString() ?? "", Obj(x.DiscountUzs), Obj(x.DeliveryChargeUzs), x.Notes ?? "", x.CreatedAt.ToString("O"), Obj(x.DiscountPercent)]).ToList());
         Add(values, "SaleItems!A2:M", data.Sales.SelectMany(s => s.Items.Select(x => (IList<object>)[x.Id.ToString(), s.Id.ToString(), x.ProductId?.ToString() ?? "", x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Color, x.Size, Obj(x.Quantity), Obj(x.UnitPriceUzs), Obj(x.UnitCostUzs), x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity])).ToList());
         Add(values, "SaleReturns!A2:F", data.Sales.SelectMany(s => s.Returns.Select(x => (IList<object>)[x.Id.ToString(), s.Id.ToString(), x.CreatedAt.ToString("O"), x.Reason, Obj(x.RefundAmountUzs), x.Notes ?? ""])).ToList());
         Add(values, "SaleReturnItems!A2:J", data.Sales.SelectMany(s => s.Returns.SelectMany(r => r.Items.Select(x => (IList<object>)[x.Id.ToString(), r.Id.ToString(), x.SaleItemId.ToString(), x.ProductId?.ToString() ?? "", x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Color, x.Size, Obj(x.Quantity), x.Disposition?.ToString() ?? ""]))).ToList());
@@ -101,7 +101,7 @@ public sealed class GoogleSheetsSalesRepository(GoogleSheetsSettingsStore settin
         _initialized = true; return _service;
     }
     private static Customer? ParseCustomer(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Customer { Id = id.Value, Name = Cell(r, 1), Phone = Empty(Cell(r, 2)), Instagram = Empty(Cell(r, 3)), Telegram = Empty(Cell(r, 4)), Address = Empty(Cell(r, 5)), Notes = Empty(Cell(r, 6)), CreatedAt = DateValue(Cell(r, 7)) }; }
-    private static Sale? ParseSale(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Sale { Id = id.Value, Number = Cell(r, 1), CustomerId = GuidValue(Cell(r, 2)), CustomerName = Empty(Cell(r, 3)), Status = Enum.TryParse<SaleStatus>(Cell(r, 4), true, out var status) ? status : null, PaymentMethod = Enum.TryParse<PaymentMethod>(Cell(r, 5), true, out var payment) ? payment : null, DeliveryMethod = Enum.TryParse<DeliveryMethod>(Cell(r, 6), true, out var delivery) ? delivery : null, DiscountUzs = NullableDecimal(Cell(r, 7)), DeliveryChargeUzs = NullableDecimal(Cell(r, 8)), Notes = Empty(Cell(r, 9)), CreatedAt = DateValue(Cell(r, 10)) }; }
+    private static Sale? ParseSale(IList<object> r) { var id = GuidValue(Cell(r, 0)); return id is null ? null : new Sale { Id = id.Value, Number = Cell(r, 1), CustomerId = GuidValue(Cell(r, 2)), CustomerName = Empty(Cell(r, 3)), Status = Enum.TryParse<SaleStatus>(Cell(r, 4), true, out var status) ? status : null, PaymentMethod = Enum.TryParse<PaymentMethod>(Cell(r, 5), true, out var payment) ? payment : null, DeliveryMethod = Enum.TryParse<DeliveryMethod>(Cell(r, 6), true, out var delivery) ? delivery : null, DiscountUzs = NullableDecimal(Cell(r, 7)), DeliveryChargeUzs = NullableDecimal(Cell(r, 8)), Notes = Empty(Cell(r, 9)), CreatedAt = DateValue(Cell(r, 10)), DiscountPercent = NullableDecimal(Cell(r, 11)) }; }
     private static IList<IList<object>> Rows(IList<ValueRange> ranges, int i) => i < ranges.Count ? ranges[i].Values ?? [] : [];
     private static void Add(List<ValueRange> values, string range, IList<IList<object>> rows) { if (rows.Count > 0) values.Add(new ValueRange { Range = range, Values = rows }); }
     private static void Upsert<T>(List<T> list, T item, Func<T, Guid> id) { var i = list.FindIndex(x => id(x) == id(item)); if (i >= 0) list[i] = item; else list.Add(item); }

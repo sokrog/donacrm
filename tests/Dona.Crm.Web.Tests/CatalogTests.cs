@@ -876,6 +876,27 @@ public sealed class SaleNumberGeneratorTests
     public void Normalizes_prefix(string? value, string expected) => Assert.Equal(expected, SaleNumberGenerator.NormalizePrefix(value));
 }
 
+public sealed class SaleDiscountCalculatorTests
+{
+    [Fact]
+    public void Calculates_amount_from_percent() =>
+        Assert.Equal(25_000m, SaleDiscountCalculator.AmountFromPercent(250_000m, 10m));
+
+    [Fact]
+    public void Calculates_percent_from_amount() =>
+        Assert.Equal(12.5m, SaleDiscountCalculator.PercentFromAmount(200_000m, 25_000m));
+
+    [Theory]
+    [InlineData(120, 100)]
+    [InlineData(-5, 0)]
+    public void Limits_percent_to_valid_range(decimal input, decimal expected) =>
+        Assert.Equal(expected, SaleDiscountCalculator.NormalizePercent(input));
+
+    [Fact]
+    public void Discount_cannot_exceed_subtotal() =>
+        Assert.Equal(100_000m, SaleDiscountCalculator.NormalizeAmount(100_000m, 150_000m));
+}
+
 internal sealed class MemoryStockMovements : IStockMovementRepository
 {
     private readonly List<StockMovement> _items = [];

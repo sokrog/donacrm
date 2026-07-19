@@ -30,7 +30,8 @@ public sealed class Sale
     public SaleStatus? Status { get; set; }
     public PaymentMethod? PaymentMethod { get; set; }
     public DeliveryMethod? DeliveryMethod { get; set; }
-    public decimal? DiscountUzs { get; set; }
+    [Range(0, 1_000_000_000)] public decimal? DiscountUzs { get; set; }
+    [Range(0, 100)] public decimal? DiscountPercent { get; set; }
     public decimal? DeliveryChargeUzs { get; set; }
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
