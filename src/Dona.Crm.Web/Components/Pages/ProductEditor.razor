@@ -12,7 +12,10 @@
 
 <div class="page-heading">
     <div><a class="back-link" href="/products">← Каталог</a><h1>@(_isNew ? "Новый товар" : Model.Name)</h1><p>Карточка товара и варианты на складе.</p></div>
+    @if (!_isNew) { <div class="page-heading-actions"><a class="button secondary" href="/products/new?copyFrom=@Model.Id">Создать копию</a><a class="button primary" href="/sales/new?productId=@Model.Id">Продать</a></div> }
 </div>
+
+@if (!string.IsNullOrWhiteSpace(_copyNotice)) { <div class="notice success">@_copyNotice</div> }
 
 <EditForm Model="Model" OnValidSubmit="SaveAsync">
     <DataAnnotationsValidator />
@@ -94,6 +97,7 @@
 
 @code {
     [Parameter] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "copyFrom")] public Guid? CopyFromId { get; set; }
     private Product Model { get; set; } = new();
     private bool _saving;
     private bool _confirmDelete;
@@ -103,10 +107,28 @@
     private bool _imageBusy; private bool _imageSuccess; private string? _imageMessage; private string? _imageUrl;
     private const long MaxImageSize = 25 * 1024 * 1024;
     private bool _isNew => Id is null;
+    private string? _copyNotice;
     private IReadOnlyList<string> Categories { get; set; } = [];
     private static readonly string[] Genders = ["Женский", "Мужской", "Унисекс"];
     private static readonly string[] Seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
-    protected override async Task OnParametersSetAsync() { Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); Model = Id is null ? new Product() : await Repository.GetProductAsync(Id.Value) ?? new Product(); NormalizeImages(); _confirmDelete = false; _imageMessage = null; }
+    protected override async Task OnParametersSetAsync()
+    {
+        Categories = (await Commerce.GetCategoriesAsync()).Where(x => x.IsActive).OrderBy(x => x.SortOrder).Select(x => x.Name).ToList(); _copyNotice = null;
+        if (Id is not null) Model = await Repository.GetProductAsync(Id.Value) ?? new Product();
+        else if (CopyFromId is not null)
+        {
+            var products = await Repository.GetProductsAsync(); var source = products.FirstOrDefault(x => x.Id == CopyFromId);
+            Model = source is null ? new Product() : CloneProduct(source, products.Select(x => x.Sku));
+            if (source is not null) _copyNotice = "Создан черновик копии. Остатки и изображения не копируются; проверьте SKU и сохраните товар.";
+        }
+        else Model = new Product();
+        NormalizeImages(); _confirmDelete = false; _imageMessage = null;
+    }
+    private static Product CloneProduct(Product source, IEnumerable<string> existingSkus)
+    {
+        var used = existingSkus.ToHashSet(StringComparer.OrdinalIgnoreCase); var baseSku = string.IsNullOrWhiteSpace(source.Sku) ? "COPY" : source.Sku + "-COPY"; var sku = baseSku; var suffix = 2; while (used.Contains(sku)) sku = $"{baseSku}-{suffix++}";
+        return new Product { Sku = sku, Name = source.Name + " — копия", Category = source.Category, Gender = source.Gender, Season = source.Season, Status = ProductStatus.OnOrder, SupplierName = source.SupplierName, SourceUrl = source.SourceUrl, Notes = source.Notes, PurchasePriceCny = source.PurchasePriceCny, CnyRateUzs = source.CnyRateUzs, AgentCommissionPercent = source.AgentCommissionPercent, DeliveryCostUzs = source.DeliveryCostUzs, SellingPriceUzs = source.SellingPriceUzs, Variants = source.Variants.Select(x => new ProductVariant { Color = x.Color, Size = x.Size, Quantity = 0 }).ToList() };
+    }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void ConfirmVariantDelete() { if (_variantToDelete is null) return; Model.Variants.Remove(_variantToDelete); _variantToDelete = null; }
     private async Task SaveAsync() { _saving = true; NormalizeImages(); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }

@@ -842,6 +842,23 @@ public sealed class ProductImageStorageServiceTests
     private sealed class ImageHttpClientFactory : IHttpClientFactory { public HttpClient CreateClient(string name) => new(); }
 }
 
+public sealed class BackupServiceTests
+{
+    [Fact]
+    public void Creates_portable_zip_with_snapshot_and_local_images()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-backup-tests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(Path.Combine(root, "product")); File.WriteAllBytes(Path.Combine(root, "product", "photo.webp"), [1, 2, 3]);
+        try
+        {
+            var bytes = BackupService.CreateArchive(new BackupSnapshot { Products = [new Product { Sku = "TS-1", Name = "Test" }] }, root);
+            using var stream = new MemoryStream(bytes); using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+            Assert.NotNull(archive.GetEntry("dona-crm-backup.json")); Assert.NotNull(archive.GetEntry("README.txt")); Assert.NotNull(archive.GetEntry("images/product/photo.webp"));
+            using var reader = new StreamReader(archive.GetEntry("dona-crm-backup.json")!.Open()); Assert.Contains("TS-1", reader.ReadToEnd());
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+}
+
 internal sealed class MemoryStockMovements : IStockMovementRepository
 {
     private readonly List<StockMovement> _items = [];

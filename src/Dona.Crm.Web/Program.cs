@@ -17,6 +17,7 @@ builder.Services.AddSingleton<GoogleDriveOAuthStore>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<ProductViewPreferences>();
+builder.Services.AddScoped<BackupService>();
 builder.Services.AddScoped<JsonCatalogRepository>();
 builder.Services.AddScoped<GoogleSheetsCatalogRepository>();
 builder.Services.AddScoped<SwitchingCatalogRepository>();
@@ -79,6 +80,11 @@ app.MapGet("/media/drive/{fileId}", async (string fileId, ProductImageStorageSer
 {
     var image = await storage.DownloadDriveAsync(fileId, token);
     return Results.Stream(image.Content, image.ContentType, enableRangeProcessing: true);
+});
+app.MapGet("/backup/download", async (BackupService backup, CancellationToken token) =>
+{
+    var file = await backup.CreateAsync(token);
+    return Results.File(file.Content, "application/zip", file.FileName);
 });
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
