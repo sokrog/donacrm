@@ -33,6 +33,7 @@ public sealed class GoogleSheetsBusinessSettingsRepository(GoogleSheetsSettingsS
         if (_version != connection.Version) { _service?.Dispose(); _service = null; _initialized = false; _version = connection.Version; }
         _service ??= new SheetsService(new BaseClientService.Initializer { HttpClientInitializer = CredentialFactory.FromFile<ServiceAccountCredential>(connection.CredentialsFullPath).ToGoogleCredential().CreateScoped(SheetsService.Scope.Spreadsheets), ApplicationName = "Dona CRM" });
         if (_initialized) return _service;
+        _service.HttpClient.Timeout = TimeSpan.FromMinutes(2);
         var spreadsheet = await _service.Spreadsheets.Get(connection.SpreadsheetId).ExecuteAsync(token);
         if (!spreadsheet.Sheets.Any(x => x.Properties.Title.Equals("AppSettings", StringComparison.OrdinalIgnoreCase))) await _service.Spreadsheets.BatchUpdate(new BatchUpdateSpreadsheetRequest { Requests = [new Request { AddSheet = new AddSheetRequest { Properties = new SheetProperties { Title = "AppSettings" } } }] }, connection.SpreadsheetId).ExecuteAsync(token);
         var header = _service.Spreadsheets.Values.Update(new ValueRange { Values = [["Key", "Value"]] }, connection.SpreadsheetId, "AppSettings!A1:B1");

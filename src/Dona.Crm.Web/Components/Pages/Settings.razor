@@ -19,13 +19,21 @@
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
 <div class="page-heading">
-    <div><span class="eyebrow">Система</span><h1>Настройки</h1><p>Бизнес-правила, Google Sheets и личный Google Drive.</p></div>
+    <div><span class="eyebrow">Система</span><h1>Настройки</h1><p>Внешний вид, бизнес-правила, Google Sheets и личный Google Drive.</p></div>
 </div>
+
+<EditForm Model="_business" class="panel form-section appearance-settings">
+    <div class="section-title"><span>◐</span><div><h2>Внешний вид</h2><p>Видимость разделов и сложность интерфейса</p></div></div>
+    <div class="form-grid settings-form">
+        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.SimpleInterfaceMode" /><span><strong>Простой интерфейс</strong><small>Оставляет базовую аналитику, каталог, продажи и маркетинг; расширенные разделы можно вернуть в любой момент</small></span></label>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(_appearanceMessage)) { <div class="notice @(_appearanceSuccess ? "success" : "error")">@_appearanceMessage</div> }
+    <div class="settings-actions"><button type="button" class="button primary" @onclick="SaveAppearanceSettingsAsync">Сохранить внешний вид</button></div>
+</EditForm>
 
 <EditForm Model="_business" class="panel form-section business-settings">
     <div class="section-title"><span>⚙</span><div><h2>Бизнес-правила</h2><p>Автоматические статусы и горизонты предупреждений</p></div></div>
     <div class="form-grid settings-form">
-        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.SimpleInterfaceMode" /><span><strong>Простой интерфейс</strong><small>Оставляет базовую аналитику, каталог, продажи и маркетинг; расширенные разделы можно вернуть в любой момент</small></span></label>
         <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.AutoUpdateStockStatus" /><span><strong>Автоматически обновлять статус товара</strong><small>Архивные товары и позиции без вариантов не изменяются</small></span></label>
         <label>Порог «Заканчивается», шт.<InputNumber @bind-Value="_business.LowStockThreshold" min="0" /></label>
         <label>При нулевом остатке<InputSelect @bind-Value="_business.ZeroStockStatus"><option value="@ProductStatus.OutOfStock">Нет в наличии</option><option value="@ProductStatus.OnOrder">Под заказ</option></InputSelect></label>
@@ -154,6 +162,8 @@
     private BusinessSettings _business = new();
     private string? _businessMessage;
     private bool _businessSuccess;
+    private string? _appearanceMessage;
+    private bool _appearanceSuccess;
     private bool _driveBusy;
     private bool _driveSuccess;
     private string? _driveMessage;
@@ -168,6 +178,12 @@
     {
         try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); Currency.Set(_business.MainCurrencyCode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
         catch (Exception exception) { _businessMessage = $"Не удалось сохранить: {exception.Message}"; _businessSuccess = false; }
+    }
+
+    private async Task SaveAppearanceSettingsAsync()
+    {
+        try { await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); _appearanceMessage = "Настройки внешнего вида сохранены."; _appearanceSuccess = true; }
+        catch (Exception exception) { _appearanceMessage = $"Не удалось сохранить: {exception.Message}"; _appearanceSuccess = false; }
     }
 
     private async Task RecalculateStatusesAsync()

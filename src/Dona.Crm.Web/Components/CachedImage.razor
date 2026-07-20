@@ -1,7 +1,13 @@
-@if (!string.IsNullOrWhiteSpace(Source))
+@if (!string.IsNullOrWhiteSpace(Source) && !_failed)
 {
     <img @key="Source" class="@CssClass" src="@Source" alt="@Alt" loading="@(Lazy ? "lazy" : "eager")" decoding="async" @onload="ImageLoaded" @onerror="ImageFailed" />
-    @if (!_loaded && !_failed) { <span class="image-load-indicator" aria-label="Загрузка изображения"><i></i></span> }
+    @if (!_loaded) { <span class="image-load-indicator" aria-label="Загрузка изображения"><i></i></span> }
+}
+else
+{
+    <span class="image-fallback" role="img" aria-label="Изображение недоступно" title="Изображение недоступно">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13Zm2 11.8 3.5-4.2 2.7 3.1 1.8-2.1 4 4.5V6H6v11.3ZM9 10.5A1.5 1.5 0 1 0 9 7.5a1.5 1.5 0 0 0 0 3Z"/></svg>
+    </span>
 }
 
 @code {

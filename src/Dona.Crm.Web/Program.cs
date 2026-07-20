@@ -50,7 +50,14 @@ builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<InventoryAnalyticsService>();
 builder.Services.AddScoped<ProfitAnalyticsService>();
 builder.Services.AddMemoryCache(options => options.SizeLimit = 100 * 1024 * 1024);
-builder.Services.AddHttpClient("product-images").ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = System.Net.DecompressionMethods.All });
+builder.Services.AddHttpClient("product-images")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = System.Net.DecompressionMethods.All })
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.MaxRetryAttempts = 3;
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(15);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
+    });
 builder.Services.AddScoped<ProductImageStorageService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
 builder.Services.AddScoped<GoogleSheetsBusinessSettingsRepository>();
