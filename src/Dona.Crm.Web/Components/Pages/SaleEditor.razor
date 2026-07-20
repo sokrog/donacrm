@@ -7,6 +7,7 @@
 @inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject CurrencyContext Currency
 
 <PageTitle>Продажа — Dona CRM</PageTitle>
 <div class="page-heading"><div><a class="back-link" href="/sales">← Продажи</a><h1>@(_isNew ? "Новая продажа" : _model.Number)</h1><p>Заказ клиента и движение товара на складе.</p></div></div>
@@ -31,8 +32,8 @@
                 <label>Способ оплаты<InputSelect @bind-Value="_model.PaymentMethod"><option value="">Не выбран</option>@foreach (var method in Enum.GetValues<PaymentMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
                 <label>Доставка<InputSelect @bind-Value="_model.DeliveryMethod"><option value="">Не выбрана</option>@foreach (var method in Enum.GetValues<DeliveryMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
                 <label>Скидка, %<InputNumber @bind-Value="_model.DiscountPercent" @bind-Value:after="DiscountPercentChanged" /></label>
-                <label>Скидка, сум<InputNumber @bind-Value="_model.DiscountUzs" @bind-Value:after="DiscountAmountChanged" /></label>
-                <label>Стоимость доставки, сум<InputNumber @bind-Value="_model.DeliveryChargeUzs" /></label>
+                <label>Скидка, @Currency.Symbol<InputNumber @bind-Value="_model.DiscountUzs" @bind-Value:after="DiscountAmountChanged" /></label>
+                <label>Стоимость доставки, @Currency.Symbol<InputNumber @bind-Value="_model.DeliveryChargeUzs" /></label>
                 <label class="span-2">Заметки<InputTextArea @bind-Value="_model.Notes" /></label>
             </div>
         </section>
@@ -48,7 +49,7 @@
                     <label>Товар<ProductAutocomplete Products="_products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                     <label>Вариант<select value="@item.ProductVariantId" @onchange="e => VariantChanged(item, e.Value?.ToString())"><option value="">Выберите вариант</option>@foreach (var variant in Variants(item)) { <option value="@variant.Id">@VariantName(variant)</option> }</select></label>
                     <label>Количество<InputNumber @bind-Value="item.Quantity" @bind-Value:after="OrderLinesChanged" /></label>
-                    <label>Цена, сум<InputNumber @bind-Value="item.UnitPriceUzs" @bind-Value:after="OrderLinesChanged" /></label>
+                    <label>Цена, @Currency.Symbol<InputNumber @bind-Value="item.UnitPriceUzs" @bind-Value:after="OrderLinesChanged" /></label>
                     <div class="stock-availability"><span>Доступно</span><strong>@Available(item) шт.</strong></div>
                     <button type="button" class="icon-button danger" @onclick="() => RemoveItemAsync(item)">×</button>
                 </div>
@@ -182,6 +183,6 @@
     private async Task RunInventoryAsync(Func<Task> action, string success) { try { await action(); _products = await Catalog.GetProductsAsync(); Show(success, true); } catch (Exception exception) { Show(exception.Message, false); } }
     private void Show(string message, bool success) { _message = message; _success = success; }
     private static string ReturnSummary(SaleReturn document) => string.Join("; ", document.Items.Select(x => $"{x.ProductName}: {x.Quantity} · {x.Disposition?.Display()}"));
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
     private enum DiscountInput { Amount, Percent }
 }

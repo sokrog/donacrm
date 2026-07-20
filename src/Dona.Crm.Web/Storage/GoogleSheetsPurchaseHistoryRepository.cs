@@ -11,7 +11,7 @@ public sealed class GoogleSheetsPurchaseHistoryRepository(GoogleSheetsSettingsSt
 {
     private const string CostSheet = "ProductCostHistory";
     private const string RateSheet = "ExchangeRateHistory";
-    private static readonly string[] CostHeaders = ["Id", "RecordedAt", "ProductId", "ProductVariantId", "ProductName", "Sku", "Color", "Size", "PurchaseId", "ReceiptId", "PurchaseNumber", "SupplierId", "SupplierName", "Quantity", "UnitPriceCny", "CnyRateUzs", "UnitLandedCostUzs"];
+    private static readonly string[] CostHeaders = ["Id", "RecordedAt", "ProductId", "ProductVariantId", "ProductName", "Sku", "Color", "Size", "PurchaseId", "ReceiptId", "PurchaseNumber", "SupplierId", "SupplierName", "Quantity", "UnitPriceCny", "CnyRateUzs", "UnitLandedCostUzs", "CurrencyCode"];
     private static readonly string[] RateHeaders = ["Id", "RecordedAt", "Currency", "RateUzs", "PurchaseId", "ReceiptId", "PurchaseNumber", "SupplierName"];
     private readonly SemaphoreSlim _gate = new(1, 1);
     private SheetsService? _service;
@@ -34,7 +34,7 @@ public sealed class GoogleSheetsPurchaseHistoryRepository(GoogleSheetsSettingsSt
             var existing = await ReadCoreAsync(service, cancellationToken);
             var costIds = existing.ProductCosts.Select(x => x.Id).ToHashSet();
             var costRows = productCosts.Where(x => costIds.Add(x.Id)).Select(ToCostRow).ToList();
-            if (costRows.Count > 0) await AppendAsync(service, CostSheet, "A:Q", costRows, cancellationToken);
+            if (costRows.Count > 0) await AppendAsync(service, CostSheet, "A:R", costRows, cancellationToken);
             if (exchangeRate is not null && existing.ExchangeRates.All(x => x.Id != exchangeRate.Id))
                 await AppendAsync(service, RateSheet, "A:H", [ToRateRow(exchangeRate)], cancellationToken);
         }
@@ -44,7 +44,7 @@ public sealed class GoogleSheetsPurchaseHistoryRepository(GoogleSheetsSettingsSt
     private async Task<PurchaseHistoryData> ReadCoreAsync(SheetsService service, CancellationToken token)
     {
         var request = service.Spreadsheets.Values.BatchGet(settings.SpreadsheetId);
-        request.Ranges = new[] { $"{CostSheet}!A2:Q", $"{RateSheet}!A2:H" };
+        request.Ranges = new[] { $"{CostSheet}!A2:R", $"{RateSheet}!A2:H" };
         var response = await request.ExecuteAsync(token);
         return new PurchaseHistoryData
         {
@@ -65,7 +65,7 @@ public sealed class GoogleSheetsPurchaseHistoryRepository(GoogleSheetsSettingsSt
         if (!names.Contains(CostSheet)) requests.Add(new Request { AddSheet = new AddSheetRequest { Properties = new SheetProperties { Title = CostSheet } } });
         if (!names.Contains(RateSheet)) requests.Add(new Request { AddSheet = new AddSheetRequest { Properties = new SheetProperties { Title = RateSheet } } });
         if (requests.Count > 0) await _service.Spreadsheets.BatchUpdate(new BatchUpdateSpreadsheetRequest { Requests = requests }, settings.SpreadsheetId).ExecuteAsync(token);
-        await UpdateHeaderAsync(_service, CostSheet, "A1:Q1", CostHeaders, token);
+        await UpdateHeaderAsync(_service, CostSheet, "A1:R1", CostHeaders, token);
         await UpdateHeaderAsync(_service, RateSheet, "A1:H1", RateHeaders, token);
         _initialized = true;
         return _service;
@@ -86,13 +86,13 @@ public sealed class GoogleSheetsPurchaseHistoryRepository(GoogleSheetsSettingsSt
         await append.ExecuteAsync(token);
     }
 
-    private static IList<object> ToCostRow(ProductCostHistoryEntry x) => [x.Id.ToString(), x.RecordedAt.ToString("O"), x.ProductId.ToString(), x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Sku, x.Color, x.Size, x.PurchaseId.ToString(), x.ReceiptId.ToString(), x.PurchaseNumber, x.SupplierId?.ToString() ?? "", x.SupplierName, x.Quantity, x.UnitPriceCny, x.CnyRateUzs, x.UnitLandedCostUzs];
+    private static IList<object> ToCostRow(ProductCostHistoryEntry x) => [x.Id.ToString(), x.RecordedAt.ToString("O"), x.ProductId.ToString(), x.ProductVariantId?.ToString() ?? "", x.ProductName, x.Sku, x.Color, x.Size, x.PurchaseId.ToString(), x.ReceiptId.ToString(), x.PurchaseNumber, x.SupplierId?.ToString() ?? "", x.SupplierName, x.Quantity, x.UnitPriceCny, x.CnyRateUzs, x.UnitLandedCostUzs, CurrencyCodes.Normalize(x.CurrencyCode, "CNY")];
     private static IList<object> ToRateRow(ExchangeRateHistoryEntry x) => [x.Id.ToString(), x.RecordedAt.ToString("O"), x.Currency, x.RateUzs, x.PurchaseId.ToString(), x.ReceiptId.ToString(), x.PurchaseNumber, x.SupplierName];
     private static ProductCostHistoryEntry? ParseCost(IList<object> row)
     {
         var id = GuidValue(Cell(row, 0)); var productId = GuidValue(Cell(row, 2)); var purchaseId = GuidValue(Cell(row, 8)); var receiptId = GuidValue(Cell(row, 9));
         if (id is null || productId is null || purchaseId is null || receiptId is null) return null;
-        return new ProductCostHistoryEntry { Id = id.Value, RecordedAt = DateValue(Cell(row, 1)), ProductId = productId.Value, ProductVariantId = GuidValue(Cell(row, 3)), ProductName = Cell(row, 4), Sku = Cell(row, 5), Color = Cell(row, 6), Size = Cell(row, 7), PurchaseId = purchaseId.Value, ReceiptId = receiptId.Value, PurchaseNumber = Cell(row, 10), SupplierId = GuidValue(Cell(row, 11)), SupplierName = Cell(row, 12), Quantity = IntValue(Cell(row, 13)), UnitPriceCny = DecimalValue(Cell(row, 14)), CnyRateUzs = DecimalValue(Cell(row, 15)), UnitLandedCostUzs = DecimalValue(Cell(row, 16)) };
+        return new ProductCostHistoryEntry { Id = id.Value, RecordedAt = DateValue(Cell(row, 1)), ProductId = productId.Value, ProductVariantId = GuidValue(Cell(row, 3)), ProductName = Cell(row, 4), Sku = Cell(row, 5), Color = Cell(row, 6), Size = Cell(row, 7), PurchaseId = purchaseId.Value, ReceiptId = receiptId.Value, PurchaseNumber = Cell(row, 10), SupplierId = GuidValue(Cell(row, 11)), SupplierName = Cell(row, 12), Quantity = IntValue(Cell(row, 13)), UnitPriceCny = DecimalValue(Cell(row, 14)), CnyRateUzs = DecimalValue(Cell(row, 15)), UnitLandedCostUzs = DecimalValue(Cell(row, 16)), CurrencyCode = CurrencyCodes.Normalize(Cell(row, 17), "CNY") };
     }
     private static ExchangeRateHistoryEntry? ParseRate(IList<object> row)
     {

@@ -16,6 +16,7 @@ builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
 builder.Services.AddSingleton<GoogleDriveOAuthStore>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
+builder.Services.AddScoped<CurrencyContext>();
 builder.Services.AddScoped<ProductViewPreferences>();
 builder.Services.AddScoped<BackupService>();
 builder.Services.AddScoped<JsonCatalogRepository>();
@@ -48,6 +49,7 @@ builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<InventoryAnalyticsService>();
 builder.Services.AddScoped<ProfitAnalyticsService>();
+builder.Services.AddMemoryCache(options => options.SizeLimit = 100 * 1024 * 1024);
 builder.Services.AddHttpClient("product-images").ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = System.Net.DecompressionMethods.All });
 builder.Services.AddScoped<ProductImageStorageService>();
 builder.Services.AddScoped<JsonBusinessSettingsRepository>();
@@ -72,14 +74,16 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = context => { if (context.Context.Request.Path.StartsWithSegments("/uploads/products")) context.Context.Response.Headers.CacheControl = "public,max-age=604800,immutable"; } });
 
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapGet("/media/drive/{fileId}", async (string fileId, ProductImageStorageService storage, CancellationToken token) =>
+app.MapGet("/media/drive/{fileId}", async (string fileId, ProductImageStorageService storage, HttpContext context, CancellationToken token) =>
 {
     var image = await storage.DownloadDriveAsync(fileId, token);
-    return Results.Stream(image.Content, image.ContentType, enableRangeProcessing: true);
+    context.Response.Headers.CacheControl = "public,max-age=604800,immutable";
+    return Results.Bytes(image.Content, image.ContentType, enableRangeProcessing: true);
 });
 app.MapGet("/backup/download", async (BackupService backup, CancellationToken token) =>
 {

@@ -19,6 +19,7 @@ public sealed class Product
     public string? ImageUrl { get; set; }
     public string? Notes { get; set; }
     [Range(0, 1_000_000)] public decimal? PurchasePriceCny { get; set; }
+    public string PurchaseCurrencyCode { get; set; } = "CNY";
     [Range(0, 100_000)] public decimal? CnyRateUzs { get; set; }
     [Range(0, 100)] public decimal? AgentCommissionPercent { get; set; }
     [Range(0, 1_000_000_000)] public decimal? DeliveryCostUzs { get; set; }

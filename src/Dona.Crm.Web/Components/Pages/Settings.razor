@@ -13,6 +13,8 @@
 @inject InterfaceModeState InterfaceMode
 @inject ProductImageStorageService ImageStorage
 @inject GoogleDriveOAuthStore DriveOAuth
+@inject CurrencyContext Currency
+@inject BackupService Backup
 
 <PageTitle>Настройки — Dona CRM</PageTitle>
 
@@ -33,6 +35,7 @@
         <label>Период аналитики по умолчанию, дней<InputNumber @bind-Value="_business.DefaultAnalyticsPeriodDays" min="1" /></label>
         <label>Товар считается залежавшимся через, дней<InputNumber @bind-Value="_business.StaleInventoryDays" min="1" /></label>
         <label>Префикс номера продажи<InputText @bind-Value="_business.SaleNumberPrefix" placeholder="SALE" /><small>Например: SALE-20260720-001</small></label>
+        <label>Главная валюта проекта<InputSelect @bind-Value="_business.MainCurrencyCode">@foreach (var currencyCode in CurrencyCodes.Supported) { <option value="@currencyCode">@currencyCode · @CurrencyCodes.Symbol(currencyCode)</option> }</InputSelect><small>В ней считаются себестоимость, продажи и аналитика. Смена кода не конвертирует уже сохранённые суммы.</small></label>
     </div>
     @if (!string.IsNullOrWhiteSpace(_businessMessage)) { <div class="notice @(_businessSuccess ? "success" : "error")">@_businessMessage</div> }
     <div class="settings-actions"><button type="button" class="button secondary" @onclick="RecalculateStatusesAsync">Пересчитать статусы сейчас</button><button type="button" class="button primary" @onclick="SaveBusinessSettingsAsync">Сохранить бизнес-правила</button></div>
@@ -62,9 +65,23 @@
 </EditForm>
 
 <section class="panel form-section backup-panel">
-    <div class="section-title"><span>↧</span><div><h2>Резервная копия</h2><p>Все рабочие данные и локальные изображения одним ZIP-файлом</p></div></div>
+    <div class="section-title"><span>↧</span><div><h2>Резервная копия</h2><p>Скачивание и безопасная проверка ZIP без изменения данных</p></div></div>
     <p>Ключи Google, OAuth-токены и другие секреты в архив не включаются. Изображения Google Drive остаются в вашем Drive.</p>
-    <div class="settings-actions"><a class="button primary" href="/backup/download">Скачать резервную копию</a></div>
+    <div class="backup-actions"><a class="button primary" href="/backup/download">Скачать резервную копию</a><label class="button secondary image-upload-button">@(_backupBusy ? "Проверяем…" : "Проверить архив перед восстановлением")<InputFile OnChange="InspectBackupAsync" accept="application/zip,.zip" disabled="@_backupBusy" /></label></div>
+    @if (!string.IsNullOrWhiteSpace(_backupMessage)) { <div class="notice @(_backupPreview is null ? "error" : "success")">@_backupMessage</div> }
+    @if (_backupPreview is not null)
+    {
+        <div class="backup-preview">
+            <div><span>Создан</span><strong>@_backupPreview.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</strong><small>схема v@_backupPreview.SchemaVersion</small></div>
+            <div><span>Товары</span><strong>@_backupPreview.Products</strong><small>новых @_backupPreview.NewProducts · обновлений @_backupPreview.UpdatedProducts</small></div>
+            <div><span>Закупки</span><strong>@_backupPreview.Purchases</strong><small>новых @_backupPreview.NewPurchases · обновлений @_backupPreview.UpdatedPurchases</small></div>
+            <div><span>Продажи</span><strong>@_backupPreview.Sales</strong><small>новых @_backupPreview.NewSales · обновлений @_backupPreview.UpdatedSales</small></div>
+            <div><span>Справочники</span><strong>@(_backupPreview.Suppliers + _backupPreview.Intermediaries + _backupPreview.Categories + _backupPreview.Customers)</strong><small>поставщики, посредники, категории и клиенты</small></div>
+            <div><span>Маркетинг</span><strong>@(_backupPreview.Collections + _backupPreview.Outfits + _backupPreview.ContentItems)</strong><small>коллекции, образы и публикации</small></div>
+            <div><span>Изображения</span><strong>@_backupPreview.LocalImages</strong><small>@Size(_backupPreview.LocalImageBytes) локальных файлов</small></div>
+        </div>
+        <div class="notice warning">Архив только проверен. Данные ещё не изменялись; восстановление с подтверждением будет добавлено следующим шагом.</div>
+    }
 </section>
 
 <div class="settings-grid">
@@ -126,6 +143,7 @@
 
 @code {
     private const long MaxCredentialSize = 256 * 1024;
+    private const long MaxBackupSize = 100 * 1024 * 1024;
     private bool _busy;
     private bool _success;
     private string? _message;
@@ -140,12 +158,15 @@
     private bool _driveSuccess;
     private string? _driveMessage;
     private string? _driveFileName;
+    private BackupPreview? _backupPreview;
+    private bool _backupBusy;
+    private string? _backupMessage;
     private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
     protected override async Task OnInitializedAsync() { InterfaceMode.Changed += InterfaceModeChanged; _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
 
     private async Task SaveBusinessSettingsAsync()
     {
-        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
+        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); Currency.Set(_business.MainCurrencyCode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
         catch (Exception exception) { _businessMessage = $"Не удалось сохранить: {exception.Message}"; _businessSuccess = false; }
     }
 
@@ -177,7 +198,7 @@
         finally { _driveBusy = false; }
     }
 
-    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); _business.SaleNumberPrefix = SaleNumberGenerator.NormalizePrefix(_business.SaleNumberPrefix); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); }
+    private void NormalizeBusinessSettings() { _business.LowStockThreshold = Math.Max(0, _business.LowStockThreshold); _business.PurchaseDueSoonDays = Math.Max(0, _business.PurchaseDueSoonDays); _business.ContentPlanningHorizonDays = Math.Max(1, _business.ContentPlanningHorizonDays); _business.DefaultAnalyticsPeriodDays = Math.Max(1, _business.DefaultAnalyticsPeriodDays); _business.StaleInventoryDays = Math.Max(1, _business.StaleInventoryDays); _business.SaleNumberPrefix = SaleNumberGenerator.NormalizePrefix(_business.SaleNumberPrefix); _business.MainCurrencyCode = CurrencyCodes.Normalize(_business.MainCurrencyCode); _business.GoogleDriveFolderId = ExtractDriveFolderId(_business.GoogleDriveFolderId); }
     private static string? ExtractDriveFolderId(string? value) { if (string.IsNullOrWhiteSpace(value)) return null; var marker = "/folders/"; var index = value.IndexOf(marker, StringComparison.OrdinalIgnoreCase); if (index < 0) return value.Trim(); return value[(index + marker.Length)..].Split('?', '/', '#')[0]; }
 
     private async Task ReadCredentialsFileAsync(InputFileChangeEventArgs args)
@@ -194,6 +215,16 @@
         }
         catch (Exception exception) { _message = $"Не удалось прочитать файл: {exception.Message}"; _success = false; }
     }
+
+    private async Task InspectBackupAsync(InputFileChangeEventArgs args)
+    {
+        _backupBusy = true; _backupPreview = null; _backupMessage = null;
+        try { await using var stream = args.File.OpenReadStream(MaxBackupSize); _backupPreview = await Backup.InspectAsync(stream); _backupMessage = $"Архив «{args.File.Name}» прошёл проверку. Предпросмотр не изменил данные."; }
+        catch (Exception exception) { _backupMessage = $"Архив не прошёл проверку: {exception.Message}"; }
+        finally { _backupBusy = false; }
+    }
+
+    private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024m / 1024m:N1} МБ" : $"{bytes / 1024m:N0} КБ";
 
     private async Task ReadDriveOAuthFileAsync(InputFileChangeEventArgs args)
     {

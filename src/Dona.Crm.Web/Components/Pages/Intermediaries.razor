@@ -2,6 +2,7 @@
 @attribute [StreamRendering]
 @inject ICommerceRepository Repository
 @inject IntermediaryAnalyticsService Analytics
+@inject CurrencyContext Currency
 
 <PageTitle>Посредники — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Логистика</span><h1>Посредники</h1><p>Условия и фактические показатели доставки товара из Китая.</p></div><a class="button primary" href="/intermediaries/new">＋ Добавить</a></div>
@@ -11,7 +12,7 @@
     @foreach (var item in Filtered.OrderBy(x => x.Name))
     {
         var actual = Actual(item.Id);
-        <a class="simple-list-row intermediary-list-row" href="/intermediaries/@item.Id"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@(item.Company ?? "Без компании") · @(item.RatePerKgUsd is null ? "тариф не указан" : $"${item.RatePerKgUsd}/кг") · факт @(actual?.AverageShippingPerKgUzs is > 0 ? $"{actual.AverageShippingPerKgUzs:N0} сум/кг" : "—") · @Delay(actual)</small></span><em class="reliability @ScoreClass(actual?.ReliabilityScore)">@Score(actual?.ReliabilityScore)</em></a>
+        <a class="simple-list-row intermediary-list-row" href="/intermediaries/@item.Id"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name) ? "?" : item.Name[..1])</span><span><strong>@item.Name</strong><small>@(item.Company ?? "Без компании") · @(item.RatePerKgUsd is null ? "тариф не указан" : $"${item.RatePerKgUsd}/кг") · факт @(actual?.AverageShippingPerKgUzs is > 0 ? $"{Currency.Format(actual.AverageShippingPerKgUzs)}/кг" : "—") · @Delay(actual)</small></span><em class="reliability @ScoreClass(actual?.ReliabilityScore)">@Score(actual?.ReliabilityScore)</em></a>
     }
     @if (!Filtered.Any()) { <div class="empty-state">Посредники не найдены. Измените параметры фильтра.</div> }
 </section>

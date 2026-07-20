@@ -59,6 +59,7 @@ public sealed class Purchase
     public DateTimeOffset OrderedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? TrackingCode { get; set; }
     public DateTime? EstimatedDeliveryDate { get; set; }
+    public string CurrencyCode { get; set; } = "CNY";
     [Range(0, 100_000)] public decimal? CnyRateUzs { get; set; }
     [Range(0, 100)] public decimal? AgentCommissionPercent { get; set; }
     [Range(0, 1_000_000_000)] public decimal? InternationalShippingUzs { get; set; }

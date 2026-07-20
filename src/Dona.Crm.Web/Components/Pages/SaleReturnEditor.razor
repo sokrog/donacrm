@@ -3,6 +3,7 @@
 @inject ISalesRepository Sales
 @inject SalesReturnService ReturnService
 @inject NavigationManager Navigation
+@inject CurrencyContext Currency
 
 <PageTitle>Новый возврат — Dona CRM</PageTitle>
 
@@ -16,7 +17,7 @@
         <div class="editor-grid">
             <section class="panel form-section">
                 <div class="section-title"><span>01</span><div><h2>Документ возврата</h2><p>Причина и сумма возврата клиенту</p></div></div>
-                <div class="form-grid"><label class="span-2">Причина<InputText @bind-Value="_model.Reason" placeholder="Например, не подошёл размер" /><ValidationMessage For="() => _model.Reason" /></label><label>Сумма возврата, сум<InputNumber @bind-Value="_model.RefundAmountUzs" /></label><label>Доступно к возврату<div class="readonly-field">@Money(Math.Max(0, _sale.TotalUzs - _sale.RefundedUzs))</div></label><label class="span-2">Комментарий<InputTextArea @bind-Value="_model.Notes" /></label></div>
+                <div class="form-grid"><label class="span-2">Причина<InputText @bind-Value="_model.Reason" placeholder="Например, не подошёл размер" /><ValidationMessage For="() => _model.Reason" /></label><label>Сумма возврата, @Currency.Symbol<InputNumber @bind-Value="_model.RefundAmountUzs" /></label><label>Доступно к возврату<div class="readonly-field">@Money(Math.Max(0, _sale.TotalUzs - _sale.RefundedUzs))</div></label><label class="span-2">Комментарий<InputTextArea @bind-Value="_model.Notes" /></label></div>
             </section>
             <aside class="panel economics-card"><div class="section-title"><span>₸</span><div><h2>Итог</h2><p>по выбранным строкам</p></div></div><div class="calculation large"><span>Принять <strong>@_model.AcceptedQuantity шт.</strong></span><span>Вернуть на склад <strong>@_model.RestockedQuantity шт.</strong></span><span>Списать как брак <strong>@_model.DefectQuantity шт.</strong></span><span>Отказать <strong>@_model.RejectedQuantity шт.</strong></span><span class="total-line">Вернуть денег <strong>@Money(_model.RefundAmountUzs ?? 0)</strong></span></div></aside>
             <section class="panel form-section span-all">
@@ -48,5 +49,5 @@
     private int Remaining(Guid saleItemId) { var item = _sale?.Items.FirstOrDefault(x => x.Id == saleItemId); return item is null ? 0 : Math.Max(0, item.SoldQuantity - item.ReturnedQuantity); }
     private static string Variant(SaleReturnItem line) => string.Join(" · ", new[] { line.Color, line.Size }.Where(x => !string.IsNullOrWhiteSpace(x))) is { Length: > 0 } value ? value : "Без варианта";
     private async Task SaveAsync() { if (_sale is null || _saving) return; _saving = true; try { await ReturnService.CreateAsync(_sale, _model); Navigation.NavigateTo($"/sales/{SaleId}"); } catch (Exception exception) { _error = exception.Message; } finally { _saving = false; } }
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
 }

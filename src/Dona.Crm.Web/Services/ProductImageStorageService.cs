@@ -5,13 +5,14 @@ using Google.Apis.Drive.v3;
 using Google.Apis.Services;
 using SkiaSharp;
 using System.Net;
+using Microsoft.Extensions.Caching.Memory;
 using DriveFile = Google.Apis.Drive.v3.Data.File;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed record ProductImageDownload(Stream Content, string ContentType);
+public sealed record ProductImageDownload(byte[] Content, string ContentType);
 
-public sealed class ProductImageStorageService(IWebHostEnvironment environment, IBusinessSettingsRepository businessSettings, GoogleDriveOAuthStore driveOAuth, IHttpClientFactory httpClientFactory)
+public sealed class ProductImageStorageService(IWebHostEnvironment environment, IBusinessSettingsRepository businessSettings, GoogleDriveOAuthStore driveOAuth, IHttpClientFactory httpClientFactory, IMemoryCache cache)
 {
     private static readonly IReadOnlyDictionary<string, string> Extensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["image/jpeg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp", ["image/gif"] = ".gif" };
     private readonly string _localRoot = Path.Combine(environment.WebRootPath, "uploads", "products");
@@ -57,6 +58,7 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
         }
         if (image.Storage == ProductImageStorage.GoogleDrive && !string.IsNullOrWhiteSpace(image.StorageKey))
         {
+            cache.Remove(DriveCacheKey(image.StorageKey));
             using var service = await driveOAuth.CreateDriveServiceAsync(token);
             var request = service.Files.Delete(image.StorageKey); request.SupportsAllDrives = true;
             await request.ExecuteAsync(token);
@@ -66,13 +68,16 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
     public async Task<ProductImageDownload> DownloadDriveAsync(string fileId, CancellationToken token = default)
     {
         if (string.IsNullOrWhiteSpace(fileId) || fileId.Any(x => !char.IsLetterOrDigit(x) && x is not '-' and not '_')) throw new InvalidOperationException("Некорректный ID файла.");
+        if (cache.TryGetValue<ProductImageDownload>(DriveCacheKey(fileId), out var cached) && cached is not null) return cached;
         using var service = await driveOAuth.CreateDriveServiceAsync(token);
         var metadataRequest = service.Files.Get(fileId); metadataRequest.Fields = "id,mimeType"; metadataRequest.SupportsAllDrives = true;
         var metadata = await metadataRequest.ExecuteAsync(token);
         var stream = new MemoryStream();
         var request = service.Files.Get(fileId); request.SupportsAllDrives = true;
-        await request.DownloadAsync(stream, token); stream.Position = 0;
-        return new ProductImageDownload(stream, metadata.MimeType ?? "application/octet-stream");
+        await request.DownloadAsync(stream, token);
+        var image = new ProductImageDownload(stream.ToArray(), metadata.MimeType ?? "application/octet-stream");
+        cache.Set(DriveCacheKey(fileId), image, new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromHours(6), AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1), Size = image.Content.LongLength });
+        return image;
     }
 
     public async Task CheckGoogleDriveAsync(CancellationToken token = default)
@@ -177,6 +182,8 @@ public sealed class ProductImageStorageService(IWebHostEnvironment environment, 
         if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Некорректный путь изображения.");
         return fullPath;
     }
+
+    private static string DriveCacheKey(string fileId) => $"drive-image:{fileId}";
 
     private sealed record OptimizedImage(MemoryStream Content, string FileName, string ContentType, string Extension, long SizeBytes);
 }

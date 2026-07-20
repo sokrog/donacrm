@@ -5,6 +5,7 @@
 @inject IPurchaseHistoryRepository PurchaseHistory
 @inject SupplierAnalyticsService AnalyticsService
 @inject NavigationManager Navigation
+@inject CurrencyContext Currency
 
 <PageTitle>@(_isNew ? "Новый поставщик" : _model.Name) — Dona CRM</PageTitle>
 <div class="page-heading"><div><a class="back-link" href="/suppliers">← Поставщики</a><h1>@(_isNew ? "Новый поставщик" : _model.Name)</h1><p>Условия работы, контакты и фактическая надёжность магазина.</p></div></div>
@@ -42,7 +43,7 @@
         </section>
         <section class="panel supplier-price-history">
             <div class="panel-header"><div><h2>Последние цены</h2><p>Фактическая себестоимость при приёмке.</p></div></div>
-            @foreach (var item in _costs.OrderByDescending(x => x.RecordedAt).Take(10)) { <div class="supplier-price-row"><span><strong>@item.ProductName</strong><small>@item.RecordedAt.ToLocalTime().ToString("dd.MM.yyyy") · @item.Sku</small></span><span><strong>@item.UnitPriceCny.ToString("N2") ¥</strong><small>@item.UnitLandedCostUzs.ToString("N0") сум</small></span></div> }
+            @foreach (var item in _costs.OrderByDescending(x => x.RecordedAt).Take(10)) { <div class="supplier-price-row"><span><strong>@item.ProductName</strong><small>@item.RecordedAt.ToLocalTime().ToString("dd.MM.yyyy") · @item.Sku</small></span><span><strong>@Currency.SourceAmount(item.UnitPriceCny, item.CurrencyCode)</strong><small>@Currency.Format(item.UnitLandedCostUzs)</small></span></div> }
             @if (_costs.Count == 0) { <div class="empty-state small">Цены появятся после приёмки.</div> }
         </section>
     </div>

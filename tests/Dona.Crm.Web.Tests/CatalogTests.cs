@@ -3,6 +3,7 @@ using Dona.Crm.Web.Storage;
 using Dona.Crm.Web.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
 
@@ -46,6 +47,18 @@ public sealed class ProductEconomicsTests
         Assert.Equal(48_080, product.ProfitUzs);
         Assert.Equal(67.8m, product.MarkupPercent);
     }
+
+    [Fact]
+    public void Calculates_product_cost_from_any_source_currency_into_main_currency()
+    {
+        var product = new Product { PurchaseCurrencyCode = "USD", PurchasePriceCny = 10, CnyRateUzs = 12_500, DeliveryCostUzs = 5_000 };
+        Assert.Equal(130_000, product.CostUzs);
+    }
+
+    [Theory]
+    [InlineData(" usd ", "USD")]
+    [InlineData("unknown", "CNY")]
+    public void Normalizes_supported_currency_codes(string input, string expected) => Assert.Equal(expected, CurrencyCodes.Normalize(input, "CNY"));
 
     [Fact]
     public void Calculates_stock_from_variants()
@@ -779,7 +792,7 @@ public sealed class ProductImageStorageServiceTests
         try
         {
             var environment = new ImageEnvironment(root);
-            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory());
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory(), new MemoryCache(new MemoryCacheOptions { SizeLimit = 100 * 1024 * 1024 }));
             await using var content = new MemoryStream(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 
             var image = await service.UploadAsync(Guid.NewGuid(), content, "photo.png", "image/png", content.Length);
@@ -801,7 +814,7 @@ public sealed class ProductImageStorageServiceTests
         try
         {
             var environment = new ImageEnvironment(root);
-            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory());
+            var service = new ProductImageStorageService(environment, new ImageBusinessSettings(), new GoogleDriveOAuthStore(environment), new ImageHttpClientFactory(), new MemoryCache(new MemoryCacheOptions { SizeLimit = 100 * 1024 * 1024 }));
             await using var content = new MemoryStream(); using (var bitmap = new SKBitmap(3000, 1000)) { bitmap.Erase(new SKColor(30, 90, 60)); using var source = SKImage.FromBitmap(bitmap); using var encoded = source.Encode(SKEncodedImageFormat.Jpeg, 92); encoded.SaveTo(content); } content.Position = 0;
 
             var image = await service.UploadAsync(Guid.NewGuid(), content, "large.jpg", "image/jpeg", content.Length);
@@ -856,6 +869,27 @@ public sealed class BackupServiceTests
             using var reader = new StreamReader(archive.GetEntry("dona-crm-backup.json")!.Open()); Assert.Contains("TS-1", reader.ReadToEnd());
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Inspects_schema_and_local_images_without_extracting_archive()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dona-crm-backup-tests", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root); File.WriteAllBytes(Path.Combine(root, "photo.webp"), [1, 2, 3]);
+        try
+        {
+            var bytes = BackupService.CreateArchive(new BackupSnapshot { Products = [new Product { Sku = "TS-1", Name = "Test" }] }, root);
+            var inspection = BackupService.InspectArchive(bytes);
+            Assert.Single(inspection.Snapshot.Products); Assert.Equal(1, inspection.LocalImageCount); Assert.Equal(3, inspection.LocalImageBytes);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void Rejects_unsupported_backup_schema()
+    {
+        var bytes = BackupService.CreateArchive(new BackupSnapshot { SchemaVersion = 99 }, "missing");
+        var exception = Assert.Throws<InvalidOperationException>(() => BackupService.InspectArchive(bytes));
+        Assert.Contains("не поддерживается", exception.Message);
     }
 }
 

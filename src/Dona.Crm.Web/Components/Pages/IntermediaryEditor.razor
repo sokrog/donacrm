@@ -4,6 +4,7 @@
 @inject ICommerceRepository Repository
 @inject IntermediaryAnalyticsService AnalyticsService
 @inject NavigationManager Navigation
+@inject CurrencyContext Currency
 
 <PageTitle>@(_isNew ? "Новый посредник" : _model.Name) — Dona CRM</PageTitle>
 <div class="page-heading"><div><a class="back-link" href="/intermediaries">← Посредники</a><h1>@(_isNew ? "Новый посредник" : _model.Name)</h1><p>Контакты, условия и фактическая эффективность доставки.</p></div></div>
@@ -19,7 +20,7 @@
     <div class="section-break"><span class="eyebrow">Фактические показатели</span><h2>Эффективность доставки</h2></div>
     <div class="metric-grid compact-metrics">
         <div class="metric-card accent"><span>Рейтинг надёжности</span><strong>@Score(_analytics.ReliabilityScore)</strong><small>фактические сроки и ручная оценка</small></div>
-        <div class="metric-card"><span>Стоимость доставки</span><strong>@Money(_analytics.AverageShippingPerKgUzs)</strong><small>сум/кг · всего @Money(_analytics.TotalShippingUzs) сум</small></div>
+        <div class="metric-card"><span>Стоимость доставки</span><strong>@Money(_analytics.AverageShippingPerKgUzs)</strong><small>@Currency.Symbol/кг · всего @Money(_analytics.TotalShippingUzs)</small></div>
         <div class="metric-card"><span>Фактический срок</span><strong>@Days(_analytics.AverageTransitDays)</strong><small>среднее по @_analytics.CompletedCount завершённым поставкам</small></div>
         <div class="metric-card"><span>Поставки вовремя</span><strong>@Percent(_analytics.OnTimePercent)</strong><small>@Delay(_analytics)</small></div>
     </div>
@@ -47,6 +48,6 @@
     }
     private async Task SaveAsync() { await Repository.UpsertIntermediaryAsync(_model); Navigation.NavigateTo("/intermediaries"); }
     private async Task DeleteAsync() { await Repository.DeleteIntermediaryAsync(_model.Id); Navigation.NavigateTo("/intermediaries"); }
-    private static string Money(decimal value) => value.ToString("N0"); private static string Percent(decimal value) => $"{value:N1}%"; private static string Days(decimal value) => value == 0 ? "—" : $"{value:N1} дн."; private static string Score(decimal? value) => value is null ? "—" : $"{value:N0}/100";
+    private string Money(decimal value) => Currency.Format(value); private static string Percent(decimal value) => $"{value:N1}%"; private static string Days(decimal value) => value == 0 ? "—" : $"{value:N1} дн."; private static string Score(decimal? value) => value is null ? "—" : $"{value:N0}/100";
     private static string Delay(IntermediaryAnalytics value) => value.DeliverySamples == 0 ? "нет данных о плановом сроке" : value.AverageDelayDays <= 0 ? "без средней задержки" : $"средняя задержка +{value.AverageDelayDays:N1} дн.";
 }

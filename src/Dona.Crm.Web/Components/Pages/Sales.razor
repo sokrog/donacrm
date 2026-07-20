@@ -1,6 +1,7 @@
 @page "/sales"
 @attribute [StreamRendering]
 @inject ISalesRepository Repository
+@inject CurrencyContext Currency
 
 <PageTitle>Продажи — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Заказы</span><h1>Продажи</h1><p>Резервы, оплаты, выдача и возвраты.</p></div><a class="button primary" href="/sales/new">＋ Новая продажа</a></div>
@@ -40,6 +41,6 @@
         (string.IsNullOrWhiteSpace(_status) || x.Status.ToString() == _status) &&
         (string.IsNullOrWhiteSpace(_delivery) || x.DeliveryMethod.ToString() == _delivery));
     protected override async Task OnInitializedAsync() => _items = await Repository.GetSalesAsync();
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
     private static string Badge(SaleStatus? status) => status switch { SaleStatus.Completed => "instock", SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped => "onorder", SaleStatus.Cancelled or SaleStatus.Returned => "archived", _ => "" };
 }

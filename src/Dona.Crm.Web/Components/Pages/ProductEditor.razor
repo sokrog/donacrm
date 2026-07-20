@@ -7,6 +7,7 @@
 @inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject ProductStatusService ProductStatusService
 @inject ProductImageStorageService ImageStorage
+@inject CurrencyContext Currency
 
 <PageTitle>@(_isNew ? "Новый товар" : "Редактирование") — Dona CRM</PageTitle>
 
@@ -36,12 +37,13 @@
         </section>
 
         <aside class="panel economics-card">
-            <div class="section-title"><span>¥</span><div><h2>Экономика</h2><p>На одну единицу</p></div></div>
-            <label>Закупка, ¥<InputNumber @bind-Value="Model.PurchasePriceCny" /></label>
-            <label>Курс ¥ → сум<InputNumber @bind-Value="Model.CnyRateUzs" /></label>
+            <div class="section-title"><span>@CurrencyCodes.Symbol(Model.PurchaseCurrencyCode)</span><div><h2>Экономика</h2><p>На одну единицу · итог в @Currency.Code</p></div></div>
+            <label>Валюта закупки<InputSelect @bind-Value="Model.PurchaseCurrencyCode" @bind-Value:after="PurchaseCurrencyChanged">@foreach (var currencyCode in CurrencyCodes.Supported) { <option value="@currencyCode">@currencyCode · @CurrencyCodes.Symbol(currencyCode)</option> }</InputSelect></label>
+            <label>Закупка, @CurrencyCodes.Symbol(Model.PurchaseCurrencyCode)<InputNumber @bind-Value="Model.PurchasePriceCny" /></label>
+            <label>Курс @Model.PurchaseCurrencyCode → @Currency.Code<InputNumber @bind-Value="Model.CnyRateUzs" /></label>
             <label>Комиссия посредника, %<InputNumber @bind-Value="Model.AgentCommissionPercent" /></label>
-            <label>Доставка, сум<InputNumber @bind-Value="Model.DeliveryCostUzs" /></label>
-            <label>Цена продажи, сум<InputNumber @bind-Value="Model.SellingPriceUzs" /></label>
+            <label>Доставка, @Currency.Symbol<InputNumber @bind-Value="Model.DeliveryCostUzs" /></label>
+            <label>Цена продажи, @Currency.Symbol<InputNumber @bind-Value="Model.SellingPriceUzs" /></label>
             <div class="calculation"><span>Себестоимость <strong>@Money(Model.CostUzs)</strong></span><span>Прибыль <strong class="positive">@Money(Model.ProfitUzs)</strong></span><span>Наценка <strong>@Model.MarkupPercent%</strong></span></div>
         </aside>
 
@@ -71,7 +73,7 @@
                     @foreach (var image in Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt))
                     {
                         <div class="product-image-card @(image.IsMain ? "main" : null)" @key="image.Id">
-                            <button type="button" class="product-image-preview" title="Открыть на весь экран" @onclick="() => _previewImage = image"><img src="@image.Url" alt="@image.Caption" loading="lazy" />@if (image.IsMain) { <em>Главное</em> }</button>
+                            <button type="button" class="product-image-preview" title="Открыть на весь экран" @onclick="() => _previewImage = image"><CachedImage Source="image.Url" Alt="image.Caption" />@if (image.IsMain) { <em>Главное</em> }</button>
                             <InputText @bind-Value="image.Caption" placeholder="Подпись" />
                             <small>@image.FileName · @Size(image.SizeBytes) · @(image.Storage == ProductImageStorage.GoogleDrive ? "Drive" : "Локально")</small>
                             <div class="image-card-actions"><button type="button" title="Раньше" @onclick="() => MoveImageAsync(image, -1)">←</button><button type="button" title="Позже" @onclick="() => MoveImageAsync(image, 1)">→</button>@if (!image.IsMain) { <button type="button" @onclick="() => SetMainImageAsync(image)">Сделать главным</button> }<button type="button" class="danger" @onclick="() => _imageToDelete = image">Удалить</button></div>
@@ -91,7 +93,7 @@
 @if (_previewImage is not null)
 {
     <div class="image-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр изображения" @onclick="() => _previewImage = null">
-        <div class="image-lightbox-content" @onclick:stopPropagation="true"><button type="button" class="image-lightbox-close" aria-label="Закрыть" @onclick="() => _previewImage = null">×</button><img src="@_previewImage.Url" alt="@_previewImage.Caption" /><div><strong>@(_previewImage.Caption ?? _previewImage.FileName)</strong>@if (_previewImage.IsMain) { <span>Главная миниатюра</span> }</div></div>
+        <div class="image-lightbox-content" @onclick:stopPropagation="true"><button type="button" class="image-lightbox-close" aria-label="Закрыть" @onclick="() => _previewImage = null">×</button><span class="image-lightbox-stage"><CachedImage Source="_previewImage.Url" Alt="_previewImage.Caption" Lazy="false" /></span><div><strong>@(_previewImage.Caption ?? _previewImage.FileName)</strong>@if (_previewImage.IsMain) { <span>Главная миниатюра</span> }</div></div>
     </div>
 }
 
@@ -122,16 +124,17 @@
             if (source is not null) _copyNotice = "Создан черновик копии. Остатки и изображения не копируются; проверьте SKU и сохраните товар.";
         }
         else Model = new Product();
-        NormalizeImages(); _confirmDelete = false; _imageMessage = null;
+        Model.PurchaseCurrencyCode = CurrencyCodes.Normalize(Model.PurchaseCurrencyCode, "CNY"); if (Model.PurchaseCurrencyCode == Currency.Code && Model.CnyRateUzs is null) Model.CnyRateUzs = 1; NormalizeImages(); _confirmDelete = false; _imageMessage = null;
     }
     private static Product CloneProduct(Product source, IEnumerable<string> existingSkus)
     {
         var used = existingSkus.ToHashSet(StringComparer.OrdinalIgnoreCase); var baseSku = string.IsNullOrWhiteSpace(source.Sku) ? "COPY" : source.Sku + "-COPY"; var sku = baseSku; var suffix = 2; while (used.Contains(sku)) sku = $"{baseSku}-{suffix++}";
-        return new Product { Sku = sku, Name = source.Name + " — копия", Category = source.Category, Gender = source.Gender, Season = source.Season, Status = ProductStatus.OnOrder, SupplierName = source.SupplierName, SourceUrl = source.SourceUrl, Notes = source.Notes, PurchasePriceCny = source.PurchasePriceCny, CnyRateUzs = source.CnyRateUzs, AgentCommissionPercent = source.AgentCommissionPercent, DeliveryCostUzs = source.DeliveryCostUzs, SellingPriceUzs = source.SellingPriceUzs, Variants = source.Variants.Select(x => new ProductVariant { Color = x.Color, Size = x.Size, Quantity = 0 }).ToList() };
+        return new Product { Sku = sku, Name = source.Name + " — копия", Category = source.Category, Gender = source.Gender, Season = source.Season, Status = ProductStatus.OnOrder, SupplierName = source.SupplierName, SourceUrl = source.SourceUrl, Notes = source.Notes, PurchasePriceCny = source.PurchasePriceCny, PurchaseCurrencyCode = source.PurchaseCurrencyCode, CnyRateUzs = source.CnyRateUzs, AgentCommissionPercent = source.AgentCommissionPercent, DeliveryCostUzs = source.DeliveryCostUzs, SellingPriceUzs = source.SellingPriceUzs, Variants = source.Variants.Select(x => new ProductVariant { Color = x.Color, Size = x.Size, Quantity = 0 }).ToList() };
     }
     private void AddVariant() => Model.Variants.Add(new ProductVariant());
     private void ConfirmVariantDelete() { if (_variantToDelete is null) return; Model.Variants.Remove(_variantToDelete); _variantToDelete = null; }
-    private async Task SaveAsync() { _saving = true; NormalizeImages(); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
+    private void PurchaseCurrencyChanged() { Model.PurchaseCurrencyCode = CurrencyCodes.Normalize(Model.PurchaseCurrencyCode, "CNY"); if (Model.PurchaseCurrencyCode == Currency.Code) Model.CnyRateUzs = 1; }
+    private async Task SaveAsync() { _saving = true; PurchaseCurrencyChanged(); NormalizeImages(); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task ArchiveAsync() { _saving = true; Model.Status = ProductStatus.Archived; await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task RestoreAsync() { _saving = true; Model.Status = ProductStatus.OnOrder; Model.Status = ProductStatusService.Calculate(Model, await BusinessSettingsRepository.GetAsync()); await Repository.UpsertProductAsync(Model); Navigation.NavigateTo("/products"); }
     private async Task DeleteAsync() { _saving = true; foreach (var image in Model.Images.ToList()) await ImageStorage.DeleteAsync(image); await Repository.DeleteProductAsync(Model.Id); Navigation.NavigateTo("/products"); }
@@ -154,5 +157,5 @@
     private async Task ConfirmImageDeleteAsync() { var image = _imageToDelete; if (image is null) return; _imageToDelete = null; _imageBusy = true; try { await ImageStorage.DeleteAsync(image); Model.Images.RemoveAll(x => x.Id == image.Id); NormalizeImages(); await Repository.UpsertProductAsync(Model); if (_previewImage?.Id == image.Id) _previewImage = null; _imageMessage = "Изображение удалено."; _imageSuccess = true; } catch (Exception exception) { _imageMessage = $"Не удалось удалить изображение: {exception.Message}"; _imageSuccess = false; } finally { _imageBusy = false; } }
     private void NormalizeImages() { var ordered = Model.Images.OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToList(); if (ordered.Count > 0 && ordered.All(x => !x.IsMain)) ordered[0].IsMain = true; var mainFound = false; for (var i = 0; i < ordered.Count; i++) { ordered[i].SortOrder = i; if (ordered[i].IsMain && !mainFound) mainFound = true; else if (ordered[i].IsMain) ordered[i].IsMain = false; } Model.Images = ordered; if (ordered.Count > 0) Model.ImageUrl = ordered.First(x => x.IsMain).Url; else if (Model.ImageUrl?.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase) == true || Model.ImageUrl?.StartsWith("/media/drive/", StringComparison.OrdinalIgnoreCase) == true) Model.ImageUrl = null; }
     private static string Size(long bytes) => bytes >= 1024 * 1024 ? $"{bytes / 1024m / 1024m:N1} МБ" : $"{bytes / 1024m:N0} КБ";
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
 }

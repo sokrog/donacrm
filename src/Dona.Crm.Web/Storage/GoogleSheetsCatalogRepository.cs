@@ -12,7 +12,7 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
     public const string ProductsSheet = "Products";
     public const string VariantsSheet = "ProductVariants";
     public const string ImagesSheet = "ProductImages";
-    private static readonly string[] ProductHeaders = ["Id", "Sku", "Name", "Category", "Gender", "Season", "Status", "SupplierName", "SourceUrl", "ImageUrl", "Notes", "PurchasePriceCny", "CnyRateUzs", "AgentCommissionPercent", "DeliveryCostUzs", "SellingPriceUzs", "CreatedAt"];
+    private static readonly string[] ProductHeaders = ["Id", "Sku", "Name", "Category", "Gender", "Season", "Status", "SupplierName", "SourceUrl", "ImageUrl", "Notes", "PurchasePriceCny", "CnyRateUzs", "AgentCommissionPercent", "DeliveryCostUzs", "SellingPriceUzs", "CreatedAt", "PurchaseCurrencyCode"];
     private static readonly string[] VariantHeaders = ["Id", "ProductId", "Color", "Size", "Quantity", "ReservedQuantity"];
     private static readonly string[] ImageHeaders = ["Id", "ProductId", "FileName", "ContentType", "SizeBytes", "Storage", "StorageKey", "Url", "Caption", "SortOrder", "IsMain", "CreatedAt"];
     private readonly GoogleSheetsSettingsStore _settings;
@@ -80,7 +80,7 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
     {
         var service = await EnsureInitializedAsync(cancellationToken);
         var request = service.Spreadsheets.Values.BatchGet(SpreadsheetId);
-        request.Ranges = new[] { $"{ProductsSheet}!A2:Q", $"{VariantsSheet}!A2:F", $"{ImagesSheet}!A2:L" };
+        request.Ranges = new[] { $"{ProductsSheet}!A2:R", $"{VariantsSheet}!A2:F", $"{ImagesSheet}!A2:L" };
         var response = await request.ExecuteAsync(cancellationToken);
         var productRows = response.ValueRanges.ElementAtOrDefault(0)?.Values ?? [];
         var variantRows = response.ValueRanges.ElementAtOrDefault(1)?.Values ?? [];
@@ -113,14 +113,14 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
     private async Task WriteCoreAsync(List<Product> products, CancellationToken cancellationToken)
     {
         var service = await EnsureInitializedAsync(cancellationToken);
-        var clear = new BatchClearValuesRequest { Ranges = [$"{ProductsSheet}!A2:Q", $"{VariantsSheet}!A2:F", $"{ImagesSheet}!A2:L"] };
+        var clear = new BatchClearValuesRequest { Ranges = [$"{ProductsSheet}!A2:R", $"{VariantsSheet}!A2:F", $"{ImagesSheet}!A2:L"] };
         await service.Spreadsheets.Values.BatchClear(clear, SpreadsheetId).ExecuteAsync(cancellationToken);
 
         var productRows = products.Select(ToProductRow).ToList();
         var variantRows = products.SelectMany(product => product.Variants.Select(variant => ToVariantRow(product.Id, variant))).ToList();
         var imageRows = products.SelectMany(product => product.Images.Select(image => ToImageRow(product.Id, image))).ToList();
         var data = new List<ValueRange>();
-        if (productRows.Count > 0) data.Add(new ValueRange { Range = $"{ProductsSheet}!A2:Q", Values = productRows });
+        if (productRows.Count > 0) data.Add(new ValueRange { Range = $"{ProductsSheet}!A2:R", Values = productRows });
         if (variantRows.Count > 0) data.Add(new ValueRange { Range = $"{VariantsSheet}!A2:F", Values = variantRows });
         if (imageRows.Count > 0) data.Add(new ValueRange { Range = $"{ImagesSheet}!A2:L", Values = imageRows });
         if (data.Count == 0) return;
@@ -158,7 +158,7 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
             ValueInputOption = "RAW",
             Data =
             [
-                new ValueRange { Range = $"{ProductsSheet}!A1:Q1", Values = [ProductHeaders.Cast<object>().ToList()] },
+                new ValueRange { Range = $"{ProductsSheet}!A1:R1", Values = [ProductHeaders.Cast<object>().ToList()] },
                 new ValueRange { Range = $"{VariantsSheet}!A1:F1", Values = [VariantHeaders.Cast<object>().ToList()] },
                 new ValueRange { Range = $"{ImagesSheet}!A1:L1", Values = [ImageHeaders.Cast<object>().ToList()] }
             ]
@@ -193,11 +193,12 @@ public sealed class GoogleSheetsCatalogRepository : ICatalogRepository, IDisposa
             SupplierName = NullIfEmpty(Cell(row, 7)), SourceUrl = NullIfEmpty(Cell(row, 8)), ImageUrl = NullIfEmpty(Cell(row, 9)), Notes = NullIfEmpty(Cell(row, 10)),
             PurchasePriceCny = ParseNullableDecimal(Cell(row, 11)), CnyRateUzs = ParseNullableDecimal(Cell(row, 12)), AgentCommissionPercent = ParseNullableDecimal(Cell(row, 13)),
             DeliveryCostUzs = ParseNullableDecimal(Cell(row, 14)), SellingPriceUzs = ParseNullableDecimal(Cell(row, 15)),
-            CreatedAt = DateTimeOffset.TryParse(Cell(row, 16), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date) ? date : DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.TryParse(Cell(row, 16), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date) ? date : DateTimeOffset.UtcNow,
+            PurchaseCurrencyCode = CurrencyCodes.Normalize(Cell(row, 17), "CNY")
         };
     }
 
-    private static IList<object> ToProductRow(Product x) => [x.Id.ToString(), x.Sku, x.Name, x.Category, x.Gender, x.Season, x.Status?.ToString() ?? "", x.SupplierName ?? "", x.SourceUrl ?? "", x.ImageUrl ?? "", x.Notes ?? "", Obj(x.PurchasePriceCny), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.DeliveryCostUzs), Obj(x.SellingPriceUzs), x.CreatedAt.ToString("O")];
+    private static IList<object> ToProductRow(Product x) => [x.Id.ToString(), x.Sku, x.Name, x.Category, x.Gender, x.Season, x.Status?.ToString() ?? "", x.SupplierName ?? "", x.SourceUrl ?? "", x.ImageUrl ?? "", x.Notes ?? "", Obj(x.PurchasePriceCny), Obj(x.CnyRateUzs), Obj(x.AgentCommissionPercent), Obj(x.DeliveryCostUzs), Obj(x.SellingPriceUzs), x.CreatedAt.ToString("O"), CurrencyCodes.Normalize(x.PurchaseCurrencyCode, "CNY")];
     private static IList<object> ToVariantRow(Guid productId, ProductVariant x) => [x.Id.ToString(), productId.ToString(), x.Color, x.Size, Obj(x.Quantity), x.ReservedQuantity];
     private static IList<object> ToImageRow(Guid productId, ProductImage x) => [x.Id.ToString(), productId.ToString(), x.FileName, x.ContentType, x.SizeBytes, x.Storage.ToString(), x.StorageKey, x.Url, x.Caption ?? "", x.SortOrder, x.IsMain, x.CreatedAt.ToString("O")];
     private static string Cell(IList<object> row, int index) => index < row.Count ? Convert.ToString(row[index], CultureInfo.InvariantCulture)?.Trim() ?? "" : "";

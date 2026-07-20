@@ -5,6 +5,7 @@
 @inject AnalyticsService AnalyticsService
 @inject ProfitAnalyticsService ProfitAnalytics
 @inject IBusinessSettingsRepository BusinessSettingsRepository
+@inject CurrencyContext Currency
 @inject ICommerceRepository Commerce
 @inject IMarketingRepository Marketing
 
@@ -80,5 +81,5 @@
     private void SetPeriod(int days) { _to = DateTime.Today; _from = _to.Value.AddDays(-(days - 1)); Rebuild(); }
     private void AllTime() { _from = null; _to = null; Rebuild(); }
     private decimal BarWidth(decimal value) => MaxDaily == 0 ? 0 : Math.Max(2, Math.Round(value / MaxDaily * 100, 1));
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
 }

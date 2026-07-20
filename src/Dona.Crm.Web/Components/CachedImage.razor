@@ -1,0 +1,24 @@
+@if (!string.IsNullOrWhiteSpace(Source))
+{
+    <img @key="Source" class="@CssClass" src="@Source" alt="@Alt" loading="@(Lazy ? "lazy" : "eager")" decoding="async" @onload="ImageLoaded" @onerror="ImageFailed" />
+    @if (!_loaded && !_failed) { <span class="image-load-indicator" aria-label="Загрузка изображения"><i></i></span> }
+}
+
+@code {
+    [Parameter, EditorRequired] public string? Source { get; set; }
+    [Parameter] public string? Alt { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public bool Lazy { get; set; } = true;
+    private string? _previousSource;
+    private bool _loaded;
+    private bool _failed;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_previousSource, Source, StringComparison.Ordinal)) return;
+        _previousSource = Source; _loaded = false; _failed = false;
+    }
+
+    private void ImageLoaded() { _loaded = true; _failed = false; }
+    private void ImageFailed() { _failed = true; _loaded = false; }
+}

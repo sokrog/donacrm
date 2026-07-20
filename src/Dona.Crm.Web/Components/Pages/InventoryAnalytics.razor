@@ -5,6 +5,7 @@
 @inject IStockMovementRepository Movements
 @inject IBusinessSettingsRepository SettingsRepository
 @inject InventoryAnalyticsService Analytics
+@inject CurrencyContext Currency
 @inject InterfaceModeState Mode
 
 <PageTitle>Складская аналитика — Dona CRM</PageTitle>
@@ -67,7 +68,7 @@
     private List<InventoryAnalyticsRow> Attention => _report.Rows.Where(x => x.IsStale || x.IsLowStock || x.DaysOfCover > 120).OrderByDescending(x => x.IsStale).ThenByDescending(x => x.InventoryCostUzs).ToList();
     private List<CategoryRow> CategorySummary => _report.Rows.GroupBy(x => x.Category).Select(x => new CategoryRow(x.Key, x.Sum(v => v.Quantity), x.Sum(v => v.InventoryCostUzs), x.Sum(v => v.PotentialRevenueUzs), x.Where(v => v.IsStale).Sum(v => v.InventoryCostUzs))).OrderByDescending(x => x.Cost).ToList();
     protected override async Task OnInitializedAsync() { await Mode.EnsureLoadedAsync(); var products = Catalog.GetProductsAsync(); var sales = Sales.GetSalesAsync(); var movements = Movements.GetAsync(); var settings = SettingsRepository.GetAsync(); await Task.WhenAll(products, sales, movements, settings); _settings = await settings; _report = Analytics.Build(await products, await sales, await movements, _settings); }
-    private static string Money(decimal value) => $"{value:N0} сум"; private static string Variant(InventoryAnalyticsRow x) => string.Join(" · ", new[] { x.Color, x.Size }.Where(v => !string.IsNullOrWhiteSpace(v))) is { Length: > 0 } result ? result : "—";
+    private string Money(decimal value) => Currency.Format(value); private static string Variant(InventoryAnalyticsRow x) => string.Join(" · ", new[] { x.Color, x.Size }.Where(v => !string.IsNullOrWhiteSpace(v))) is { Length: > 0 } result ? result : "—";
     private static string Cover(InventoryAnalyticsRow x) => x.DaysOfCover is null ? "нет продаж" : $"{x.DaysOfCover:N0} дн."; private static string LastActivity(InventoryAnalyticsRow x) => x.LastSaleAt is not null ? $"продажа {x.LastSaleAt.Value.ToLocalTime():dd.MM.yyyy}" : x.LastReceiptAt is not null ? $"приход {x.LastReceiptAt.Value.ToLocalTime():dd.MM.yyyy}" : "движений нет";
     private static string Risk(InventoryAnalyticsRow x) => x.IsStale ? "Залежался" : x.IsLowStock ? "Заканчивается" : x.AvailableQuantity == 0 ? "Нет в наличии" : x.DaysOfCover > 120 ? "Избыточный запас" : "Норма";
     private static string RiskClass(InventoryAnalyticsRow x) => x.IsStale ? "outofstock" : x.IsLowStock ? "lowstock" : x.AvailableQuantity == 0 ? "archived" : "instock";

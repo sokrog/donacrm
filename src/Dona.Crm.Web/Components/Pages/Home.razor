@@ -1,6 +1,7 @@
 @page "/"
 @attribute [StreamRendering]
 @inject ICatalogRepository Repository
+@inject CurrencyContext Currency
 
 <PageTitle>Обзор — Dona CRM</PageTitle>
 
@@ -30,5 +31,5 @@ else
 @code {
     private IReadOnlyList<Product>? _products;
     protected override async Task OnInitializedAsync() => _products = await Repository.GetProductsAsync();
-    private static string Money(decimal? value) => $"{value ?? 0:N0} сум";
+    private string Money(decimal? value) => Currency.Format(value);
 }

@@ -17,6 +17,7 @@ public sealed class ProductCostHistoryEntry
     public string SupplierName { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal UnitPriceCny { get; set; }
+    public string CurrencyCode { get; set; } = "CNY";
     public decimal CnyRateUzs { get; set; }
     public decimal UnitLandedCostUzs { get; set; }
 }

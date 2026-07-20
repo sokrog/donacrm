@@ -3,20 +3,22 @@
 @inject IPurchaseHistoryRepository Repository
 @inject ICommerceRepository Commerce
 @inject SupplierAnalyticsService Analytics
+@inject CurrencyContext Currency
 
 <PageTitle>Цены и курсы — Dona CRM</PageTitle>
 <div class="page-heading"><div><span class="eyebrow">Закупки</span><h1>Цены и курсы</h1><p>Фактическая стоимость товара в каждой приёмке и сравнение поставщиков.</p></div></div>
 
 <div class="metric-grid compact-metrics">
     <div class="metric-card accent"><span>Принято товара</span><strong>@Filtered.Sum(x => x.Quantity) шт.</strong><small>@Filtered.Count() записей в истории</small></div>
-    <div class="metric-card"><span>Последний курс CNY</span><strong>@Money(LatestRate)</strong><small>сум за 1 ¥</small></div>
+    <div class="metric-card"><span>Последний курс @(string.IsNullOrWhiteSpace(RateCurrency) ? "" : RateCurrency)</span><strong>@LatestRate.ToString("N4")</strong><small>@(string.IsNullOrWhiteSpace(RateCurrency) ? "выберите одну валюту" : $"{Currency.Code} за 1 {RateCurrency}")</small></div>
     <div class="metric-card"><span>Средний курс</span><strong>@Money(AverageRate)</strong><small>по отфильтрованным приёмкам</small></div>
-    <div class="metric-card"><span>Средняя себестоимость</span><strong>@Money(WeightedCost)</strong><small>сум за принятую единицу</small></div>
+    <div class="metric-card"><span>Средняя себестоимость</span><strong>@Money(WeightedCost)</strong><small>@Currency.Code за принятую единицу</small></div>
 </div>
 
 <div class="toolbar">
     <input class="search" placeholder="Товар, SKU или номер закупки" @bind="_query" @bind:event="oninput" />
     <select @bind="_supplier"><option value="">Все поставщики</option>@foreach (var supplier in Suppliers) { <option value="@supplier">@supplier</option> }</select>
+    <select @bind="_currency"><option value="">Все валюты</option>@foreach (var currencyCode in SourceCurrencies) { <option value="@currencyCode">@currencyCode</option> }</select>
     <label class="filter-date">С<input type="date" @bind="_from" /></label><label class="filter-date">По<input type="date" @bind="_to" /></label>
 </div>
 
@@ -24,10 +26,10 @@
     <section class="panel table-panel cost-history-table">
         <div class="panel-header"><div><h2>История себестоимости</h2><p>Снимок создаётся при фактической приёмке.</p></div></div>
         <div class="data-table">
-            <div class="table-header"><span>Дата</span><span>Товар</span><span>Поставщик</span><span>Закупка</span><span>Кол-во</span><span>Цена ¥</span><span>Курс</span><span>Себестоимость</span></div>
+            <div class="table-header"><span>Дата</span><span>Товар</span><span>Поставщик</span><span>Закупка</span><span>Кол-во</span><span>Цена</span><span>Курс</span><span>Себестоимость</span></div>
             @foreach (var item in Filtered.OrderByDescending(x => x.RecordedAt))
             {
-                <div class="table-row"><span>@item.RecordedAt.ToLocalTime().ToString("dd.MM.yyyy")</span><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku @Variant(item)</small></a></span><span>@Empty(item.SupplierName)</span><span><a href="/purchases/@item.PurchaseId">@item.PurchaseNumber</a></span><span>@item.Quantity</span><span>@item.UnitPriceCny.ToString("N2")</span><span>@Money(item.CnyRateUzs)</span><span><strong>@Money(item.UnitLandedCostUzs)</strong></span></div>
+                <div class="table-row"><span>@item.RecordedAt.ToLocalTime().ToString("dd.MM.yyyy")</span><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku @Variant(item)</small></a></span><span>@Empty(item.SupplierName)</span><span><a href="/purchases/@item.PurchaseId">@item.PurchaseNumber</a></span><span>@item.Quantity</span><span>@Currency.SourceAmount(item.UnitPriceCny, item.CurrencyCode)</span><span>@item.CnyRateUzs.ToString("N4")</span><span><strong>@Money(item.UnitLandedCostUzs)</strong></span></div>
             }
         </div>
         @if (!Filtered.Any()) { <div class="empty-state">История не найдена. Она появится после приёмки закупки.</div> }
@@ -48,10 +50,10 @@
 <section class="panel table-panel product-supplier-table">
     <div class="panel-header"><div><h2>Где выгоднее покупать товар</h2><p>Сравнение фактической цены одного товара у разных поставщиков.</p></div></div>
     <div class="data-table">
-        <div class="table-header"><span>Товар</span><span>Поставщик</span><span>Приёмок</span><span>Единиц</span><span>Средняя цена ¥</span><span>Себестоимость</span></div>
+        <div class="table-header"><span>Товар</span><span>Поставщик</span><span>Приёмок</span><span>Единиц</span><span>Средняя цена</span><span>Себестоимость</span></div>
         @foreach (var item in ProductComparison.OrderBy(x => x.ProductName).ThenBy(x => x.AverageUnitCostUzs))
         {
-            <div class="table-row"><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku</small></a></span><span>@item.SupplierName</span><span>@item.ReceiptCount</span><span>@item.Quantity</span><span>@item.AverageUnitPriceCny.ToString("N2")</span><span><strong>@Money(item.AverageUnitCostUzs)</strong></span></div>
+            <div class="table-row"><span><a href="/products/@item.ProductId"><strong>@item.ProductName</strong><small>@item.Sku</small></a></span><span>@item.SupplierName</span><span>@item.ReceiptCount</span><span>@item.Quantity</span><span>@Currency.SourceAmount(item.AverageUnitPriceCny, item.CurrencyCode)</span><span><strong>@Money(item.AverageUnitCostUzs)</strong></span></div>
         }
     </div>
     @if (ProductComparison.Count == 0) { <div class="empty-state">Добавьте приёмки от нескольких поставщиков, чтобы сравнить цены одного товара.</div> }
@@ -60,16 +62,18 @@
 @code {
     private PurchaseHistoryData _data = new();
     private IReadOnlyList<SupplierAnalytics> _supplierAnalytics = [];
-    private string _query = string.Empty; private string _supplier = string.Empty; private DateTime? _from; private DateTime? _to;
-    private IEnumerable<ProductCostHistoryEntry> Filtered => _data.ProductCosts.Where(x => (string.IsNullOrWhiteSpace(_query) || x.ProductName.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.PurchaseNumber.Contains(_query, StringComparison.OrdinalIgnoreCase)) && (string.IsNullOrWhiteSpace(_supplier) || x.SupplierName == _supplier) && (_from is null || x.RecordedAt.ToLocalTime().Date >= _from.Value.Date) && (_to is null || x.RecordedAt.ToLocalTime().Date <= _to.Value.Date));
+    private string _query = string.Empty; private string _supplier = string.Empty; private string _currency = string.Empty; private DateTime? _from; private DateTime? _to;
+    private IEnumerable<ProductCostHistoryEntry> Filtered => _data.ProductCosts.Where(x => (string.IsNullOrWhiteSpace(_query) || x.ProductName.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.Sku.Contains(_query, StringComparison.OrdinalIgnoreCase) || x.PurchaseNumber.Contains(_query, StringComparison.OrdinalIgnoreCase)) && (string.IsNullOrWhiteSpace(_supplier) || x.SupplierName == _supplier) && (string.IsNullOrWhiteSpace(_currency) || CurrencyCodes.Normalize(x.CurrencyCode, "CNY") == _currency) && (_from is null || x.RecordedAt.ToLocalTime().Date >= _from.Value.Date) && (_to is null || x.RecordedAt.ToLocalTime().Date <= _to.Value.Date));
     private List<string> Suppliers => _data.ProductCosts.Select(x => x.SupplierName).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
-    private decimal LatestRate => _data.ExchangeRates.OrderByDescending(x => x.RecordedAt).FirstOrDefault()?.RateUzs ?? 0;
-    private decimal AverageRate { get { var values = Filtered.Where(x => x.CnyRateUzs > 0).ToList(); return values.Count == 0 ? 0 : Math.Round(values.Average(x => x.CnyRateUzs), 2); } }
+    private List<string> SourceCurrencies => _data.ProductCosts.Select(x => CurrencyCodes.Normalize(x.CurrencyCode, "CNY")).Distinct().Order().ToList();
+    private string RateCurrency => !string.IsNullOrWhiteSpace(_currency) ? _currency : SourceCurrencies.Count == 1 ? SourceCurrencies[0] : string.Empty;
+    private decimal LatestRate => string.IsNullOrWhiteSpace(RateCurrency) ? 0 : _data.ExchangeRates.Where(x => CurrencyCodes.Normalize(x.Currency, "CNY") == RateCurrency).OrderByDescending(x => x.RecordedAt).FirstOrDefault()?.RateUzs ?? 0;
+    private decimal AverageRate { get { if (string.IsNullOrWhiteSpace(RateCurrency)) return 0; var values = Filtered.Where(x => CurrencyCodes.Normalize(x.CurrencyCode, "CNY") == RateCurrency && x.CnyRateUzs > 0).ToList(); return values.Count == 0 ? 0 : Math.Round(values.Average(x => x.CnyRateUzs), 4); } }
     private decimal WeightedCost { get { var values = Filtered.ToList(); var quantity = values.Sum(x => x.Quantity); return quantity == 0 ? 0 : Math.Round(values.Sum(x => x.UnitLandedCostUzs * x.Quantity) / quantity); } }
     private List<SupplierAnalytics> SupplierComparison => _supplierAnalytics.Where(x => string.IsNullOrWhiteSpace(_supplier) || x.SupplierName == _supplier).OrderByDescending(x => x.ReliabilityScore).ToList();
     private List<ProductSupplierComparison> ProductComparison { get { var comparisons = Analytics.CompareProducts(new PurchaseHistoryData { ProductCosts = Filtered.ToList() }); var comparable = comparisons.GroupBy(x => x.ProductId).Where(x => x.Select(v => v.SupplierName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1).SelectMany(x => x).ToList(); return comparable; } }
     protected override async Task OnInitializedAsync() { var history = Repository.GetAsync(); var suppliers = Commerce.GetSuppliersAsync(); var purchases = Commerce.GetPurchasesAsync(); await Task.WhenAll(history, suppliers, purchases); _data = await history; _supplierAnalytics = Analytics.Calculate(await suppliers, await purchases, _data); }
-    private static string Money(decimal value) => value.ToString("N0");
+    private string Money(decimal value) => Currency.Format(value);
     private static string Empty(string value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
     private static string Variant(ProductCostHistoryEntry item) => string.Join(" · ", new[] { item.Color, item.Size }.Where(x => !string.IsNullOrWhiteSpace(x)));
     private static string Percent(decimal value) => $"{value:N1}%";

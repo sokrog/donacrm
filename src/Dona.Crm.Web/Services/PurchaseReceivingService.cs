@@ -55,6 +55,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
                 line.ProductVariantId = variant.Id;
                 line.StockedQuantity = accepted;
                 product.PurchasePriceCny = item.UnitPriceCny;
+                product.PurchaseCurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
                 product.CnyRateUzs = purchase.CnyRateUzs;
                 product.AgentCommissionPercent = purchase.AgentCommissionPercent;
                 product.DeliveryCostUzs = (item.Quantity ?? 0) == 0 ? 0 : Math.Round((purchase.ItemShippingUzs(item) + purchase.ItemOtherCostsUzs(item)) / item.Quantity!.Value);
@@ -100,6 +101,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
                 SupplierName = purchase.SupplierName ?? string.Empty,
                 Quantity = line.StockedQuantity,
                 UnitPriceCny = item.UnitPriceCny ?? 0,
+                CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY"),
                 CnyRateUzs = purchase.CnyRateUzs ?? 0,
                 UnitLandedCostUzs = purchase.ItemUnitLandedCostUzs(item)
             });
@@ -109,6 +111,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, ICommer
             Id = receipt.Id,
             RecordedAt = receipt.ReceivedAt,
             RateUzs = purchase.CnyRateUzs.Value,
+            Currency = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY"),
             PurchaseId = purchase.Id,
             ReceiptId = receipt.Id,
             PurchaseNumber = purchase.Number,

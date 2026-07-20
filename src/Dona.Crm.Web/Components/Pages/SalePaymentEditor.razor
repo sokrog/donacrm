@@ -3,6 +3,7 @@
 @inject ISalesRepository Sales
 @inject SalesPaymentService PaymentService
 @inject NavigationManager Navigation
+@inject CurrencyContext Currency
 
 <PageTitle>Новый платёж — Dona CRM</PageTitle>
 
@@ -19,7 +20,7 @@
                 <label>Тип<InputSelect @bind-Value="_model.Type"><option value="">Выберите тип</option>@foreach (var type in Enum.GetValues<PaymentOperationType>()) { <option value="@type">@type.Display()</option> }</InputSelect></label>
                 <label>Статус<InputSelect @bind-Value="_model.Status"><option value="">Выберите статус</option>@foreach (var status in Enum.GetValues<PaymentStatus>()) { <option value="@status">@status.Display()</option> }</InputSelect></label>
                 <label>Способ<InputSelect @bind-Value="_model.Method"><option value="">Выберите способ</option>@foreach (var method in Enum.GetValues<PaymentMethod>()) { <option value="@method">@method.Display()</option> }</InputSelect></label>
-                <label>Сумма, сум<InputNumber @bind-Value="_model.AmountUzs" /></label>
+                <label>Сумма, @Currency.Symbol<InputNumber @bind-Value="_model.AmountUzs" /></label>
                 <label>Осталось оплатить<div class="readonly-field">@Money(_sale.BalanceDueUzs)</div></label>
                 <label>Осталось вернуть<div class="readonly-field">@Money(_sale.RefundDueUzs)</div></label>
                 <label class="span-2">Номер операции или чека<InputText @bind-Value="_model.Reference" /></label>
@@ -39,5 +40,5 @@
     private string? _error;
     protected override async Task OnParametersSetAsync() { _sale = await Sales.GetSaleAsync(SaleId); _model = new SalePayment(); if (_sale is null) Navigation.NavigateTo("/not-found"); }
     private async Task SaveAsync() { if (_sale is null || _saving) return; _saving = true; try { await PaymentService.AddAsync(_sale, _model); Navigation.NavigateTo($"/sales/{SaleId}"); } catch (Exception exception) { _error = exception.Message; } finally { _saving = false; } }
-    private static string Money(decimal value) => $"{value:N0} сум";
+    private string Money(decimal value) => Currency.Format(value);
 }

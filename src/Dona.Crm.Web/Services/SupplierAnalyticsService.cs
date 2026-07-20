@@ -11,7 +11,7 @@ public sealed class SupplierAnalyticsService
     }
 
     public IReadOnlyList<ProductSupplierComparison> CompareProducts(PurchaseHistoryData history) => history.ProductCosts
-        .GroupBy(x => new { x.ProductId, x.ProductName, x.Sku, x.SupplierId, Name = string.IsNullOrWhiteSpace(x.SupplierName) ? "Без поставщика" : x.SupplierName })
+        .GroupBy(x => new { x.ProductId, x.ProductName, x.Sku, x.SupplierId, CurrencyCode = CurrencyCodes.Normalize(x.CurrencyCode, "CNY"), Name = string.IsNullOrWhiteSpace(x.SupplierName) ? "Без поставщика" : x.SupplierName })
         .Select(group => new ProductSupplierComparison
         {
             ProductId = group.Key.ProductId,
@@ -22,6 +22,7 @@ public sealed class SupplierAnalyticsService
             ReceiptCount = group.Select(x => x.ReceiptId).Distinct().Count(),
             Quantity = group.Sum(x => x.Quantity),
             AverageUnitPriceCny = WeightedAverage(group, x => x.UnitPriceCny),
+            CurrencyCode = group.Key.CurrencyCode,
             AverageUnitCostUzs = WeightedAverage(group, x => x.UnitLandedCostUzs)
         }).ToList();
 
