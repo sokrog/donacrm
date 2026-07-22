@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Maui.DevFlow.Agent;
+using Microsoft.Maui.DevFlow.Blazor;
 
 namespace Dona.Crm.App;
 
@@ -20,6 +22,8 @@ public static class MauiProgram
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
+		builder.AddMauiDevFlowAgent();
+		builder.AddMauiBlazorDevFlowTools();
 #endif
 
 		return builder.Build();
