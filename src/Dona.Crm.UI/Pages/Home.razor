@@ -1,9 +1,16 @@
 @page "/"
 @using System.Globalization
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Storage
+@inject ICatalogRepository Catalog
+@inject ICommerceRepository Commerce
+@inject ISalesRepository Sales
+@inject IBusinessSettingsRepository Settings
+@inject IStockMovementRepository StockMovements
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
-<div class="orbit-home">
+<div class="orbit-home" aria-busy="@isLoading">
     <header class="home-header">
         <div>
             <p class="eyebrow">@DateLabel</p>
@@ -14,55 +21,202 @@
         </button>
     </header>
 
-    <p class="connection" role="status"><span aria-hidden="true"></span>Локальные данные актуальны</p>
+    <p class="connection" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
 
-    <article class="hero" aria-labelledby="today-revenue">
-        <p class="hero-label" id="today-revenue">Выручка сегодня</p>
-        <p class="revenue">1 647 000 <span>UZS</span></p>
-        <div class="hero-meta">
-            <div><span>Прибыль</span><strong>586 000 UZS</strong></div>
-            <div class="sales-meta"><span>Продажи</span><strong>9 продаж</strong></div>
+    @if (errorMessage is not null)
+    {
+        <section class="state-card" role="alert">
+            <strong>Не удалось прочитать локальные данные</strong>
+            <p>@errorMessage</p>
+            <button type="button" @onclick="LoadAsync">Повторить</button>
+        </section>
+    }
+    else if (isLoading)
+    {
+        <div class="dashboard-loading" aria-label="Загрузка главной страницы">
+            <div class="loading-block hero-placeholder"></div>
+            <div class="loading-row"><span></span><span></span><span></span></div>
         </div>
-    </article>
+    }
+    else
+    {
+        <article class="hero" aria-labelledby="today-revenue">
+            <p class="hero-label" id="today-revenue">Выручка сегодня</p>
+            <p class="revenue">@Money(todayRevenue) <span>UZS</span></p>
+            <div class="hero-meta">
+                <div><span>Прибыль</span><strong>@Money(todayProfit) UZS</strong></div>
+                <div class="sales-meta"><span>Продажи</span><strong>@todaySalesCount @SaleWord(todaySalesCount)</strong></div>
+            </div>
+        </article>
 
-    <div class="signal-strip" aria-label="Ключевые показатели">
-        <article class="signal"><span>Доступный остаток</span><strong>10 ед.</strong></article>
-        <article class="signal"><span>Входящие закупки</span><strong>24 ед.</strong></article>
-        <article class="signal debt"><span>Долг клиентов</span><strong>389 000 UZS</strong></article>
-    </div>
-
-    <section aria-labelledby="attention-heading">
-        <div class="section-heading"><h2 id="attention-heading">Требует внимания</h2><span>4 сигнала</span></div>
-        <ul class="attention-list">
-            <li><a class="attention-item" href="/products"><span class="attention-icon"><OrbitIcon Name="catalog" /></span><span>Худи Minimal — осталось 2 ед.</span><span class="chevron" aria-hidden="true">›</span></a></li>
-            <li><a class="attention-item" href="/sales"><span class="attention-icon amber"><OrbitIcon Name="clock" /></span><span>SALE-20260722-004 · Алина — долг 189 000 UZS</span><span class="chevron" aria-hidden="true">›</span></a></li>
-            <li><a class="attention-item" href="/purchases"><span class="attention-icon cyan"><OrbitIcon Name="truck" /></span><span>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</span><span class="chevron" aria-hidden="true">›</span></a></li>
-            <li><a class="attention-item" href="/products"><span class="attention-icon magenta"><OrbitIcon Name="image" /></span><span>Сумка City Mini — нет фотографии</span><span class="chevron" aria-hidden="true">›</span></a></li>
-        </ul>
-    </section>
-
-    <section aria-labelledby="actions-heading">
-        <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
-        <div class="actions-grid">
-            <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
-            <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
-            <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
-            <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
+        <div class="signal-strip" aria-label="Ключевые показатели">
+            <article class="signal"><span>Доступный остаток</span><strong>@availableQuantity ед.</strong></article>
+            <article class="signal"><span>Входящие закупки</span><strong>@incomingQuantity ед.</strong></article>
+            <article class="signal debt"><span>Долг клиентов</span><strong>@Money(customerDebt) UZS</strong></article>
         </div>
-    </section>
 
-    <section aria-labelledby="activity-heading">
-        <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Сегодня</span></div>
-        <ol class="activity-list">
-            <li><span class="activity-mark"><OrbitIcon Name="check" /></span><div><strong>SALE-20260722-009 · Алина — 358 000 UZS</strong><p>Завершено · 12 мин назад</p></div></li>
-            <li><span class="activity-mark"><OrbitIcon Name="payment" /></span><div><strong>Малика · Click — 169 000 UZS</strong><p>Оплата · 37 мин назад</p></div></li>
-            <li><span class="activity-mark"><OrbitIcon Name="catalog" /></span><div><strong>Худи Minimal — принято 7 ед., 1 брак</strong><p>Приёмка · 10:05</p></div></li>
-        </ol>
-    </section>
+        <section aria-labelledby="attention-heading">
+            <div class="section-heading">
+                <h2 id="attention-heading">Требует внимания</h2>
+                @if (attentionItems.Count > 0) { <span>@attentionItems.Count @SignalWord(attentionItems.Count)</span> }
+            </div>
+            @if (attentionItems.Count == 0)
+            {
+                <p class="empty-state">Сейчас всё спокойно — срочных сигналов нет.</p>
+            }
+            else
+            {
+                <ul class="attention-list">
+                    @foreach (var item in attentionItems)
+                    {
+                        <li><a class="attention-item" href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span>@item.Text</span><span class="chevron" aria-hidden="true">›</span></a></li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section aria-labelledby="actions-heading">
+            <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
+            <div class="actions-grid">
+                <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
+                <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
+                <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
+                <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
+            </div>
+        </section>
+
+        <section aria-labelledby="activity-heading">
+            <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Последние операции</span></div>
+            @if (activityItems.Count == 0)
+            {
+                <p class="empty-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
+            }
+            else
+            {
+                <ol class="activity-list">
+                    @foreach (var item in activityItems)
+                    {
+                        <li><span class="activity-mark"><OrbitIcon Name="@item.Icon" /></span><div><strong>@item.Title</strong><p>@item.Caption</p></div></li>
+                    }
+                </ol>
+            }
+        </section>
+    }
 </div>
 
 @code {
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private bool isLoading = true;
+    private string? errorMessage;
+    private decimal todayRevenue;
+    private decimal todayProfit;
+    private decimal customerDebt;
+    private int todaySalesCount;
+    private int availableQuantity;
+    private int incomingQuantity;
+    private List<AttentionItem> attentionItems = [];
+    private List<ActivityItem> activityItems = [];
+
     private string DateLabel => DateTime.Now.ToString("dddd, d MMMM", RussianCulture);
     private string Greeting => DateTime.Now.Hour switch { < 6 => "Доброй ночи", < 12 => "Доброе утро", < 18 => "Добрый день", _ => "Добрый вечер" };
+    private string ConnectionLabel => errorMessage is not null ? "Локальное хранилище недоступно" : isLoading ? "Читаем локальные данные" : "Локальные данные актуальны";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            var productsTask = Catalog.GetProductsAsync();
+            var purchasesTask = Commerce.GetPurchasesAsync();
+            var salesTask = Sales.GetSalesAsync();
+            var settingsTask = Settings.GetAsync();
+            var movementsTask = StockMovements.GetAsync();
+            await Task.WhenAll(productsTask, purchasesTask, salesTask, settingsTask, movementsTask);
+
+            BuildDashboard(
+                await productsTask,
+                await purchasesTask,
+                await salesTask,
+                await settingsTask,
+                await movementsTask);
+        }
+        catch (Exception exception)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void BuildDashboard(
+        IReadOnlyList<Product> products,
+        IReadOnlyList<Purchase> purchases,
+        IReadOnlyList<Sale> sales,
+        BusinessSettings settings,
+        IReadOnlyList<StockMovement> movements)
+    {
+        var today = DateTime.Today;
+        var activeSales = sales.Where(item => item.Status != SaleStatus.Cancelled).ToList();
+        var todaysSales = activeSales.Where(item => item.CreatedAt.LocalDateTime.Date == today).ToList();
+        var incoming = purchases.Where(item => item.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived).ToList();
+
+        todayRevenue = todaysSales.Sum(item => item.NetTotalUzs);
+        todayProfit = todaysSales.Sum(item => item.ProfitUzs);
+        todaySalesCount = todaysSales.Count;
+        customerDebt = activeSales.Sum(item => item.BalanceDueUzs);
+        availableQuantity = products.Sum(item => item.Variants.Sum(variant => variant.AvailableQuantity));
+        incomingQuantity = incoming.Sum(item => item.Items.Sum(line => line.MissingQuantity));
+
+        attentionItems = BuildAttention(products, incoming, activeSales, settings.LowStockThreshold).Take(4).ToList();
+        activityItems = BuildActivity(activeSales, movements).OrderByDescending(item => item.CreatedAt).Take(4).ToList();
+    }
+
+    private static IEnumerable<AttentionItem> BuildAttention(
+        IEnumerable<Product> products,
+        IEnumerable<Purchase> purchases,
+        IEnumerable<Sale> sales,
+        int lowStockThreshold)
+    {
+        foreach (var product in products.Where(item => item.Status is ProductStatus.InStock or ProductStatus.LowStock && item.Quantity <= lowStockThreshold).OrderBy(item => item.Quantity))
+            yield return new("catalog", string.Empty, $"{product.Name} — осталось {product.Quantity} ед.", "/products");
+
+        foreach (var sale in sales.Where(item => item.BalanceDueUzs > 0).OrderByDescending(item => item.BalanceDueUzs))
+            yield return new("clock", "amber", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
+
+        foreach (var purchase in purchases.Where(item => item.EstimatedDeliveryDate is not null && item.EstimatedDeliveryDate.Value.Date <= DateTime.Today).OrderBy(item => item.EstimatedDeliveryDate))
+            yield return new("truck", "cyan", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
+
+        foreach (var product in products.Where(item => string.IsNullOrWhiteSpace(item.PrimaryImageUrl)))
+            yield return new("image", "magenta", $"{product.Name} — нет фотографии", "/products");
+    }
+
+    private static IEnumerable<ActivityItem> BuildActivity(IEnumerable<Sale> sales, IEnumerable<StockMovement> movements)
+    {
+        foreach (var sale in sales)
+            yield return new("check", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — {Money(sale.NetTotalUzs)} UZS", $"{sale.Status.Display()} · {RelativeTime(sale.CreatedAt)}", sale.CreatedAt);
+
+        foreach (var movement in movements)
+            yield return new("catalog", $"{movement.ProductName} · {SignedQuantity(movement.QuantityDelta)} ед.", $"{movement.Type.Display()} · {RelativeTime(movement.CreatedAt)}", movement.CreatedAt);
+    }
+
+    private static string Money(decimal value) => value.ToString("N0", RussianCulture);
+    private static string SignedQuantity(int value) => value > 0 ? $"+{value}" : value.ToString(RussianCulture);
+    private static string SaleWord(int count) => count == 1 ? "продажа" : count is >= 2 and <= 4 ? "продажи" : "продаж";
+    private static string SignalWord(int count) => count == 1 ? "сигнал" : count is >= 2 and <= 4 ? "сигнала" : "сигналов";
+    private static string RelativeTime(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.Now - value.ToLocalTime();
+        if (elapsed.TotalMinutes < 1) return "только что";
+        if (elapsed.TotalHours < 1) return $"{Math.Max(1, (int)elapsed.TotalMinutes)} мин назад";
+        if (elapsed.TotalDays < 1) return $"{Math.Max(1, (int)elapsed.TotalHours)} ч назад";
+        return value.LocalDateTime.ToString("d MMM, HH:mm", RussianCulture);
+    }
+
+    private sealed record AttentionItem(string Icon, string Tone, string Text, string Href);
+    private sealed record ActivityItem(string Icon, string Title, string Caption, DateTimeOffset CreatedAt);
 }
