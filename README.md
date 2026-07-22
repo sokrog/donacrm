@@ -142,6 +142,20 @@ dotnet run --project src/Dona.Crm.Web
 
 Google credentials нельзя добавлять в Git. Подключение Google Sheets описано в [PLAN.md](PLAN.md).
 
+### Подключение мобильного приложения
+
+В MAUI-приложении откройте **Ещё → Подключения**, укажите HTTPS-адрес Web-версии DONA CRM и вставьте ссылку на существующую Google-таблицу. При необходимости добавьте ссылку на папку Drive, затем выполните вход через Google. Аккаунт должен иметь право редактора для выбранной таблицы.
+
+Мобильный OAuth использует Web-версию как короткоживущий брокер авторизации. Создайте в Google Cloud OAuth client типа **Web application**, добавьте redirect URI `https://ВАШ-ДОМЕН/api/mobile/google/callback` и задайте серверные параметры через User Secrets или переменные окружения:
+
+- `GoogleMobileOAuth__ClientId`;
+- `GoogleMobileOAuth__ClientSecret`;
+- `GoogleMobileOAuth__PublicBaseUrl` — публичный HTTPS-адрес без завершающего `/`.
+
+Client secret и токены нельзя записывать в `appsettings.json`. Мобильный refresh token хранится в Android Keystore или iOS Keychain через MAUI Secure Storage. Подключение не включает скрытую синхронизацию: SQLite остаётся основным хранилищем.
+
+OAuth запрашивает разрешение Google Sheets для чтения и записи существующей таблицы по её ID и ограниченный scope `drive.file` для файлов, которые пользователь открывает или создаёт через DONA CRM. Полный доступ ко всему Google Drive не запрашивается.
+
 ## Подключение Google Sheets
 
 1. Откройте в приложении страницу **Настройки** — там есть официальные ссылки на Google Cloud и создание таблицы.

@@ -957,3 +957,56 @@ public sealed class LoadingStateTests
         Assert.False(state.IsInitialLoad);
     }
 }
+
+public sealed class GoogleMobileConnectionTests
+{
+    [Theory]
+    [InlineData("https://docs.google.com/spreadsheets/d/1Abc_def-234567890/edit", "1Abc_def-234567890")]
+    [InlineData("1Abc_def-234567890", "1Abc_def-234567890")]
+    [InlineData("not a sheet", "")]
+    public void Extracts_existing_spreadsheet_id(string input, string expected) =>
+        Assert.Equal(expected, GoogleResourceIds.Spreadsheet(input));
+
+    [Theory]
+    [InlineData("https://drive.google.com/drive/folders/1Folder_234567890", "1Folder_234567890")]
+    [InlineData("", null)]
+    [InlineData("wrong", "")]
+    public void Extracts_optional_drive_folder_id(string input, string? expected) =>
+        Assert.Equal(expected, GoogleResourceIds.DriveFolder(input));
+
+    [Fact]
+    public void Temporary_oauth_grant_can_only_be_exchanged_once()
+    {
+        var store = new GoogleMobileOAuthGrantStore();
+        var token = new GoogleMobileToken("access", "refresh", 3600, "owner@example.com");
+        var grant = store.AddGrant(token);
+
+        Assert.True(store.TryTakeGrant(grant, out var exchanged));
+        Assert.Equal(token, exchanged);
+        Assert.False(store.TryTakeGrant(grant, out _));
+    }
+
+    [Fact]
+    public void Mobile_oauth_uses_pkce_and_sheets_without_full_drive_scope()
+    {
+        var options = Options.Create(new GoogleMobileOAuthOptions
+        {
+            ClientId = "client-id",
+            ClientSecret = "server-secret",
+            PublicBaseUrl = "https://crm.example.com"
+        });
+        var broker = new GoogleMobileOAuthBroker(options, new GoogleHttpClientFactory(), new GoogleMobileOAuthGrantStore());
+
+        var query = Uri.UnescapeDataString(broker.Start("donacrm://oauth2redirect").Query);
+
+        Assert.Contains("code_challenge_method=S256", query);
+        Assert.Contains("https://www.googleapis.com/auth/spreadsheets", query);
+        Assert.Contains("https://www.googleapis.com/auth/drive.file", query);
+        Assert.DoesNotContain("https://www.googleapis.com/auth/drive&", query);
+    }
+
+    private sealed class GoogleHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new();
+    }
+}

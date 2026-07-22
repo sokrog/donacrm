@@ -38,3 +38,11 @@
 - **Selection:** Work in a dedicated branch and create thematic commits throughout implementation.
 - **Branch:** `CommandOrbit-maui-blazor-hybrid` (Git-compatible normalization of “CommandOrbit maui blazor hybrid”).
 - **Constraints:** Each commit should represent a coherent, verified change. Unrelated user work must not be included.
+
+## D-006 — Mobile Google connection
+
+- **Question:** How should the iOS and Android app connect to the same Google Sheets document and Google Drive account as the Web application?
+- **Options:** one Google OAuth account for Sheets and Drive; copy the Web service-account JSON plus separate Drive OAuth; route all access through a hosted DONA backend.
+- **Selection:** One Google OAuth account for Sheets and Drive, with the existing spreadsheet selected by URL or ID.
+- **Rationale:** The user can grant the signed-in account editor access to the existing spreadsheet without placing a service-account private key on the phone. One account also reduces setup steps.
+- **Constraints:** SQLite remains authoritative and synchronization is explicit. OAuth uses the system browser and a short-lived broker grant; refresh tokens are stored only in MAUI Secure Storage. The broker client secret stays in server configuration and never enters the app or Git. Google Drive uses the narrow `drive.file` scope.

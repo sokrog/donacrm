@@ -22,6 +22,9 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddTransient<MainPage>();
+		builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(45) });
+		builder.Services.AddSingleton<ISecureValueStore, MauiSecureValueStore>();
+		builder.Services.AddSingleton<IGoogleConnectionService, MauiGoogleConnectionService>();
 		builder.Services.AddSingleton(new SqliteStoreOptions(
 			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));
 		builder.Services.AddSingleton<SqliteAggregateStore>();

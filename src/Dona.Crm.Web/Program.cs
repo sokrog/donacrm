@@ -12,8 +12,12 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "data-protection")));
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<GoogleSheetsOptions>(builder.Configuration.GetSection(GoogleSheetsOptions.SectionName));
+builder.Services.Configure<GoogleMobileOAuthOptions>(builder.Configuration.GetSection(GoogleMobileOAuthOptions.SectionName));
 builder.Services.AddSingleton<GoogleSheetsSettingsStore>();
 builder.Services.AddSingleton<GoogleDriveOAuthStore>();
+builder.Services.AddSingleton<GoogleMobileOAuthGrantStore>();
+builder.Services.AddSingleton<GoogleMobileOAuthBroker>();
+builder.Services.AddHttpClient("google-mobile-oauth", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<CurrencyContext>();
@@ -96,6 +100,28 @@ app.MapGet("/backup/download", async (BackupService backup, CancellationToken to
 {
     var file = await backup.CreateAsync(token);
     return Results.File(file.Content, "application/zip", file.FileName);
+});
+app.MapGet("/api/mobile/google/start", (string callback, GoogleMobileOAuthBroker broker) =>
+{
+    try { return Results.Redirect(broker.Start(callback).ToString()); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest); }
+});
+app.MapGet("/api/mobile/google/callback", async (string? code, string? state, string? error, GoogleMobileOAuthBroker broker, CancellationToken token) =>
+{
+    if (!string.IsNullOrWhiteSpace(error)) return Results.Problem($"Google OAuth: {error}", statusCode: StatusCodes.Status400BadRequest);
+    if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state)) return Results.Problem("Google не вернул код авторизации.", statusCode: StatusCodes.Status400BadRequest);
+    try { return Results.Redirect((await broker.CompleteAsync(code, state, token)).ToString()); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest); }
+});
+app.MapPost("/api/mobile/google/exchange", (GoogleGrantRequest request, GoogleMobileOAuthBroker broker) =>
+{
+    try { return Results.Ok(broker.Exchange(request.Grant)); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest); }
+});
+app.MapPost("/api/mobile/google/refresh", async (GoogleRefreshRequest request, GoogleMobileOAuthBroker broker, CancellationToken token) =>
+{
+    try { return Results.Ok(await broker.RefreshAsync(request.RefreshToken, token)); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest); }
 });
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

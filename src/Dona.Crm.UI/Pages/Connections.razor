@@ -1,0 +1,137 @@
+@page "/connections"
+@using Dona.Crm.Web.Services
+@inject IGoogleConnectionService Google
+
+<PageTitle>Подключения — DONA CRM</PageTitle>
+<div class="connections-page">
+    <header><div><a href="/more">Ещё</a><h1>Подключения</h1><p>Локальные данные остаются основными. Обмен запускается только вами.</p></div></header>
+
+    @if (loading)
+    {
+        <div class="connection-state">Проверяем локальные подключения…</div>
+    }
+    else
+    {
+        <section class="local-card">
+            <span class="provider-icon local"><OrbitIcon Name="catalog" /></span>
+            <div><strong>SQLite на устройстве</strong><small>Основное хранилище · доступно без интернета</small></div>
+            <b>Подключено</b>
+        </section>
+
+        <section class="google-card">
+            <div class="provider-heading">
+                <span class="provider-icon google">G</span>
+                <div><h2>Google</h2><p>Один аккаунт для Sheets и Drive</p></div>
+                <span class="status @(state.IsConnected ? "connected" : null)">@(state.IsConnected ? "Подключено" : "Не подключено")</span>
+            </div>
+
+            @if (state.IsConnected)
+            {
+                <div class="account-row"><span>@Initial(state.AccountEmail)</span><div><strong>@state.AccountEmail</strong><small>Токен защищён хранилищем устройства</small></div></div>
+            }
+
+            <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <label>Существующая Google-таблица
+                    <InputText @bind-Value="form.Spreadsheet" placeholder="Ссылка или ID таблицы" />
+                    <small>@(state.SpreadsheetName is null ? "Аккаунту Google потребуется доступ редактора" : $"Проверено: {state.SpreadsheetName}")</small>
+                </label>
+                <label>Папка Google Drive <em>необязательно</em>
+                    <InputText @bind-Value="form.DriveFolder" placeholder="Ссылка или ID папки" />
+                    <small>@(state.DriveFolderName is null ? "Для новых фотографий; пустое поле — без папки" : $"Проверено: {state.DriveFolderName}")</small>
+                </label>
+
+                <details>
+                    <summary>Адрес сервера авторизации</summary>
+                    <label>Сервер DONA CRM
+                        <InputText @bind-Value="form.Broker" placeholder="https://crm.example.com" />
+                        <small>HTTPS-адрес Web-версии с настроенным Google OAuth</small>
+                    </label>
+                </details>
+
+                @if (message is not null)
+                {
+                    <p class="connection-message @(success ? "success" : null)" role="status">@message</p>
+                }
+
+                <div class="connection-actions">
+                    <button class="primary" disabled="@busy">@(busy ? "Выполняем…" : state.IsConnected ? "Сохранить и проверить" : "Сохранить")</button>
+                    @if (!state.IsConnected)
+                    {
+                        <button type="button" class="secondary" disabled="@busy" @onclick="ConnectAsync">Войти через Google</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="secondary" disabled="@busy" @onclick="CheckAsync">Проверить доступ</button>
+                        <button type="button" class="disconnect" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
+                    }
+                </div>
+            </EditForm>
+
+            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Подключение пока только проверяет доступ. Следующим шагом добавим просмотр изменений и ручной обмен с SQLite.</small></div></div>
+            @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
+        </section>
+    }
+</div>
+
+@code {
+    private GoogleConnectionState state = new(new GoogleConnectionSettings(string.Empty, string.Empty, null), false);
+    private ConnectionForm form = new();
+    private bool loading = true;
+    private bool busy;
+    private bool success;
+    private string? message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        state = await Google.GetStateAsync();
+        form = new ConnectionForm { Broker = state.Settings.BrokerBaseUrl, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
+        loading = false;
+    }
+
+    private async Task SaveAsync() => await RunAsync(async () =>
+    {
+        state = await Google.SaveSettingsAsync(Settings());
+        if (state.IsConnected) state = await Google.CheckAsync();
+        return state.IsConnected ? "Настройки сохранены, доступ подтверждён." : "Настройки сохранены. Теперь войдите через Google.";
+    });
+
+    private async Task ConnectAsync() => await RunAsync(async () =>
+    {
+        state = await Google.SaveSettingsAsync(Settings());
+        state = await Google.ConnectAsync();
+        return $"Подключён аккаунт {state.AccountEmail}.";
+    });
+
+    private async Task CheckAsync() => await RunAsync(async () =>
+    {
+        state = await Google.SaveSettingsAsync(Settings());
+        state = await Google.CheckAsync();
+        return "Google Sheets и Drive доступны.";
+    });
+
+    private async Task DisconnectAsync() => await RunAsync(async () =>
+    {
+        await Google.DisconnectAsync();
+        state = await Google.GetStateAsync();
+        return "Google-аккаунт отключён. Данные SQLite не изменены.";
+    });
+
+    private GoogleConnectionSettings Settings() => new(form.Broker, form.Spreadsheet, form.DriveFolder);
+    private static string Initial(string? value) => string.IsNullOrWhiteSpace(value) ? "G" : value.Trim()[0].ToString().ToUpperInvariant();
+
+    private async Task RunAsync(Func<Task<string>> action)
+    {
+        if (busy) return;
+        busy = true; message = null;
+        try { message = await action(); success = true; }
+        catch (Exception exception) { message = exception.Message; success = false; }
+        finally { busy = false; }
+    }
+
+    private sealed class ConnectionForm
+    {
+        public string Broker { get; set; } = string.Empty;
+        public string Spreadsheet { get; set; } = string.Empty;
+        public string? DriveFolder { get; set; }
+    }
+}
