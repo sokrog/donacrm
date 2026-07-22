@@ -79,6 +79,10 @@
             </EditForm>
 
             <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Сравнение и обмен запускаются только вручную; направление и замена данных требуют подтверждения.</small></div></div>
+            @if (Platform.UsesDirectGoogleAccess)
+            {
+                <div class="sync-note"><OrbitIcon Name="table" /><div><strong>В той же Google-таблице</strong><small>Command Orbit создаст скрытый служебный лист для версий и разрешения конфликтов. Остальные листы останутся без изменений.</small></div></div>
+            }
             @if (state.IsConnected) { <a class="sync-action" href="/sync">Сравнить локальные данные и Google Sheets <span aria-hidden="true">›</span></a> }
             @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
         </section>
