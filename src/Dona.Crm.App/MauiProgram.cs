@@ -42,6 +42,9 @@ public static class MauiProgram
 		builder.Services.AddSingleton<PurchaseReceivingService>();
 		builder.Services.AddSingleton<SupplierAnalyticsService>();
 		builder.Services.AddSingleton<IntermediaryAnalyticsService>();
+		builder.Services.AddSingleton<AnalyticsService>();
+		builder.Services.AddSingleton<InventoryAnalyticsService>();
+		builder.Services.AddSingleton<ProfitAnalyticsService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
