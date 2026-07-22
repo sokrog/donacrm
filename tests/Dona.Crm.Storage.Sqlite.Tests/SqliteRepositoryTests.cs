@@ -228,4 +228,65 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(6, movement.QuantityDelta);
         Assert.Equal("Контрольный пересчёт", movement.Note);
     }
+
+    [Fact]
+    public async Task Sales_workflow_reserves_accepts_payment_and_completes_against_sqlite()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var sales = new SqliteSalesRepository(store!);
+        var movements = new SqliteStockMovementRepository(store!);
+        var product = (await catalog.GetProductsAsync()).First(item => item.Variants.Any(variant => variant.AvailableQuantity >= 1));
+        var variant = product.Variants.First(item => item.AvailableQuantity >= 1);
+        var originalQuantity = variant.Quantity!.Value;
+        var sale = new Sale
+        {
+            Number = "SALE-SQLITE-001",
+            Status = SaleStatus.Draft,
+            Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 1, UnitPriceUzs = product.SellingPriceUzs }]
+        };
+        var inventory = new SalesInventoryService(catalog, sales, movements);
+
+        await inventory.ReserveAsync(sale);
+        Assert.Equal(SaleStatus.Reserved, sale.Status);
+        Assert.Equal(1, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).ReservedQuantity);
+
+        await new SalesPaymentService(sales).AddAsync(sale, new SalePayment
+        {
+            Type = PaymentOperationType.Payment,
+            Status = PaymentStatus.Completed,
+            Method = PaymentMethod.Cash,
+            AmountUzs = sale.TotalUzs
+        });
+        Assert.Equal(SaleStatus.Paid, sale.Status);
+
+        await inventory.CompleteAsync(sale);
+        var completedProduct = await catalog.GetProductAsync(product.Id);
+        Assert.Equal(SaleStatus.Completed, sale.Status);
+        Assert.Equal(originalQuantity - 1, completedProduct!.Variants.Single(item => item.Id == variant.Id).Quantity);
+        Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Reservation);
+        Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Sale);
+    }
+
+    [Fact]
+    public async Task Customer_deletion_keeps_the_sale_snapshot_in_history()
+    {
+        var repository = new SqliteSalesRepository(store!);
+        var customer = new Customer { Name = "Дилноза", Phone = "+998 90 123 45 67" };
+        var sale = new Sale
+        {
+            Number = "SALE-CUSTOMER-001",
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            Status = SaleStatus.Draft
+        };
+
+        await repository.UpsertCustomerAsync(customer);
+        await repository.UpsertSaleAsync(sale);
+        await repository.DeleteCustomerAsync(customer.Id);
+
+        Assert.Empty(await repository.GetCustomersAsync());
+        var historicalSale = Assert.Single(await repository.GetSalesAsync());
+        Assert.Equal(customer.Id, historicalSale.CustomerId);
+        Assert.Equal("Дилноза", historicalSale.CustomerName);
+    }
 }

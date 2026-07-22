@@ -1,0 +1,23 @@
+@page "/sales"
+@using System.Globalization
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Storage
+@inject ISalesRepository SalesRepository
+
+<PageTitle>Продажи — DONA CRM</PageTitle>
+<div class="sales-page" aria-busy="@loading">
+    <header><div><p>Заказы</p><h1>Продажи</h1></div><a href="/sales/new" aria-label="Создать продажу">＋</a></header>
+    <div class="sales-metrics"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
+    <a class="customers-link" href="/customers"><span class="sale-icon"><OrbitIcon Name="catalog" /></span><span><strong>Клиенты</strong><small>Контакты и история заказов</small></span><b aria-hidden="true">›</b></a>
+    <label class="sales-search" for="sales-search">Поиск по номеру или клиенту<input id="sales-search" type="search" placeholder="SALE-… или имя" @bind="query" @bind:event="oninput" /></label>
+    @if(loading){<div class="sales-state">Загружаем продажи…</div>}
+    else if(error is not null){<div class="sales-state" role="alert">@error</div>}
+    else if(Filtered.Count==0){<div class="sales-state"><strong>@(items.Count==0?"Продаж пока нет":"Ничего не найдено")</strong><p>@(items.Count==0?"Создайте первый заказ и зарезервируйте товар.":"Измените поисковый запрос.")</p></div>}
+    else{<ul class="sales-list">@foreach(var sale in Filtered){<li><a href="/sales/@sale.Id"><span class="sale-icon"><OrbitIcon Name="sales" /></span><span><strong>@sale.Number</strong><small>@(sale.CustomerName??"Без клиента") · @sale.Status.Display()</small><em class="@StatusClass(sale.Status)">@sale.TotalQuantity ед.</em></span><span class="sale-total">@Money(sale.NetTotalUzs)<small>UZS</small>@if(sale.BalanceDueUzs>0){<em>долг @Money(sale.BalanceDueUzs)</em>}</span></a></li>}</ul>}
+</div>
+@code{
+    private static readonly CultureInfo Ru=CultureInfo.GetCultureInfo("ru-RU");private IReadOnlyList<Sale> items=[];private bool loading=true;private string query=string.Empty;private string? error;
+    private IEnumerable<Sale> financial=>items.Where(item=>item.Status is SaleStatus.Completed or SaleStatus.Returned);private IReadOnlyList<Sale> Filtered=>items.Where(item=>string.IsNullOrWhiteSpace(query)||item.Number.Contains(query,StringComparison.OrdinalIgnoreCase)||(item.CustomerName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)).OrderByDescending(item=>item.CreatedAt).ToList();
+    protected override async Task OnInitializedAsync(){try{items=await SalesRepository.GetSalesAsync();}catch(Exception ex){error=ex.Message;}finally{loading=false;}}
+    private static string Money(decimal value)=>value.ToString("N0",Ru);private static string StatusClass(SaleStatus? status)=>status switch{SaleStatus.Completed=>"complete",SaleStatus.Cancelled or SaleStatus.Returned=>"closed",_=>"active"};
+}

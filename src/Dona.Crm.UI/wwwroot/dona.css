@@ -70,6 +70,28 @@ select.adjust-select {
     font-size: .8rem;
 }
 
+.customers-link {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 62px;
+    margin-top: 12px;
+    border: 1px solid var(--dona-line);
+    border-radius: 15px;
+    padding: 9px 12px;
+    background: rgba(24, 17, 34, .7);
+    color: var(--dona-text);
+    text-decoration: none;
+}
+
+.customers-link span,
+.customers-link strong,
+.customers-link small { display: block; }
+.customers-link strong { font-size: .75rem; }
+.customers-link small { margin-top: 3px; color: var(--dona-muted); font-size: .62rem; }
+.customers-link b { color: var(--dona-muted); font-size: 1.2rem; }
+
 :where(button, a):focus-visible {
     outline: 3px solid var(--dona-cyan);
     outline-offset: 2px;

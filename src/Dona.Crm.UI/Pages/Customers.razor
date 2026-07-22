@@ -1,0 +1,23 @@
+@page "/customers"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Storage
+@inject ISalesRepository SalesRepository
+
+<PageTitle>Клиенты — DONA CRM</PageTitle>
+<div class="customers-page">
+    <header><div><a href="/sales">Продажи</a><h1>Клиенты</h1></div><button type="button" aria-label="Добавить клиента" @onclick="NewCustomer">＋</button></header>
+    @if(editing is not null)
+    {
+        <EditForm Model="editing" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><section><h2>@(isNew?"Новый клиент":"Редактирование")</h2><label>Имя<InputText @bind-Value="editing.Name" /><ValidationMessage For="()=>editing.Name" /></label><label>Телефон<InputText @bind-Value="editing.Phone" inputmode="tel" /></label><div class="field-row"><label>Instagram<InputText @bind-Value="editing.Instagram" /></label><label>Telegram<InputText @bind-Value="editing.Telegram" /></label></div><label>Адрес<InputText @bind-Value="editing.Address" /></label><label>Заметка<InputTextArea @bind-Value="editing.Notes" /></label>@if(confirmDelete){<div class="delete-confirm"><span>Удалить клиента? Продажи останутся в истории.</span><button type="button" class="secondary" @onclick="()=>confirmDelete=false">Нет</button><button type="button" class="danger" @onclick="DeleteAsync">Да, удалить</button></div>}<div class="form-actions"><button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>@if(!isNew&&!confirmDelete){<button type="button" class="danger" @onclick="()=>confirmDelete=true">Удалить</button>}<button>Сохранить</button></div></section></EditForm>
+    }
+    @if(loading){<div class="customer-state">Загружаем клиентов…</div>}
+    else if(customers.Count==0){<div class="customer-state"><strong>Клиентов пока нет</strong><p>Добавьте контакт или создавайте продажи без клиента.</p></div>}
+    else{<ul class="customer-list">@foreach(var customer in customers.OrderBy(value=>value.Name)){<li><button type="button" @onclick="()=>EditCustomer(customer)"><span class="avatar">@Initial(customer.Name)</span><span><strong>@customer.Name</strong><small>@Contact(customer)</small></span><b>@sales.Count(value=>value.CustomerId==customer.Id)<small>заказов</small></b></button></li>}</ul>}
+</div>
+@code{
+    private IReadOnlyList<Customer> customers=[];private IReadOnlyList<Sale> sales=[];private Customer? editing;private bool isNew;private bool loading=true;private bool confirmDelete;
+    protected override async Task OnInitializedAsync()=>await ReloadAsync();private async Task ReloadAsync(){loading=true;customers=await SalesRepository.GetCustomersAsync();sales=await SalesRepository.GetSalesAsync();loading=false;}
+    private void NewCustomer(){editing=new Customer();isNew=true;confirmDelete=false;}private void EditCustomer(Customer value){editing=new Customer{Id=value.Id,Name=value.Name,Phone=value.Phone,Instagram=value.Instagram,Telegram=value.Telegram,Address=value.Address,Notes=value.Notes,CreatedAt=value.CreatedAt};isNew=false;confirmDelete=false;}private void CloseEditor(){editing=null;confirmDelete=false;}
+    private async Task SaveAsync(){await SalesRepository.UpsertCustomerAsync(editing!);editing=null;await ReloadAsync();}private async Task DeleteAsync(){await SalesRepository.DeleteCustomerAsync(editing!.Id);editing=null;await ReloadAsync();}
+    private static string Initial(string value)=>string.IsNullOrWhiteSpace(value)?"?":value.Trim()[0].ToString().ToUpperInvariant();private static string Contact(Customer value)=>value.Phone??value.Telegram??value.Instagram??"Контакты не указаны";
+}

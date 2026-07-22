@@ -1,0 +1,61 @@
+@page "/sales/new"
+@page "/sales/{Id:guid}"
+@using System.Globalization
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ISalesRepository SalesRepository
+@inject ICatalogRepository Catalog
+@inject IBusinessSettingsRepository Settings
+@inject SalesInventoryService Inventory
+@inject SalesPaymentService Payments
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsNew?"Новая продажа":sale.Number) — DONA CRM</PageTitle>
+<div class="sale-editor">
+    <header><a href="/sales" aria-label="Вернуться к продажам">‹</a><div><p>@sale.Status.Display()</p><h1>@(IsNew?"Новая продажа":sale.Number)</h1></div></header>
+    @if(loading){<div class="editor-state">Загружаем заказ…</div>}
+    else if(error is not null){<div class="editor-state" role="alert">@error</div>}
+    else
+    {
+        @if(!IsNew){<ol class="workflow" aria-label="Статус продажи">@foreach(var status in Flow){<li class="@FlowClass(status)">@status.Display()</li>}</ol>}
+        <EditForm Model="sale" OnValidSubmit="SaveDraftAsync"><DataAnnotationsValidator />
+            <fieldset disabled="@IsReadOnly">
+                <section><h2>Заказ</h2><label>Номер<InputText @bind-Value="sale.Number" /><ValidationMessage For="()=>sale.Number" /></label>
+                    <label>Клиент<select value="@sale.CustomerId" @onchange="CustomerChanged"><option value="">Без клиента</option>@foreach(var customer in customers){<option value="@customer.Id">@customer.Name</option>}</select></label>
+                    <div class="field-row"><label>Доставка<select @bind="sale.DeliveryMethod"><option value="">Не выбрана</option>@foreach(var value in Enum.GetValues<DeliveryMethod>()){<option value="@value">@value.Display()</option>}</select></label><label>Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" /></label></div>
+                    <label>Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
+                </section>
+                <section><div class="section-title"><div><h2>Товары</h2><p>@sale.TotalQuantity ед. · @Money(sale.TotalUzs) UZS</p></div><button type="button" @onclick="AddItem">＋ Позиция</button></div>
+                    @if(sale.Items.Count==0){<p class="empty-items">Добавьте хотя бы один товар.</p>}
+                    @foreach(var item in sale.Items){<article class="sale-line" @key="item.Id"><label class="product-field">Товар<select value="@item.ProductId" @onchange="args=>ProductChanged(item,args)"><option value="">Выберите товар</option>@foreach(var product in products){<option value="@product.Id">@product.Name · @product.Sku</option>}</select></label><label>Вариант<select value="@item.ProductVariantId" @onchange="args=>VariantChanged(item,args)"><option value="">Выберите вариант</option>@foreach(var variant in Variants(item)){<option value="@variant.Id">@VariantName(variant) · доступно @variant.AvailableQuantity</option>}</select></label><div class="line-numbers"><label>Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label><label>Цена, UZS<InputNumber @bind-Value="item.UnitPriceUzs" min="0" /></label></div><button type="button" class="remove-line" aria-label="Удалить позицию" @onclick="()=>sale.Items.Remove(item)">×</button></article>}
+                </section>
+            </fieldset>
+            <section class="total-card"><span>Товары<strong>@Money(sale.SubtotalUzs)</strong></span><span>Скидка<strong>− @Money(sale.DiscountUzs??0)</strong></span><span class="total">К оплате<strong>@Money(sale.TotalUzs) UZS</strong></span>@if(!IsNew){<span>Оплачено<strong>@Money(sale.PaidUzs)</strong></span><span>Долг<strong class="debt">@Money(sale.BalanceDueUzs)</strong></span>}</section>
+            @if(!IsNew && sale.Status is not null and not SaleStatus.Draft && sale.BalanceDueUzs>0)
+            {
+                <section><div class="section-title"><div><h2>Принять оплату</h2><p>Осталось @Money(sale.BalanceDueUzs) UZS</p></div></div><div class="field-row"><label>Способ<select @bind="payment.Method">@foreach(var method in Enum.GetValues<PaymentMethod>()){<option value="@method">@method.Display()</option>}</select></label><label>Сумма, UZS<InputNumber @bind-Value="payment.AmountUzs" min="1" /></label></div><button type="button" class="inline-primary" @onclick="AddPaymentAsync">Записать оплату</button></section>
+            }
+            @if(sale.Payments.Count>0){<section><h2>Платежи</h2><ul class="payment-list">@foreach(var item in sale.Payments.OrderByDescending(value=>value.CreatedAt)){<li><span>@item.Method?.Display()<small>@item.CreatedAt.ToLocalTime().ToString("dd.MM · HH:mm")</small></span><strong>@Money(item.AmountUzs??0) UZS</strong></li>}</ul></section>}
+            <ValidationSummary />@if(message is not null){<p class="message @(success?"success":null)" role="status">@message</p>}
+            <div class="actions"><a href="/sales">Отмена</a>@if(IsNew||sale.Status is null or SaleStatus.Draft){<button type="submit" class="secondary">Черновик</button><button type="button" @onclick="ReserveAsync">Зарезервировать</button>}else if(sale.Status is SaleStatus.Reserved or SaleStatus.Paid){<button type="button" class="secondary" @onclick="CancelAsync">Отменить заказ</button><button type="button" @onclick="CompleteAsync">Завершить продажу</button>}else if(sale.Status==SaleStatus.Shipped){<button type="button" @onclick="CompleteAsync">Завершить продажу</button>}</div>
+        </EditForm>
+    }
+</div>
+@code{
+    [Parameter]public Guid? Id{get;set;}private Sale sale=new();private IReadOnlyList<Product> products=[];private IReadOnlyList<Customer> customers=[];private SalePayment payment=new(){Type=PaymentOperationType.Payment,Status=PaymentStatus.Completed,Method=PaymentMethod.Cash};private bool loading=true;private bool saving;private string? error;private string? message;private bool success;
+    private static readonly SaleStatus[] Flow=[SaleStatus.Draft,SaleStatus.Reserved,SaleStatus.Paid,SaleStatus.Completed];private bool IsNew=>Id is null;private bool IsReadOnly=>sale.Status is SaleStatus.Completed or SaleStatus.Cancelled or SaleStatus.Returned or SaleStatus.Shipped;
+    protected override async Task OnParametersSetAsync(){loading=true;error=null;try{customers=await SalesRepository.GetCustomersAsync();products=(await Catalog.GetProductsAsync()).Where(value=>value.Status!=ProductStatus.Archived).ToList();if(Id is null){var existing=await SalesRepository.GetSalesAsync();var settings=await Settings.GetAsync();sale=new Sale{Number=SaleNumberGenerator.Generate(existing,settings.SaleNumberPrefix,DateTimeOffset.Now),Status=SaleStatus.Draft};sale.Items.Add(new SaleItem{Quantity=1});}else sale=await SalesRepository.GetSaleAsync(Id.Value)??throw new InvalidOperationException("Продажа не найдена.");ResetPayment();}catch(Exception ex){error=ex.Message;}finally{loading=false;}}
+    private void AddItem()=>sale.Items.Add(new SaleItem{Quantity=1});private IEnumerable<ProductVariant> Variants(SaleItem item)=>item.ProductId is null?[]:products.FirstOrDefault(value=>value.Id==item.ProductId)?.Variants??[];
+    private void CustomerChanged(ChangeEventArgs args){sale.CustomerId=Guid.TryParse(args.Value?.ToString(),out var id)?id:null;sale.CustomerName=sale.CustomerId is null?null:customers.FirstOrDefault(value=>value.Id==sale.CustomerId)?.Name;}
+    private void ProductChanged(SaleItem item,ChangeEventArgs args){var product=Guid.TryParse(args.Value?.ToString(),out var id)?products.FirstOrDefault(value=>value.Id==id):null;item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;item.UnitPriceUzs=product?.SellingPriceUzs;item.UnitCostUzs=product?.CostUzs;item.ProductVariantId=null;item.Color=string.Empty;item.Size=string.Empty;}
+    private void VariantChanged(SaleItem item,ChangeEventArgs args){item.ProductVariantId=Guid.TryParse(args.Value?.ToString(),out var id)?id:null;var variant=Variants(item).FirstOrDefault(value=>value.Id==item.ProductVariantId);item.Color=variant?.Color??string.Empty;item.Size=variant?.Size??string.Empty;}
+    private async Task SaveDraftAsync(){await RunAsync(async()=>{sale.Status??=SaleStatus.Draft;await EnsureUniqueAsync();await SalesRepository.UpsertSaleAsync(sale);if(IsNew)Navigation.NavigateTo($"/sales/{sale.Id}");},"Черновик сохранён.");}
+    private async Task ReserveAsync(){await RunAsync(async()=>{await EnsureUniqueAsync();await Inventory.ReserveAsync(sale);if(IsNew)Navigation.NavigateTo($"/sales/{sale.Id}");},"Товар зарезервирован.");}
+    private Task CancelAsync()=>RunAsync(()=>Inventory.CancelAsync(sale),"Заказ отменён, резерв снят.");private Task CompleteAsync()=>RunAsync(()=>Inventory.CompleteAsync(sale),"Продажа завершена, остаток списан.");
+    private async Task AddPaymentAsync(){await RunAsync(async()=>{await Payments.AddAsync(sale,payment);ResetPayment();},"Оплата записана.");}
+    private void ResetPayment()=>payment=new SalePayment{Type=PaymentOperationType.Payment,Status=PaymentStatus.Completed,Method=sale.PaymentMethod??PaymentMethod.Cash,AmountUzs=sale.BalanceDueUzs>0?sale.BalanceDueUzs:null};
+    private async Task EnsureUniqueAsync(){if((await SalesRepository.GetSalesAsync()).Any(value=>value.Id!=sale.Id&&value.Number.Equals(sale.Number,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("Продажа с таким номером уже существует.");}
+    private async Task RunAsync(Func<Task> action,string text){if(saving)return;saving=true;message=null;try{await action();message=text;success=true;}catch(Exception ex){message=ex.Message;success=false;}finally{saving=false;}}
+    private string FlowClass(SaleStatus status)=>sale.Status==status?"active":sale.Status is not null&&status<sale.Status?"done":string.Empty;private static string VariantName(ProductVariant value)=>string.Join(" · ",new[]{value.Color,value.Size}.Where(text=>!string.IsNullOrWhiteSpace(text)));private static string Money(decimal value)=>value.ToString("N0",CultureInfo.GetCultureInfo("ru-RU"));
+}
