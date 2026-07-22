@@ -179,4 +179,30 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Single(actual.SalesWithDebt);
         Assert.Single(actual.DuePurchases);
     }
+
+    [Fact]
+    public async Task Stock_adjustment_updates_status_and_writes_movement_atomically_for_the_workflow()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var movements = new SqliteStockMovementRepository(store!);
+        var settings = new SqliteBusinessSettingsRepository(store!);
+        await settings.SaveAsync(new BusinessSettings { LowStockThreshold = 3, AutoUpdateStockStatus = true });
+        var product = (await catalog.GetProductsAsync()).Single(item => item.Status == ProductStatus.LowStock);
+        var variant = Assert.Single(product.Variants);
+        var service = new StockAdjustmentService(catalog, movements, settings, new ProductStatusService());
+
+        await service.AdjustAsync(new StockAdjustmentRequest
+        {
+            ProductId = product.Id,
+            ProductVariantId = variant.Id,
+            NewQuantity = 8,
+            Reason = StockAdjustmentReason.InventoryCount,
+            Note = "Контрольный пересчёт"
+        });
+
+        Assert.Equal(ProductStatus.InStock, (await catalog.GetProductAsync(product.Id))!.Status);
+        var movement = Assert.Single(await movements.GetAsync());
+        Assert.Equal(6, movement.QuantityDelta);
+        Assert.Equal("Контрольный пересчёт", movement.Note);
+    }
 }

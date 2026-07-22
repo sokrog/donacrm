@@ -35,6 +35,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<HomeDashboardService>();
 		builder.Services.AddSingleton<ProductStatusService>();
 		builder.Services.AddSingleton<IProductImagePicker, MauiProductImagePicker>();
+		builder.Services.AddSingleton<StockAdjustmentService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

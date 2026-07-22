@@ -58,6 +58,18 @@ button {
     color: inherit;
 }
 
+select.adjust-select {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 12px;
+    padding: 0 12px;
+    background: #120d1b;
+    color: var(--dona-text);
+    font: inherit;
+    font-size: .8rem;
+}
+
 :where(button, a):focus-visible {
     outline: 3px solid var(--dona-cyan);
     outline-offset: 2px;
