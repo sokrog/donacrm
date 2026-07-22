@@ -138,6 +138,43 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Marketing_repository_round_trips_complete_content_plan_document()
+    {
+        var repository = new SqliteMarketingRepository(store!);
+        var collection = new ProductCollection { Name = "Осень" };
+        var outfit = new Outfit { Name = "Городской образ" };
+        var post = new ContentPost
+        {
+            Title = "Новый дроп",
+            Type = ContentType.Reels,
+            Status = ContentStatus.Planned,
+            ScheduledAt = new DateTime(2026, 8, 5),
+            CollectionId = collection.Id,
+            CollectionName = collection.Name,
+            OutfitId = outfit.Id,
+            OutfitName = outfit.Name,
+            Caption = "Показываем новый образ",
+            PublicationUrl = "https://example.test/post",
+            Notes = "Подготовить обложку"
+        };
+
+        await repository.UpsertCollectionAsync(collection);
+        await repository.UpsertOutfitAsync(outfit);
+        await repository.UpsertContentPostAsync(post);
+        await store!.CloseAsync();
+
+        var actual = Assert.Single(await new SqliteMarketingRepository(store).GetContentPostsAsync());
+        Assert.Equal(ContentType.Reels, actual.Type);
+        Assert.Equal(ContentStatus.Planned, actual.Status);
+        Assert.Equal(new DateTime(2026, 8, 5), actual.ScheduledAt);
+        Assert.Equal(collection.Id, actual.CollectionId);
+        Assert.Equal(outfit.Id, actual.OutfitId);
+        Assert.Equal("Показываем новый образ", actual.Caption);
+        Assert.Equal("https://example.test/post", actual.PublicationUrl);
+        Assert.Equal("Подготовить обложку", actual.Notes);
+    }
+
+    [Fact]
     public async Task Supporting_repositories_persist_settings_stock_and_purchase_history()
     {
         var settings = new SqliteBusinessSettingsRepository(store!);

@@ -8,7 +8,7 @@
 
 <PageTitle>@Title — DONA CRM</PageTitle>
 <div class="marketing-page" aria-busy="@isLoading">
-    <header><div><a href="/products">Каталог</a><h1>@Title</h1></div><a class="add" href="@($"/{Kind}/new")" aria-label="@AddLabel">＋</a></header>
+    <header><div><a href="/marketing">Маркетинг</a><h1>@Title</h1></div><a class="add" href="@($"/{Kind}/new")" aria-label="@AddLabel">＋</a></header>
     <p class="intro">@(IsCollections ? "Группируйте товары по сезону, стилю или запуску." : "Собирайте готовые сочетания и сразу считайте их стоимость.")</p>
     @if(isLoading){<div class="marketing-state">Загружаем…</div>}
     else if(error is not null){<div class="marketing-state" role="alert">@error</div>}
