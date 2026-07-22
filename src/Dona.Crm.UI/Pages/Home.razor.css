@@ -202,25 +202,23 @@ h1 {
 
 .signal-strip {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 45%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
-    margin-top: 12px;
-    padding: 0 14px 4px;
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
-    scroll-snap-type: inline mandatory;
-    scrollbar-width: none;
+    margin: 12px 14px 0;
+    padding-bottom: 4px;
 }
 
 .signal {
     min-height: 91px;
     padding: 15px;
-    scroll-snap-align: start;
     border: 1px solid var(--dona-line);
     border-radius: 16px;
     background: rgba(25, 18, 36, .76);
     backdrop-filter: blur(14px);
+}
+
+.signal:last-child {
+    grid-column: 1 / -1;
 }
 
 .signal span {
@@ -404,7 +402,8 @@ section {
 }
 
 @media (min-width: 460px) {
-    .signal-strip { grid-auto-columns: 36%; }
+    .signal-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .signal:last-child { grid-column: auto; }
 }
 
 @media (min-width: 900px) {
