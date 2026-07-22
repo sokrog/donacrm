@@ -28,11 +28,31 @@ window.donaBrowser = {
             input.onchange = () => {
                 const file = input.files?.[0];
                 if (!file) { resolve(null); return; }
-                if (file.size > maxBytes) { reject(new Error('Для локального браузерного хранения выберите изображение до 600 КБ.')); return; }
-                const reader = new FileReader();
-                reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
-                reader.onload = () => resolve({ name: file.name, contentType: file.type, size: file.size, dataUrl: reader.result });
-                reader.readAsDataURL(file);
+                const image = new Image();
+                const objectUrl = URL.createObjectURL(file);
+                image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Не удалось прочитать изображение.')); };
+                image.onload = async () => {
+                    try {
+                        const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+                        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+                        canvas.getContext('2d', { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
+                        let quality = .84;
+                        let blob;
+                        do {
+                            blob = await new Promise(done => canvas.toBlob(done, 'image/jpeg', quality));
+                            quality -= .09;
+                        } while (blob && blob.size > maxBytes && quality >= .48);
+                        if (!blob || blob.size > maxBytes) throw new Error('Не удалось ужать фотографию до безопасного размера.');
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('Не удалось подготовить изображение.'));
+                        reader.onload = () => resolve({ name: file.name.replace(/\.[^.]+$/, '') + '.jpg', contentType: 'image/jpeg', size: blob.size, dataUrl: reader.result });
+                        reader.readAsDataURL(blob);
+                    } catch (error) { reject(error); }
+                    finally { URL.revokeObjectURL(objectUrl); }
+                };
+                image.src = objectUrl;
             };
             input.click();
         });

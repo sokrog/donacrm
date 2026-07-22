@@ -10,7 +10,16 @@ public sealed class MauiProductImagePicker : IProductImagePicker
 
     public async Task<ProductImage?> PickAsync(Guid productId, CancellationToken cancellationToken = default)
     {
-        var results = await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions { SelectionLimit = 1 });
+        var results = await MediaPicker.Default.PickPhotosAsync(new MediaPickerOptions
+        {
+            SelectionLimit = 1,
+            MaximumWidth = 1600,
+            MaximumHeight = 1600,
+            CompressionQuality = 82,
+            PreserveMetaData = false,
+            RotateImage = true,
+            Title = "Выберите фотографию товара"
+        });
         var result = results.FirstOrDefault();
         if (result is null) return null;
 

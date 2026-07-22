@@ -4,6 +4,7 @@
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
 @inject ICatalogRepository Catalog
+@inject ICommerceRepository Commerce
 @inject IBusinessSettingsRepository Settings
 @inject ProductStatusService StatusService
 @inject IProductImagePicker ImagePicker
@@ -23,6 +24,7 @@
             <DataAnnotationsValidator />
             <section aria-labelledby="photos">
                 <div class="section-title"><h2 id="photos">Фотографии</h2><button type="button" disabled="@(imageBusy || model.Images.Count >= 12)" @onclick="PickImageAsync">@(imageBusy ? "Открываем…" : "＋ Выбрать")</button></div>
+                <div class="image-url-add"><label>Добавить по ссылке<InputText @bind-Value="imageUrl" inputmode="url" placeholder="https://…/photo.jpg" /></label><button type="button" disabled="@(imageBusy || model.Images.Count >= 12 || string.IsNullOrWhiteSpace(imageUrl))" @onclick="AddImageUrl">Добавить</button></div>
                 @if (model.Images.Count == 0)
                 {
                     <p class="empty-variants">Выберите фото из галереи или укажите ссылку ниже.</p>
@@ -43,8 +45,15 @@
             </section>
             <section aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
                 <label>Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
-                <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<InputText @bind-Value="model.Category" autocomplete="off" /></label></div>
-                <label>Ссылка на фотографию<InputText @bind-Value="model.ImageUrl" inputmode="url" placeholder="https://…" /></label>
+                <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<select @bind="model.Category"><option value="">Не выбрана</option>@foreach(var category in categories){<option value="@category">@category</option>}</select></label></div>
+                <div class="field-row"><label>Пол<select @bind="model.Gender"><option value="">Не указан</option>@foreach(var value in genders){<option>@value</option>}</select></label><label>Сезон<select @bind="model.Season"><option value="">Не указан</option>@foreach(var value in seasons){<option>@value</option>}</select></label></div>
+                <label>Магазин или поставщик<InputText @bind-Value="model.SupplierName" placeholder="Название магазина" /></label>
+                <label>Ссылка на магазин<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
+                @if (Uri.TryCreate(model.SourceUrl, UriKind.Absolute, out var storeUri) && storeUri.Scheme is "http" or "https")
+                {
+                    <a class="store-link" href="@storeUri" target="_blank" rel="noopener noreferrer">Открыть страницу товара в магазине ↗</a>
+                }
+                <label>Описание и заметки<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
             </section>
 
             <section aria-labelledby="prices"><h2 id="prices">Цена</h2>
@@ -92,6 +101,10 @@
     private string? errorMessage;
     private string? saveError;
     private string? imageMessage;
+    private string? imageUrl;
+    private IReadOnlyList<string> categories = [];
+    private static readonly string[] genders = ["Женский", "Мужской", "Унисекс"];
+    private static readonly string[] seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
     private readonly List<ProductImage> pendingImages = [];
     private readonly List<ProductImage> removedImages = [];
     private bool IsNew => Id is null;
@@ -101,6 +114,7 @@
         isLoading = true; errorMessage = null;
         try
         {
+            categories = (await Commerce.GetCategoriesAsync()).Where(value => value.IsActive).OrderBy(value => value.SortOrder).Select(value => value.Name).ToList();
             if (Id is not null) model = await Catalog.GetProductAsync(Id.Value) ?? throw new InvalidOperationException("Товар не найден.");
             else { model = new Product { Status = ProductStatus.OnOrder }; model.Variants.Add(new ProductVariant()); }
         }
@@ -127,6 +141,31 @@
         finally { imageBusy = false; }
     }
 
+    private void AddImageUrl()
+    {
+        imageError = false; imageMessage = null;
+        if (!Uri.TryCreate(imageUrl?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            imageError = true; imageMessage = "Укажите полную ссылку на изображение с https://."; return;
+        }
+        var fileName = Path.GetFileName(uri.AbsolutePath);
+        var image = new ProductImage
+        {
+            FileName = string.IsNullOrWhiteSpace(fileName) ? "external-image" : fileName,
+            ContentType = "image/*",
+            Storage = ProductImageStorage.External,
+            StorageKey = uri.ToString(),
+            Url = uri.ToString(),
+            SortOrder = model.Images.Count,
+            IsMain = model.Images.Count == 0
+        };
+        model.Images.Add(image);
+        pendingImages.Add(image);
+        imageUrl = null;
+        NormalizeImages();
+        imageMessage = "Ссылка добавлена. Сохраните товар, чтобы применить изменения.";
+    }
+
     private void SetMainImage(ProductImage selected)
     {
         foreach (var image in model.Images) image.IsMain = image.Id == selected.Id;
@@ -146,6 +185,7 @@
         for (var index = 0; index < ordered.Count; index++) ordered[index].SortOrder = index;
         if (ordered.Count > 0 && ordered.All(item => !item.IsMain)) ordered[0].IsMain = true;
         model.Images = ordered;
+        model.ImageUrl = ordered.FirstOrDefault(item => item.IsMain)?.Url;
     }
 
     private async Task SaveAsync()
