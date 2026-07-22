@@ -1,0 +1,24 @@
+@page "/products"
+@page "/sales"
+@page "/purchases"
+@page "/more"
+@inject NavigationManager Navigation
+
+<PageTitle>@Title — DONA CRM</PageTitle>
+
+<div class="placeholder-page">
+    <p class="placeholder-kicker">DONA CRM</p>
+    <h1>@Title</h1>
+    <p>Мобильный экран будет подключён к существующей бизнес-логике на следующем вертикальном срезе.</p>
+    <a class="placeholder-link" href="/">Вернуться на главную</a>
+</div>
+
+@code {
+    private string Title => new Uri(Navigation.Uri).AbsolutePath switch
+    {
+        "/products" => "Каталог",
+        "/sales" => "Продажи",
+        "/purchases" => "Закупки",
+        _ => "Ещё"
+    };
+}

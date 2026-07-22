@@ -2,13 +2,13 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Dona.Crm.App"
-             xmlns:components="clr-namespace:Dona.Crm.App.Components"
+             xmlns:ui="clr-namespace:Dona.Crm.UI.Components;assembly=Dona.Crm.UI"
              x:Class="Dona.Crm.App.MainPage"
              SafeAreaEdges="None">
 
     <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
         <BlazorWebView.RootComponents>
-            <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
+            <RootComponent Selector="#app" ComponentType="{x:Type ui:Routes}" />
         </BlazorWebView.RootComponents>
     </BlazorWebView>
 

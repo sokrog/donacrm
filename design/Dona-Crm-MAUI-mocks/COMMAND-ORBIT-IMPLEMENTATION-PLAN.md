@@ -64,3 +64,10 @@ Run the full test suite, validate migrations and backups, profile startup and lo
 ## Visual acceptance rule
 
 A phase is not complete until its simulator or emulator screenshot matches the intended hierarchy, spacing, contrast, touch reach, and information density. Build success alone is insufficient.
+
+## Intentional implementation differences
+
+- The production shell fills the real device viewport; the decorative phone frame and direction caption remain mockup-only review aids.
+- Bottom navigation is implemented in the shared Razor layout, while the existing Web layout and routes remain unchanged. Mobile and Web therefore share components without being forced into the same information architecture or visual design.
+- The first shell iteration uses representative DONA records only to validate hierarchy. Authoritative SQLite-backed values, loading, offline, empty, and error states belong to the Home vertical slice in phase 3.
+- Android was visually verified on the Pixel 9 Pro emulator through DevFlow at both the top and bottom of the long Home screen. The iOS target compiles successfully, but an iPhone simulator screenshot remains pending until a Mac simulator is available to this Windows workspace.

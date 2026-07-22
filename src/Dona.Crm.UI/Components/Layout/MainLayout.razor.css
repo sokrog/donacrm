@@ -1,0 +1,70 @@
+.orbit-shell {
+    min-height: 100dvh;
+}
+
+.orbit-main {
+    min-height: 100dvh;
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+}
+
+.orbit-tabs {
+    position: fixed;
+    z-index: 100;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 78px;
+    padding: 7px 8px max(10px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--dona-line-strong);
+    background: rgba(13, 9, 20, .94);
+    box-shadow: 0 -16px 34px rgba(6, 4, 10, .55);
+    backdrop-filter: blur(22px);
+}
+
+::deep .orbit-tab {
+    display: flex;
+    min-width: 0;
+    min-height: 58px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+    border-radius: 14px;
+    color: var(--dona-muted);
+    text-decoration: none;
+}
+
+::deep .orbit-tab svg {
+    width: 22px;
+    height: 22px;
+}
+
+::deep .orbit-tab span {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: .66rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .orbit-tab.is-active {
+    color: #d8baff;
+    background: linear-gradient(180deg, rgba(159, 92, 255, .15), rgba(159, 92, 255, .03));
+}
+
+::deep .orbit-tab.is-active svg {
+    filter: drop-shadow(0 0 7px rgba(159, 92, 255, .55));
+}
+
+@media (min-width: 720px) {
+    .orbit-tabs {
+        right: max(0px, calc((100vw - 520px) / 2));
+        left: max(0px, calc((100vw - 520px) / 2));
+        border-right: 1px solid var(--dona-line-strong);
+        border-left: 1px solid var(--dona-line-strong);
+        border-radius: 22px 22px 0 0;
+    }
+}

@@ -1,0 +1,126 @@
+:root {
+    color-scheme: dark;
+    --dona-space: #09070f;
+    --dona-space-2: #100b19;
+    --dona-panel: rgba(29, 20, 42, .78);
+    --dona-panel-solid: #1b1426;
+    --dona-line: rgba(233, 222, 255, .11);
+    --dona-line-strong: rgba(233, 222, 255, .18);
+    --dona-text: #f7f1ff;
+    --dona-muted: #aaa0b8;
+    --dona-purple: #9f5cff;
+    --dona-magenta: #f05bc8;
+    --dona-cyan: #62dceb;
+    --dona-amber: #f4bd6f;
+    --dona-danger: #ff7894;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body, #app {
+    min-height: 100%;
+}
+
+html {
+    background: var(--dona-space);
+}
+
+body {
+    min-height: 100dvh;
+    margin: 0;
+    overflow-x: hidden;
+    background: radial-gradient(circle at 82% 8%, rgba(159, 92, 255, .18), transparent 21rem), radial-gradient(circle at 10% 46%, rgba(240, 91, 200, .07), transparent 18rem), linear-gradient(180deg, #0d0915 0%, #09070f 50%, #0d0913 100%);
+    color: var(--dona-text);
+    font-family: "OpenSansRegular", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: .38;
+    background-image: radial-gradient(circle at 9% 8%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 83% 21%, #fff 0 .8px, transparent 1.4px), radial-gradient(circle at 25% 31%, #a66cff 0 .8px, transparent 1.4px), radial-gradient(circle at 71% 46%, #fff 0 .7px, transparent 1.3px), radial-gradient(circle at 14% 63%, #62dceb 0 .7px, transparent 1.3px);
+    background-size: 137px 149px, 173px 181px, 191px 167px, 223px 211px, 257px 233px;
+}
+
+button, a {
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button {
+    color: inherit;
+}
+
+:where(button, a):focus-visible {
+    outline: 3px solid var(--dona-cyan);
+    outline-offset: 2px;
+}
+
+:where(button, a):active {
+    transform: scale(.98);
+}
+
+.placeholder-page {
+    width: min(100%, 520px);
+    min-height: calc(100dvh - 90px);
+    margin: 0 auto;
+    padding: calc(42px + env(safe-area-inset-top)) 22px 32px;
+}
+
+.placeholder-page h1 {
+    margin: 0 0 12px;
+    font-size: 2rem;
+    letter-spacing: -.04em;
+}
+
+.placeholder-page p:not(.placeholder-kicker) {
+    max-width: 36rem;
+    margin: 0 0 24px;
+    color: var(--dona-muted);
+    line-height: 1.6;
+}
+
+.placeholder-kicker {
+    margin: 0 0 8px;
+    color: var(--dona-cyan);
+    font-size: .76rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.placeholder-link {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    padding: 0 18px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 14px;
+    background: var(--dona-panel);
+    color: var(--dona-text);
+    text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+@media (prefers-contrast: more) {
+    :root {
+        --dona-line: rgba(255, 255, 255, .34);
+        --dona-line-strong: rgba(255, 255, 255, .58);
+        --dona-muted: #d2c9db;
+    }
+}

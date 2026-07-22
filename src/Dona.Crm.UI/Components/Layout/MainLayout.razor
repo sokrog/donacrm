@@ -1,0 +1,30 @@
+@inherits LayoutComponentBase
+
+<div class="orbit-shell">
+    <main class="orbit-main">
+        @Body
+    </main>
+
+    <nav class="orbit-tabs" aria-label="Основная навигация">
+        <NavLink class="orbit-tab" ActiveClass="is-active" href="/" Match="NavLinkMatch.All">
+            <OrbitIcon Name="home" />
+            <span>Главная</span>
+        </NavLink>
+        <NavLink class="orbit-tab" ActiveClass="is-active" href="/products">
+            <OrbitIcon Name="catalog" />
+            <span>Каталог</span>
+        </NavLink>
+        <NavLink class="orbit-tab" ActiveClass="is-active" href="/sales">
+            <OrbitIcon Name="sales" />
+            <span>Продажи</span>
+        </NavLink>
+        <NavLink class="orbit-tab" ActiveClass="is-active" href="/purchases">
+            <OrbitIcon Name="truck" />
+            <span>Закупки</span>
+        </NavLink>
+        <NavLink class="orbit-tab" ActiveClass="is-active" href="/more">
+            <OrbitIcon Name="more" />
+            <span>Ещё</span>
+        </NavLink>
+    </nav>
+</div>

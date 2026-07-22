@@ -1,0 +1,68 @@
+@page "/"
+@using System.Globalization
+
+<PageTitle>Главная — DONA CRM</PageTitle>
+
+<div class="orbit-home">
+    <header class="home-header">
+        <div>
+            <p class="eyebrow">@DateLabel</p>
+            <h1>@Greeting, Дона</h1>
+        </div>
+        <button class="icon-button" type="button" aria-label="Открыть уведомления">
+            <OrbitIcon Name="bell" />
+        </button>
+    </header>
+
+    <p class="connection" role="status"><span aria-hidden="true"></span>Локальные данные актуальны</p>
+
+    <article class="hero" aria-labelledby="today-revenue">
+        <p class="hero-label" id="today-revenue">Выручка сегодня</p>
+        <p class="revenue">1 647 000 <span>UZS</span></p>
+        <div class="hero-meta">
+            <div><span>Прибыль</span><strong>586 000 UZS</strong></div>
+            <div class="sales-meta"><span>Продажи</span><strong>9 продаж</strong></div>
+        </div>
+    </article>
+
+    <div class="signal-strip" aria-label="Ключевые показатели">
+        <article class="signal"><span>Доступный остаток</span><strong>10 ед.</strong></article>
+        <article class="signal"><span>Входящие закупки</span><strong>24 ед.</strong></article>
+        <article class="signal debt"><span>Долг клиентов</span><strong>389 000 UZS</strong></article>
+    </div>
+
+    <section aria-labelledby="attention-heading">
+        <div class="section-heading"><h2 id="attention-heading">Требует внимания</h2><span>4 сигнала</span></div>
+        <ul class="attention-list">
+            <li><a class="attention-item" href="/products"><span class="attention-icon"><OrbitIcon Name="catalog" /></span><span>Худи Minimal — осталось 2 ед.</span><span class="chevron" aria-hidden="true">›</span></a></li>
+            <li><a class="attention-item" href="/sales"><span class="attention-icon amber"><OrbitIcon Name="clock" /></span><span>SALE-20260722-004 · Алина — долг 189 000 UZS</span><span class="chevron" aria-hidden="true">›</span></a></li>
+            <li><a class="attention-item" href="/purchases"><span class="attention-icon cyan"><OrbitIcon Name="truck" /></span><span>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</span><span class="chevron" aria-hidden="true">›</span></a></li>
+            <li><a class="attention-item" href="/products"><span class="attention-icon magenta"><OrbitIcon Name="image" /></span><span>Сумка City Mini — нет фотографии</span><span class="chevron" aria-hidden="true">›</span></a></li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="actions-heading">
+        <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
+        <div class="actions-grid">
+            <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
+            <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
+            <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
+            <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
+        </div>
+    </section>
+
+    <section aria-labelledby="activity-heading">
+        <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Сегодня</span></div>
+        <ol class="activity-list">
+            <li><span class="activity-mark"><OrbitIcon Name="check" /></span><div><strong>SALE-20260722-009 · Алина — 358 000 UZS</strong><p>Завершено · 12 мин назад</p></div></li>
+            <li><span class="activity-mark"><OrbitIcon Name="payment" /></span><div><strong>Малика · Click — 169 000 UZS</strong><p>Оплата · 37 мин назад</p></div></li>
+            <li><span class="activity-mark"><OrbitIcon Name="catalog" /></span><div><strong>Худи Minimal — принято 7 ед., 1 брак</strong><p>Приёмка · 10:05</p></div></li>
+        </ol>
+    </section>
+</div>
+
+@code {
+    private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private string DateLabel => DateTime.Now.ToString("dddd, d MMMM", RussianCulture);
+    private string Greeting => DateTime.Now.Hour switch { < 6 => "Доброй ночи", < 12 => "Доброе утро", < 18 => "Добрый день", _ => "Добрый вечер" };
+}
