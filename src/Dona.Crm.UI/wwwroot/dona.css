@@ -13,6 +13,12 @@
     --dona-cyan: #62dceb;
     --dona-amber: #f4bd6f;
     --dona-danger: #ff7894;
+    --dona-page-inline: 20px;
+    --dona-page-block: 22px;
+    --dona-section-gap: 16px;
+    --dona-card-gap: 12px;
+    --dona-field-gap: 8px;
+    --dona-control-height: 50px;
 }
 
 *, *::before, *::after {
@@ -49,9 +55,21 @@ body::before {
     background-size: 137px 149px, 173px 181px, 191px 167px, 223px 211px, 257px 233px;
 }
 
-button, a {
+button, a, input, select, textarea {
     font: inherit;
     -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea {
+    accent-color: var(--dona-purple);
+}
+
+input::placeholder, textarea::placeholder { color: #7f758d; }
+
+:where(input, select, textarea):focus-visible {
+    outline: 3px solid rgba(98,220,235,.3);
+    outline-offset: 1px;
+    border-color: var(--dona-cyan) !important;
 }
 
 button {
@@ -154,6 +172,29 @@ select.adjust-select {
     text-decoration: none;
 }
 
+.settings-page .connections-action {
+    display: flex;
+    min-height: var(--dona-control-height);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(98,220,235,.2);
+    border-radius: 12px;
+    background: rgba(98,220,235,.07);
+    color: var(--dona-cyan);
+    font-size: .72rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+:where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page,.connections-page) form {
+    display: grid;
+    gap: var(--dona-section-gap);
+}
+
+:where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page,.connections-page) form > :where(.save-error,.message,.editor-message,.settings-message,.connection-message,.validation-errors) {
+    margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         scroll-behavior: auto !important;
@@ -169,4 +210,42 @@ select.adjust-select {
         --dona-line-strong: rgba(255, 255, 255, .58);
         --dona-muted: #d2c9db;
     }
+}
+
+@media (min-width: 900px) {
+    html { font-size: 18px; }
+    :root {
+        --dona-page-inline: 32px;
+        --dona-page-block: 30px;
+        --dona-section-gap: 20px;
+        --dona-card-gap: 14px;
+        --dona-field-gap: 10px;
+        --dona-control-height: 52px;
+    }
+    :where(.catalog-page,.products-page,.sales-page,.purchases-page,.partners-page,.inventory-page,.analytics-page,.marketing-page,.marketing-hub,.content-page,.customers-page,.more-page) {
+        width:min(100%,1180px) !important;
+        max-width:1180px !important;
+        padding-right:var(--dona-page-inline) !important;
+        padding-left:var(--dona-page-inline) !important;
+    }
+    :where(.settings-page,.connections-page,.sync-page,.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor) {
+        width:min(100%,960px) !important;
+        max-width:960px !important;
+        padding-right:var(--dona-page-inline) !important;
+        padding-left:var(--dona-page-inline) !important;
+    }
+    .catalog-tools { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
+    .product-list,.marketing-page .marketing-list,.content-page .content-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
+    .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }
+    .content-page .content-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .content-page .content-tools { grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); align-items:end; }
+    :where(.form-actions,.actions,.settings-actions) { position:static !important; bottom:auto !important; margin-top:4px; }
+    .editor-page form { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+    .editor-page form > section:nth-of-type(1) { grid-column:2; grid-row:1 / span 2; }
+    .editor-page form > section:nth-of-type(2),.editor-page form > section:nth-of-type(3) { grid-column:1; }
+    .editor-page form > :where(.form-actions,.save-error,.archive-toggle,.archive-confirm,.validation-errors) { grid-column:1/-1; }
+}
+
+@media (max-width: 899px) {
+    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(132px + env(safe-area-inset-bottom)) !important; }
 }

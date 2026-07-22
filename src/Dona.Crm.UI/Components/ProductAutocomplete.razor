@@ -1,0 +1,100 @@
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+
+<div class="orbit-autocomplete @(Disabled ? "disabled" : null)" @onfocusout="CloseLaterAsync">
+    <div class="autocomplete-input">
+        <input role="combobox" aria-expanded="@open" aria-controls="@listId" aria-autocomplete="list"
+               value="@query" placeholder="@Placeholder" disabled="@Disabled" autocomplete="off"
+               @onfocus="Open" @oninput="InputAsync" @onkeydown="KeyDownAsync" />
+        @if (Value is not null && !Disabled)
+        {
+            <button type="button" class="autocomplete-clear" aria-label="Очистить выбор" title="Очистить выбор"
+                    @onmousedown="ClearAsync" @onmousedown:preventDefault="true">×</button>
+        }
+    </div>
+    @if (open && !Disabled)
+    {
+        <div id="@listId" class="autocomplete-results" role="listbox">
+            @for (var index = 0; index < Results.Count; index++)
+            {
+                var product = Results[index];
+                <button type="button" role="option" aria-selected="@(index == activeIndex)" class="@(index == activeIndex ? "active" : null)"
+                        @onmouseenter="() => activeIndex = index" @onmousedown="() => SelectAsync(product)" @onmousedown:preventDefault="true">
+                    <span><strong>@product.Name</strong><small>@product.Sku · @product.Status.Display()</small></span>
+                    <b>@product.Variants.Sum(item => item.AvailableQuantity) шт.</b>
+                </button>
+            }
+            @if (Results.Count == 0) { <div class="autocomplete-empty">Ничего не найдено по названию или SKU</div> }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Product> Products { get; set; } = [];
+    [Parameter] public Guid? Value { get; set; }
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<Product?> OnSelected { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Название или SKU";
+    [Parameter] public bool Disabled { get; set; }
+    private readonly string listId = $"products-{Guid.NewGuid():N}";
+    private string query = string.Empty;
+    private bool open;
+    private int activeIndex;
+    private Guid? lastValue;
+    private IReadOnlyList<Product> Results => ProductSearch.Filter(Products, query).Take(8).ToList();
+
+    protected override void OnParametersSet()
+    {
+        if (lastValue == Value) return;
+        lastValue = Value;
+        var product = Value is null ? null : Products.FirstOrDefault(item => item.Id == Value);
+        query = product is null ? string.Empty : $"{product.Sku} · {product.Name}";
+    }
+
+    private void Open() { open = true; activeIndex = 0; }
+
+    private async Task InputAsync(ChangeEventArgs args)
+    {
+        query = args.Value?.ToString() ?? string.Empty;
+        open = true;
+        activeIndex = 0;
+        if (Value is null) return;
+        lastValue = null;
+        await ValueChanged.InvokeAsync(null);
+        await OnSelected.InvokeAsync(null);
+    }
+
+    private async Task SelectAsync(Product product)
+    {
+        lastValue = product.Id;
+        query = $"{product.Sku} · {product.Name}";
+        open = false;
+        await ValueChanged.InvokeAsync(product.Id);
+        await OnSelected.InvokeAsync(product);
+    }
+
+    private async Task ClearAsync()
+    {
+        lastValue = null;
+        query = string.Empty;
+        open = true;
+        activeIndex = 0;
+        await ValueChanged.InvokeAsync(null);
+        await OnSelected.InvokeAsync(null);
+    }
+
+    private async Task CloseLaterAsync()
+    {
+        await Task.Delay(120);
+        open = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task KeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") open = false;
+        else if (args.Key == "ArrowDown" && Results.Count > 0) activeIndex = Math.Min(activeIndex + 1, Results.Count - 1);
+        else if (args.Key == "ArrowUp" && Results.Count > 0) activeIndex = Math.Max(activeIndex - 1, 0);
+        else if (args.Key == "Enter" && open && Results.Count > 0) await SelectAsync(Results[Math.Clamp(activeIndex, 0, Results.Count - 1)]);
+    }
+}

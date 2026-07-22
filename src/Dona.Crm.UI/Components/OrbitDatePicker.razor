@@ -1,0 +1,55 @@
+@using System.Globalization
+
+<button type="button" class="date-trigger @(Value is null ? "empty" : null)" @onclick="Open" aria-haspopup="dialog">
+    <span>@(Value?.ToString("dd MMMM yyyy", CultureInfo.GetCultureInfo("ru-RU")) ?? Placeholder)</span><OrbitIcon Name="calendar" />
+</button>
+
+@if (open)
+{
+    <div class="date-overlay" role="presentation" @onclick="Close">
+        <section class="date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+            <header><button type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth">‹</button><strong>@MonthTitle</strong><button type="button" aria-label="Следующий месяц" @onclick="NextMonth">›</button></header>
+            <div class="weekdays" aria-hidden="true">@foreach(var day in weekdays){<span>@day</span>}</div>
+            <div class="days">
+                @foreach (var day in CalendarDays)
+                {
+                    <button type="button" class="@DayClass(day)" disabled="@(day is null)" @onclick="() => SelectAsync(day)">@(day?.Day)</button>
+                }
+            </div>
+            <footer><button type="button" class="clear" @onclick="ClearAsync">Очистить</button><button type="button" @onclick="SelectTodayAsync">Сегодня</button><button type="button" class="close" @onclick="Close">Готово</button></footer>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public DateTime? Value { get; set; }
+    [Parameter] public EventCallback<DateTime?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<DateTime?> ValueChangedAfter { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Выберите дату";
+    private static readonly string[] weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+    private static readonly string[] months = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+    private bool open;
+    private DateTime month = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private string MonthTitle => $"{months[month.Month - 1]} {month.Year}";
+    private IEnumerable<DateTime?> CalendarDays
+    {
+        get
+        {
+            var offset = ((int)month.DayOfWeek + 6) % 7;
+            for (var index = 0; index < 42; index++)
+            {
+                var day = index - offset + 1;
+                yield return day >= 1 && day <= DateTime.DaysInMonth(month.Year, month.Month) ? new DateTime(month.Year, month.Month, day) : null;
+            }
+        }
+    }
+    private void Open() { month = new((Value ?? DateTime.Today).Year, (Value ?? DateTime.Today).Month, 1); open = true; }
+    private void Close() => open = false;
+    private void PreviousMonth() => month = month.AddMonths(-1);
+    private void NextMonth() => month = month.AddMonths(1);
+    private string DayClass(DateTime? day) => day is null ? "blank" : day.Value.Date == Value?.Date ? "selected" : day.Value.Date == DateTime.Today ? "today" : string.Empty;
+    private async Task SelectAsync(DateTime? day) { if (day is null) return; Value = day; await ValueChanged.InvokeAsync(day); await ValueChangedAfter.InvokeAsync(day); open = false; }
+    private Task SelectTodayAsync() => SelectAsync(DateTime.Today);
+    private async Task ClearAsync() { Value = null; await ValueChanged.InvokeAsync(null); await ValueChangedAfter.InvokeAsync(null); open = false; }
+    private void KeyDown(KeyboardEventArgs args) { if (args.Key == "Escape") open = false; }
+}
