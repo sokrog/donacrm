@@ -17,7 +17,7 @@
     }
     else
     {
-        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>Google Sheets → SQLite</strong><small>Без изменений в Google-таблице</small></div></section>
+        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>SQLite ↔ Google Sheets</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
 
         @if (preview is null)
         {
@@ -36,20 +36,39 @@
             </section>
             <p class="captured">Снимок Google: @preview.CapturedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
 
-            @if (!confirmPull)
+            @if (!confirmPull && !confirmPush)
             {
-                <div class="sync-actions"><button class="secondary" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button><button class="primary" disabled="@busy" @onclick="() => confirmPull = true">Загрузить из Google</button></div>
+                <button class="refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
+                <div class="sync-actions"><button class="secondary" disabled="@busy" @onclick="() => confirmPull = true">Google → устройство</button><button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button></div>
+            }
+            else if (confirmPull)
+            {
+                <section class="confirm-card"><strong>Заменить локальный снимок?</strong><p>Товары, закупки, продажи, маркетинг и настройки в SQLite будут заменены данными из Google. Операция выполняется одной транзакцией.</p><div><button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button></div></section>
             }
             else
             {
-                <section class="confirm-card"><strong>Заменить локальный снимок?</strong><p>Товары, закупки, продажи, маркетинг и настройки в SQLite будут заменены данными из Google. Операция выполняется одной транзакцией.</p><div><button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button></div></section>
+                <section class="confirm-card push"><strong>Заменить данные в Google Sheets?</strong><p>В Google будет отправлен текущий снимок SQLite. Перед записью приложение ещё раз проверит версию таблицы, а все связанные листы обновятся одним атомарным пакетом.</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
             }
         }
 
         @if (message is not null) { <p class="sync-message @(success ? "success" : null)" role="status">@message</p> }
-        <p class="roadmap-note">Отправка SQLite → Google будет добавлена после журнала пакетных операций, чтобы продажи, оплаты и остатки не записывались частично.</p>
+        @if (retryOperation is not null)
+        {
+            <section class="retry-card"><span><strong>Предыдущая отправка не подтверждена</strong><small>@retryOperation.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm") · сохранён точный снимок</small></span><button disabled="@busy" @onclick="RetryAsync">Повторить</button></section>
+        }
     }
 </div>
+
+<style>
+    .refresh-action { display:block; margin:11px auto 0; border:0; background:transparent; color:var(--dona-muted); font-size:.6rem; text-decoration:underline; text-underline-offset:3px }
+    .confirm-card.push { border-color:rgba(98,220,235,.22) }
+    .confirm-card.push .danger { background:rgba(98,220,235,.12); color:var(--dona-cyan) }
+    .retry-card { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:13px; padding:13px; border:1px solid rgba(255,190,100,.2); border-radius:16px; background:rgba(24,17,34,.78) }
+    .retry-card strong, .retry-card small { display:block }
+    .retry-card strong { font-size:.64rem }
+    .retry-card small { margin-top:4px; color:var(--dona-muted); font-size:.54rem }
+    .retry-card button { min-height:40px; padding:0 13px; border:1px solid var(--dona-line-strong); border-radius:11px; background:transparent; color:var(--dona-text); font-size:.6rem; font-weight:700 }
+</style>
 
 @code {
     private GoogleSyncPreview? preview;
@@ -57,12 +76,15 @@
     private bool connected;
     private bool busy;
     private bool confirmPull;
+    private bool confirmPush;
     private bool success;
     private string? message;
+    private GoogleSyncOperation? retryOperation;
 
     protected override async Task OnInitializedAsync()
     {
         connected = (await Google.GetStateAsync()).IsConnected;
+        if (connected) await RefreshOperationsAsync();
         loading = false;
     }
 
@@ -70,6 +92,7 @@
     {
         preview = await Sync.PreviewAsync();
         confirmPull = false;
+        confirmPush = false;
         return preview.LocalVersion == preview.GoogleVersion ? "Локальный и облачный снимки совпадают." : "Сравнение готово. Проверьте разделы перед загрузкой.";
     });
 
@@ -79,6 +102,26 @@
         confirmPull = false;
         return "Данные Google Sheets атомарно загружены в SQLite.";
     });
+
+    private async Task PushAsync() => await RunAsync(async () =>
+    {
+        var result = await Sync.PushAsync(preview!.GoogleVersion);
+        confirmPush = false;
+        await RefreshOperationsAsync();
+        preview = await Sync.PreviewAsync();
+        return result.AlreadyApplied ? "Этот снимок уже находится в Google Sheets." : "Снимок SQLite атомарно отправлен в Google Sheets.";
+    });
+
+    private async Task RetryAsync() => await RunAsync(async () =>
+    {
+        var result = await Sync.RetryPushAsync(retryOperation!.Id);
+        await RefreshOperationsAsync();
+        preview = await Sync.PreviewAsync();
+        return result.AlreadyApplied ? "Google подтвердил ранее отправленный снимок." : "Сохранённый снимок успешно отправлен в Google Sheets.";
+    });
+
+    private async Task RefreshOperationsAsync() => retryOperation = (await Sync.GetOperationsAsync())
+        .FirstOrDefault(value => value.Status != GoogleSyncOperationStatus.Applied);
 
     private async Task RunAsync(Func<Task<string>> action)
     {

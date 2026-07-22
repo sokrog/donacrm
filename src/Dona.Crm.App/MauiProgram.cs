@@ -46,6 +46,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SqlitePurchaseHistoryRepository>();
 		builder.Services.AddSingleton<IPurchaseHistoryRepository>(services => services.GetRequiredService<SqlitePurchaseHistoryRepository>());
 		builder.Services.AddSingleton<SqliteSyncStore>();
+		builder.Services.AddSingleton<SqliteSyncOperationStore>();
 		builder.Services.AddSingleton<HomeDashboardService>();
 		builder.Services.AddSingleton<ProductStatusService>();
 		builder.Services.AddSingleton<IProductImagePicker, MauiProductImagePicker>();

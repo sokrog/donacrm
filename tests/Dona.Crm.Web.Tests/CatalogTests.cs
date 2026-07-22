@@ -1038,3 +1038,40 @@ public sealed class GoogleSyncSnapshotTests
         Assert.Equal(1, sections.Single(value => value.Key == "sales").GoogleCount);
     }
 }
+
+public sealed class GoogleSyncPushTests
+{
+    [Fact]
+    public void Mapper_preserves_nested_business_rows_and_existing_sheet_contract()
+    {
+        var product = new Product { Name = "Dress", Variants = [new ProductVariant { Color = "Black", Size = "M", Quantity = 2 }] };
+        var sale = new Sale { Number = "SALE-1", Payments = [new SalePayment { AmountUzs = 125_000, Status = PaymentStatus.Completed }] };
+        var snapshot = new DonaSyncSnapshot { Products = [product], Sales = [sale] };
+
+        var sheets = GoogleSyncSheetMapper.Map(snapshot);
+
+        Assert.Equal(25, sheets.Count);
+        Assert.Equal(sheets.Count, sheets.Select(value => value.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(product.Id.ToString(), sheets.Single(value => value.Title == "ProductVariants").Rows.Single()[1]);
+        Assert.Equal(sale.Id.ToString(), sheets.Single(value => value.Title == "Payments").Rows.Single()[1]);
+        Assert.Equal("PurchaseCurrencyCode", sheets.Single(value => value.Title == "Products").Headers[^1]);
+    }
+
+    [Fact]
+    public void Atomic_update_covers_the_full_existing_grid_to_clear_stale_rows()
+    {
+        var sheet = new GoogleSyncSheet("Products", ["Id", "Name"], [[Guid.Empty.ToString(), "Dress"]]);
+        var properties = new Google.Apis.Sheets.v4.Data.SheetProperties
+        {
+            SheetId = 17,
+            GridProperties = new Google.Apis.Sheets.v4.Data.GridProperties { RowCount = 500 }
+        };
+
+        var request = GoogleAtomicSyncPushService.BuildUpdate(sheet, properties);
+
+        Assert.Equal("userEnteredValue", request.UpdateCells.Fields);
+        Assert.Equal(17, request.UpdateCells.Range.SheetId);
+        Assert.Equal(500, request.UpdateCells.Range.EndRowIndex);
+        Assert.Equal(2, request.UpdateCells.Rows.Count);
+    }
+}

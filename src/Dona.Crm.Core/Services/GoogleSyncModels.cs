@@ -29,10 +29,37 @@ public sealed record GoogleSyncPreview(string LocalVersion, string GoogleVersion
     public int GoogleTotal => Sections.Sum(section => section.GoogleCount);
 }
 
+public enum GoogleSyncOperationStatus { Prepared, Applied, RequiresRetry }
+
+public sealed class GoogleSyncOperation
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public GoogleSyncOperationStatus Status { get; set; } = GoogleSyncOperationStatus.Prepared;
+    public string ExpectedGoogleVersion { get; set; } = string.Empty;
+    public string LocalVersion { get; set; } = string.Empty;
+    public DonaSyncSnapshot Snapshot { get; set; } = new();
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? AppliedAt { get; set; }
+    public string? Error { get; set; }
+}
+
+public sealed record GoogleSyncPushRequest(
+    string SpreadsheetId,
+    Guid OperationId,
+    string ExpectedGoogleVersion,
+    string LocalVersion,
+    DateTimeOffset CreatedAt,
+    DonaSyncSnapshot Snapshot);
+
+public sealed record GoogleSyncPushResult(Guid OperationId, string Version, DateTimeOffset AppliedAt, bool AlreadyApplied);
+
 public interface IGoogleSyncService
 {
     Task<GoogleSyncPreview> PreviewAsync(CancellationToken cancellationToken = default);
     Task<GoogleSyncPreview> PullAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default);
+    Task<GoogleSyncPushResult> PushAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default);
+    Task<GoogleSyncPushResult> RetryPushAsync(Guid operationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default);
 }
 
 public interface IGoogleAccessTokenProvider

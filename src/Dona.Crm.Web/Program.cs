@@ -19,6 +19,7 @@ builder.Services.AddSingleton<GoogleMobileOAuthGrantStore>();
 builder.Services.AddSingleton<GoogleMobileOAuthBroker>();
 builder.Services.AddHttpClient("google-mobile-oauth", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<GoogleMobileSyncSnapshotService>();
+builder.Services.AddScoped<GoogleAtomicSyncPushService>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<CurrencyContext>();
@@ -129,6 +130,14 @@ app.MapGet("/api/mobile/sync/snapshot", async (string spreadsheetId, HttpRequest
     var authorization = request.Headers.Authorization.ToString();
     var accessToken = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? authorization[7..].Trim() : string.Empty;
     try { return Results.Ok(await sync.CreateAsync(spreadsheetId, accessToken, token)); }
+    catch (UnauthorizedAccessException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status401Unauthorized); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict); }
+});
+app.MapPost("/api/mobile/sync/push", async (GoogleSyncPushRequest payload, HttpRequest request, GoogleAtomicSyncPushService sync, CancellationToken token) =>
+{
+    var authorization = request.Headers.Authorization.ToString();
+    var accessToken = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? authorization[7..].Trim() : string.Empty;
+    try { return Results.Ok(await sync.PushAsync(payload, accessToken, token)); }
     catch (UnauthorizedAccessException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status401Unauthorized); }
     catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict); }
 });
