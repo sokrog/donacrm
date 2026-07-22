@@ -1,6 +1,7 @@
 @page "/connections"
 @using Dona.Crm.Web.Services
 @inject IGoogleConnectionService Google
+@inject AppPlatformProfile Platform
 
 <PageTitle>Подключения — DONA CRM</PageTitle>
 <div class="connections-page">
@@ -14,7 +15,7 @@
     {
         <section class="local-card">
             <span class="provider-icon local"><OrbitIcon Name="catalog" /></span>
-            <div><strong>SQLite на устройстве</strong><small>Основное хранилище · доступно без интернета</small></div>
+            <div><strong>@Platform.StorageTitle</strong><small>@Platform.StorageDescription</small></div>
             <b>Подключено</b>
         </section>
 
@@ -40,13 +41,23 @@
                     <small>@(state.DriveFolderName is null ? "Для новых фотографий; пустое поле — без папки" : $"Проверено: {state.DriveFolderName}")</small>
                 </label>
 
-                <details>
-                    <summary>Адрес сервера авторизации</summary>
-                    <label>Сервер DONA CRM
-                        <InputText @bind-Value="form.Broker" placeholder="https://crm.example.com" />
-                        <small>HTTPS-адрес Web-версии с настроенным Google OAuth</small>
+                @if (Platform.UsesDirectGoogleAccess)
+                {
+                    <label>Google OAuth Client ID
+                        <InputText @bind-Value="form.OAuthClientId" placeholder="…apps.googleusercontent.com" />
+                        <small>Web Client ID из Google Cloud Console; секрет в браузере не используется</small>
                     </label>
-                </details>
+                }
+                else
+                {
+                    <details>
+                        <summary>Адрес сервера авторизации</summary>
+                        <label>Сервер DONA CRM
+                            <InputText @bind-Value="form.Broker" placeholder="https://crm.example.com" />
+                            <small>HTTPS-адрес Web-версии с настроенным Google OAuth</small>
+                        </label>
+                    </details>
+                }
 
                 @if (message is not null)
                 {
@@ -67,8 +78,8 @@
                 </div>
             </EditForm>
 
-            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Сравнение и загрузка из Google запускаются только вручную. Google-таблица не изменяется.</small></div></div>
-            @if (state.IsConnected) { <a class="sync-action" href="/sync">Сравнить SQLite и Google Sheets <span aria-hidden="true">›</span></a> }
+            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Сравнение и обмен запускаются только вручную; направление и замена данных требуют подтверждения.</small></div></div>
+            @if (state.IsConnected) { <a class="sync-action" href="/sync">Сравнить локальные данные и Google Sheets <span aria-hidden="true">›</span></a> }
             @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
         </section>
     }
@@ -85,7 +96,7 @@
     protected override async Task OnInitializedAsync()
     {
         state = await Google.GetStateAsync();
-        form = new ConnectionForm { Broker = state.Settings.BrokerBaseUrl, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
+        form = new ConnectionForm { Broker = state.Settings.BrokerBaseUrl, OAuthClientId = state.Settings.OAuthClientId ?? string.Empty, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
         loading = false;
     }
 
@@ -114,10 +125,10 @@
     {
         await Google.DisconnectAsync();
         state = await Google.GetStateAsync();
-        return "Google-аккаунт отключён. Данные SQLite не изменены.";
+        return "Google-аккаунт отключён. Локальные данные не изменены.";
     });
 
-    private GoogleConnectionSettings Settings() => new(form.Broker, form.Spreadsheet, form.DriveFolder);
+    private GoogleConnectionSettings Settings() => new(form.Broker, form.Spreadsheet, form.DriveFolder, form.OAuthClientId);
     private static string Initial(string? value) => string.IsNullOrWhiteSpace(value) ? "G" : value.Trim()[0].ToString().ToUpperInvariant();
 
     private async Task RunAsync(Func<Task<string>> action)
@@ -132,6 +143,7 @@
     private sealed class ConnectionForm
     {
         public string Broker { get; set; } = string.Empty;
+        public string OAuthClientId { get; set; } = string.Empty;
         public string Spreadsheet { get; set; } = string.Empty;
         public string? DriveFolder { get; set; }
     }

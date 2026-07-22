@@ -28,6 +28,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IGoogleConnectionService>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<IGoogleSyncService, MauiGoogleSyncService>();
+		builder.Services.AddSingleton(new AppPlatformProfile(
+			"SQLite на устройстве",
+			"Основное хранилище · доступно без интернета",
+			UsesDirectGoogleAccess: false));
 		builder.Services.AddSingleton(new SqliteStoreOptions(
 			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));
 		builder.Services.AddSingleton<SqliteAggregateStore>();

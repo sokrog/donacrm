@@ -1,6 +1,26 @@
 @inherits LayoutComponentBase
 
 <div class="orbit-shell">
+    <aside class="orbit-sidebar">
+        <a class="orbit-brand" href="/" aria-label="Command Orbit — главная">
+            <span aria-hidden="true">CO</span><strong>Command Orbit</strong>
+        </a>
+        <nav class="orbit-side-nav" aria-label="Навигация рабочего пространства">
+            <NavLink href="/" Match="NavLinkMatch.All"><OrbitIcon Name="home" /><span>Главная</span></NavLink>
+            <NavLink href="/products"><OrbitIcon Name="catalog" /><span>Каталог</span></NavLink>
+            <NavLink href="/sales"><OrbitIcon Name="sales" /><span>Продажи</span></NavLink>
+            <NavLink href="/purchases"><OrbitIcon Name="truck" /><span>Закупки</span></NavLink>
+            <NavLink href="/inventory"><OrbitIcon Name="adjust" /><span>Склад</span></NavLink>
+            <NavLink href="/partners"><OrbitIcon Name="purchases" /><span>Партнёры</span></NavLink>
+            <NavLink href="/marketing"><OrbitIcon Name="marketing" /><span>Маркетинг</span></NavLink>
+            <NavLink href="/analytics"><OrbitIcon Name="analytics" /><span>Аналитика</span></NavLink>
+        </nav>
+        <nav class="orbit-side-tools" aria-label="Настройки приложения">
+            <NavLink href="/connections"><OrbitIcon Name="cloud" /><span>Подключения</span></NavLink>
+            <NavLink href="/settings"><OrbitIcon Name="settings" /><span>Настройки</span></NavLink>
+        </nav>
+    </aside>
+
     <main class="orbit-main">
         @Body
     </main>

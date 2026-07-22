@@ -1,5 +1,15 @@
 # Dona CRM
 
+> Command Orbit migration: основным интерфейсом является общий проект `Dona.Crm.UI`. Нативный host находится в `Dona.Crm.App`, новый браузерный WebAssembly/PWA-host — в `Dona.Crm.Web.Client`. Старый `Dona.Crm.Web` временно сохранён только как функциональный эталон до завершения переноса.
+
+## Command Orbit в браузере
+
+```powershell
+dotnet run --project src/Dona.Crm.Web.Client
+```
+
+Браузерная версия работает без серверного broker: локальный снимок хранится в browser storage, интерфейс доступен как PWA, а Google OAuth использует Web Client ID напрямую. Прямая синхронизация Google Sheets переносится в общий клиентский модуль следующим этапом.
+
 Локальная мини-CRM для магазина одежды и аксессуаров: каталог, варианты, остатки и экономика закупок с 1688.
 
 ## Запуск

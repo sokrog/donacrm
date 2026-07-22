@@ -2,7 +2,11 @@ using System.Text.RegularExpressions;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed record GoogleConnectionSettings(string BrokerBaseUrl, string SpreadsheetId, string? DriveFolderId);
+public sealed record GoogleConnectionSettings(
+    string BrokerBaseUrl,
+    string SpreadsheetId,
+    string? DriveFolderId,
+    string? OAuthClientId = null);
 
 public sealed record GoogleConnectionState(
     GoogleConnectionSettings Settings,
@@ -12,9 +16,14 @@ public sealed record GoogleConnectionState(
     string? DriveFolderName = null,
     DateTimeOffset? LastCheckedAt = null)
 {
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Settings.BrokerBaseUrl)
-        && !string.IsNullOrWhiteSpace(Settings.SpreadsheetId);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Settings.SpreadsheetId)
+        && (!string.IsNullOrWhiteSpace(Settings.BrokerBaseUrl) || !string.IsNullOrWhiteSpace(Settings.OAuthClientId));
 }
+
+public sealed record AppPlatformProfile(
+    string StorageTitle,
+    string StorageDescription,
+    bool UsesDirectGoogleAccess);
 
 public interface IGoogleConnectionService
 {
