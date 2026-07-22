@@ -60,6 +60,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Dona.Crm.Core\Dona.Crm.Core.csproj" />
+        <ProjectReference Include="..\Dona.Crm.Storage.Sqlite\Dona.Crm.Storage.Sqlite.csproj" />
         <ProjectReference Include="..\Dona.Crm.UI\Dona.Crm.UI.csproj" />
     </ItemGroup>
 

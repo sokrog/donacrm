@@ -2,10 +2,12 @@
   <Folder Name="/src/">
     <Project Path="src/Dona.Crm.App/Dona.Crm.App.csproj" />
     <Project Path="src/Dona.Crm.Core/Dona.Crm.Core.csproj" />
+    <Project Path="src/Dona.Crm.Storage.Sqlite/Dona.Crm.Storage.Sqlite.csproj" />
     <Project Path="src/Dona.Crm.UI/Dona.Crm.UI.csproj" />
     <Project Path="src/Dona.Crm.Web/Dona.Crm.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Dona.Crm.Storage.Sqlite.Tests/Dona.Crm.Storage.Sqlite.Tests.csproj" />
     <Project Path="tests/Dona.Crm.Web.Tests/Dona.Crm.Web.Tests.csproj" />
   </Folder>
 </Solution>

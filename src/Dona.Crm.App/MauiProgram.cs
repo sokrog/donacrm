@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Maui.DevFlow.Blazor;
+using Dona.Crm.Storage.Sqlite;
+using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.App;
 
@@ -18,6 +20,16 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddTransient<MainPage>();
+		builder.Services.AddSingleton(new SqliteStoreOptions(
+			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));
+		builder.Services.AddSingleton<SqliteAggregateStore>();
+		builder.Services.AddSingleton<ICatalogRepository, SqliteCatalogRepository>();
+		builder.Services.AddSingleton<ICommerceRepository, SqliteCommerceRepository>();
+		builder.Services.AddSingleton<ISalesRepository, SqliteSalesRepository>();
+		builder.Services.AddSingleton<IMarketingRepository, SqliteMarketingRepository>();
+		builder.Services.AddSingleton<IBusinessSettingsRepository, SqliteBusinessSettingsRepository>();
+		builder.Services.AddSingleton<IStockMovementRepository, SqliteStockMovementRepository>();
+		builder.Services.AddSingleton<IPurchaseHistoryRepository, SqlitePurchaseHistoryRepository>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
