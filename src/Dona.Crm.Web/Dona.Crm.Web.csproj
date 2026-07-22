@@ -15,4 +15,8 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.150.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Dona.Crm.Core\Dona.Crm.Core.csproj" />
+  </ItemGroup>
+
 </Project>

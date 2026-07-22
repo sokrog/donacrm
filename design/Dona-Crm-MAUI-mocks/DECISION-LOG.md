@@ -20,8 +20,8 @@
 
 - **Question:** Should Google Sheets remain primary storage, become an explicit synchronization target, or be limited to import/export?
 - **Options:** local-first with explicit sync; automatic two-way sync; Google-primary with offline cache; import/export only.
-- **Selection:** Pending user decision.
-- **Recommendation:** Local-first with explicit user-visible synchronization for the first mobile release. It is easier to reason about offline, conflicts, costs, credentials, and data ownership.
+- **Selection:** Local-first with explicit user-visible synchronization.
+- **Rationale:** The user asked to continue with the recommended approach after selecting SQLite. Explicit synchronization is easier to reason about offline, conflicts, costs, credentials, and data ownership than hidden background writes.
 - **Constraints:** No hidden data transfer. Sync failures must never partially apply authoritative inventory, payment, sale, or purchase changes.
 
 ## D-004 — Razor UI sharing

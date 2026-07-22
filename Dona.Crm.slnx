@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Dona.Crm.Core/Dona.Crm.Core.csproj" />
     <Project Path="src/Dona.Crm.Web/Dona.Crm.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
