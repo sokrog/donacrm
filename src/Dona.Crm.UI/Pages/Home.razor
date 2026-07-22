@@ -36,67 +36,73 @@
     }
     else
     {
-        <article class="hero" aria-labelledby="today-revenue">
-            <p class="hero-label" id="today-revenue">Выручка сегодня</p>
-            <p class="revenue">@Money(todayRevenue) <span>UZS</span></p>
-            <div class="hero-meta">
-                <div><span>Прибыль</span><strong>@Money(todayProfit) UZS</strong></div>
-                <div class="sales-meta"><span>Продажи</span><strong>@todaySalesCount @SaleWord(todaySalesCount)</strong></div>
-            </div>
-        </article>
+        <div class="dashboard-overview">
+            <article class="hero" aria-labelledby="today-revenue">
+                <p class="hero-label" id="today-revenue">Выручка сегодня</p>
+                <p class="revenue">@Money(todayRevenue) <span>UZS</span></p>
+                <div class="hero-meta">
+                    <div><span>Прибыль</span><strong>@Money(todayProfit) UZS</strong></div>
+                    <div class="sales-meta"><span>Продажи</span><strong>@todaySalesCount @SaleWord(todaySalesCount)</strong></div>
+                </div>
+            </article>
 
-        <div class="signal-strip" aria-label="Ключевые показатели">
-            <article class="signal"><span>Доступный остаток</span><strong>@availableQuantity ед.</strong></article>
-            <article class="signal"><span>Входящие закупки</span><strong>@incomingQuantity ед.</strong></article>
-            <article class="signal debt"><span>Долг клиентов</span><strong>@Money(customerDebt) UZS</strong></article>
+            <div class="signal-strip" aria-label="Ключевые показатели">
+                <article class="signal"><span>Доступный остаток</span><strong>@availableQuantity ед.</strong></article>
+                <article class="signal"><span>Входящие закупки</span><strong>@incomingQuantity ед.</strong></article>
+                <article class="signal debt"><span>Долг клиентов</span><strong>@Money(customerDebt) UZS</strong></article>
+            </div>
         </div>
 
-        <section aria-labelledby="attention-heading">
-            <div class="section-heading">
-                <h2 id="attention-heading">Требует внимания</h2>
-                @if (attentionItems.Count > 0) { <span>@attentionItems.Count @SignalWord(attentionItems.Count)</span> }
-            </div>
-            @if (attentionItems.Count == 0)
-            {
-                <p class="empty-state">Сейчас всё спокойно — срочных сигналов нет.</p>
-            }
-            else
-            {
-                <ul class="attention-list">
-                    @foreach (var item in attentionItems)
-                    {
-                        <li><a class="attention-item" href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span>@item.Text</span><span class="chevron" aria-hidden="true">›</span></a></li>
-                    }
-                </ul>
-            }
-        </section>
+        <div class="dashboard-columns">
+            <section aria-labelledby="attention-heading">
+                <div class="section-heading">
+                    <h2 id="attention-heading">Требует внимания</h2>
+                    @if (attentionItems.Count > 0) { <span>@attentionItems.Count @SignalWord(attentionItems.Count)</span> }
+                </div>
+                @if (attentionItems.Count == 0)
+                {
+                    <p class="empty-state">Сейчас всё спокойно — срочных сигналов нет.</p>
+                }
+                else
+                {
+                    <ul class="attention-list">
+                        @foreach (var item in attentionItems)
+                        {
+                            <li><a class="attention-item" href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span>@item.Text</span><span class="chevron" aria-hidden="true">›</span></a></li>
+                        }
+                    </ul>
+                }
+            </section>
 
-        <section aria-labelledby="actions-heading">
-            <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
-            <div class="actions-grid">
-                <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
-                <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
-                <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
-                <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
-            </div>
-        </section>
+            <div class="dashboard-secondary">
+                <section aria-labelledby="actions-heading">
+                    <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
+                    <div class="actions-grid">
+                        <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
+                        <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
+                        <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
+                        <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
+                    </div>
+                </section>
 
-        <section aria-labelledby="activity-heading">
-            <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Последние операции</span></div>
-            @if (activityItems.Count == 0)
-            {
-                <p class="empty-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
-            }
-            else
-            {
-                <ol class="activity-list">
-                    @foreach (var item in activityItems)
+                <section aria-labelledby="activity-heading">
+                    <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Последние операции</span></div>
+                    @if (activityItems.Count == 0)
                     {
-                        <li><span class="activity-mark"><OrbitIcon Name="@item.Icon" /></span><div><strong>@item.Title</strong><p>@item.Caption</p></div></li>
+                        <p class="empty-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
                     }
-                </ol>
-            }
-        </section>
+                    else
+                    {
+                        <ol class="activity-list">
+                            @foreach (var item in activityItems)
+                            {
+                                <li><span class="activity-mark"><OrbitIcon Name="@item.Icon" /></span><div><strong>@item.Title</strong><p>@item.Caption</p></div></li>
+                            }
+                        </ol>
+                    }
+                </section>
+            </div>
+        </div>
     }
 </div>
 
