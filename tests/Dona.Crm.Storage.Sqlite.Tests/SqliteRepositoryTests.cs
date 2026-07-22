@@ -309,4 +309,52 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(customer.Id, historicalSale.CustomerId);
         Assert.Equal("Дилноза", historicalSale.CustomerName);
     }
+
+    [Fact]
+    public async Task Purchase_receiving_updates_stock_movements_and_cost_history_in_sqlite()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var movements = new SqliteStockMovementRepository(store!);
+        var history = new SqlitePurchaseHistoryRepository(store!);
+        var product = (await catalog.GetProductsAsync()).First();
+        var variant = product.Variants.First();
+        var originalQuantity = variant.Quantity ?? 0;
+        var purchase = new Purchase
+        {
+            Number = "PO-SQLITE-001",
+            Status = PurchaseStatus.Shipped,
+            CurrencyCode = "CNY",
+            CnyRateUzs = 1_800,
+            Items =
+            [
+                new PurchaseItem
+                {
+                    ProductId = product.Id,
+                    ProductVariantId = variant.Id,
+                    ProductName = product.Name,
+                    Color = variant.Color,
+                    Size = variant.Size,
+                    Quantity = 3,
+                    UnitPriceCny = 20
+                }
+            ]
+        };
+        await commerce.UpsertPurchaseAsync(purchase);
+        var service = new PurchaseReceivingService(catalog, commerce, movements, history);
+
+        await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(purchase.Items[0].Id, 2, 1)]);
+
+        Assert.Equal(PurchaseStatus.PartiallyReceived, purchase.Status);
+        Assert.Equal(originalQuantity + 1, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).Quantity);
+        Assert.Single(await movements.GetAsync());
+        Assert.Single((await history.GetAsync()).ProductCosts);
+
+        await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(purchase.Items[0].Id, 1, 0)]);
+
+        Assert.Equal(PurchaseStatus.Received, purchase.Status);
+        Assert.Equal(originalQuantity + 2, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).Quantity);
+        Assert.Equal(2, (await movements.GetAsync()).Count);
+        Assert.Equal(2, (await history.GetAsync()).ProductCosts.Count);
+    }
 }
