@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DONA CRM — Pulse Ledger</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #08070d;
+      --ink: #0e0a14;
+      --surface: #17101f;
+      --surface-soft: rgba(27, 19, 37, .76);
+      --line: rgba(239, 229, 255, .12);
+      --line-bright: rgba(239, 229, 255, .2);
+      --text: #f7f1fc;
+      --muted: #aaa0b4;
+      --faint: #756c7e;
+      --violet: #a86bff;
+      --pink: #ef66c7;
+      --cyan: #5dd7e7;
+      --amber: #f5bd72;
+      --rose: #ff7898;
+      --green: #71d6ac;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 16px 42px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% -10%, rgba(133, 71, 215, .14), transparent 35rem),
+        radial-gradient(circle at 88% 78%, rgba(239, 102, 199, .07), transparent 28rem),
+        var(--void);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, a { font: inherit; }
+    button { color: inherit; }
+
+    .direction {
+      width: min(100%, 390px);
+      margin: 0 auto 18px;
+    }
+
+    .direction h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.35rem, 5vw, 1.75rem);
+      letter-spacing: -.04em;
+    }
+
+    .direction p {
+      margin: 0;
+      color: #b7aebf;
+      font-size: .9rem;
+      line-height: 1.5;
+    }
+
+    .phone {
+      position: relative;
+      isolation: isolate;
+      width: min(100%, 390px);
+      height: min(844px, calc(100vh - 132px));
+      min-height: 640px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 36px;
+      background:
+        radial-gradient(ellipse at 18% 7%, rgba(151, 86, 235, .15), transparent 18rem),
+        linear-gradient(180deg, #100b17 0%, #09070e 43%, #0b0811 100%);
+      box-shadow: 0 32px 90px rgba(0, 0, 0, .58), inset 0 1px rgba(255, 255, 255, .04);
+    }
+
+    .phone::-webkit-scrollbar { display: none; }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      opacity: .38;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.8) 0 .7px, transparent 1px),
+        radial-gradient(circle, rgba(168,107,255,.8) 0 .8px, transparent 1.2px),
+        radial-gradient(circle, rgba(93,215,231,.7) 0 .6px, transparent 1px);
+      background-position: 0 0, 21px 38px, 57px 16px;
+      background-size: 113px 127px, 181px 167px, 239px 211px;
+    }
+
+    .app-content { padding-bottom: 8px; }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 20px 12px;
+    }
+
+    .date {
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: .73rem;
+      font-weight: 650;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .app-header h2 {
+      margin: 0;
+      font-size: 1.38rem;
+      line-height: 1.18;
+      letter-spacing: -.04em;
+    }
+
+    .header-action {
+      display: grid;
+      flex: 0 0 auto;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(24, 17, 33, .76);
+      cursor: pointer;
+    }
+
+    svg {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sync {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 20px 22px;
+      color: #c0b6c9;
+      font-size: .76rem;
+    }
+
+    .sync::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 11px rgba(93, 215, 231, .62);
+    }
+
+    .ledger { margin: 0 16px; }
+
+    .ledger-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 0 4px 12px;
+    }
+
+    .ledger-heading h3 {
+      margin: 0;
+      font-size: 1.06rem;
+      letter-spacing: -.025em;
+    }
+
+    .live {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #c5bacd;
+      font-size: .7rem;
+    }
+
+    .live::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 9px rgba(239, 102, 199, .6);
+    }
+
+    .running-total {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr .64fr;
+      overflow: hidden;
+      border: 1px solid var(--line-bright);
+      border-radius: var(--radius-md);
+      background: linear-gradient(120deg, rgba(78, 43, 112, .62), rgba(29, 19, 40, .86));
+      box-shadow: 0 12px 34px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.05);
+    }
+
+    .total-cell {
+      min-width: 0;
+      padding: 13px 11px 12px;
+      border-right: 1px solid var(--line);
+    }
+
+    .total-cell:last-child { border-right: 0; }
+
+    .total-cell span {
+      display: block;
+      margin-bottom: 5px;
+      color: #bcaec7;
+      font-size: .63rem;
+      line-height: 1.2;
+    }
+
+    .total-cell strong {
+      display: block;
+      overflow: hidden;
+      font-size: .79rem;
+      letter-spacing: -.015em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .total-cell:first-child strong { font-size: .91rem; }
+    .total-cell:last-child strong { color: var(--cyan); font-size: .7rem; }
+
+    .stock-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      margin: 9px 0 24px;
+      border-block: 1px solid var(--line);
+    }
+
+    .stock-signal {
+      min-width: 0;
+      padding: 11px 8px;
+      border-right: 1px solid var(--line);
+      text-align: center;
+    }
+
+    .stock-signal:last-child { border-right: 0; }
+
+    .stock-signal span {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: .61rem;
+      line-height: 1.25;
+    }
+
+    .stock-signal strong {
+      display: block;
+      font-size: .75rem;
+    }
+
+    .stock-signal.debt strong { color: var(--amber); }
+
+    .day-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 2px 15px;
+      color: var(--muted);
+      font-size: .67rem;
+      font-weight: 650;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .day-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .stream {
+      position: relative;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .stream::before {
+      content: "";
+      position: absolute;
+      top: 11px;
+      bottom: 14px;
+      left: 39px;
+      width: 1px;
+      background: linear-gradient(rgba(168,107,255,.65), rgba(168,107,255,.06));
+    }
+
+    .entry {
+      position: relative;
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr);
+      gap: 12px;
+      padding-bottom: 22px;
+    }
+
+    .entry-time {
+      position: relative;
+      z-index: 1;
+      padding-top: 2px;
+      color: var(--muted);
+      font-size: .68rem;
+      text-align: right;
+    }
+
+    .entry-time::after {
+      content: "";
+      position: absolute;
+      top: 7px;
+      right: 23px;
+      width: 7px;
+      height: 7px;
+      border: 2px solid var(--violet);
+      border-radius: 50%;
+      background: var(--ink);
+      box-shadow: 0 0 0 4px var(--ink);
+    }
+
+    .entry-card {
+      min-width: 0;
+      padding: 0 2px 1px 0;
+    }
+
+    .entry-kicker {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: .67rem;
+    }
+
+    .entry-kicker svg { width: 15px; height: 15px; color: var(--violet); }
+
+    .entry-card strong {
+      display: block;
+      font-size: .82rem;
+      font-weight: 650;
+      line-height: 1.43;
+      letter-spacing: -.01em;
+    }
+
+    .entry-card p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: .69rem;
+      line-height: 1.4;
+    }
+
+    .exception .entry-time {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .exception .entry-time::after {
+      border-color: var(--amber);
+      background: var(--amber);
+      box-shadow: 0 0 0 4px var(--ink), 0 0 12px rgba(245,189,114,.45);
+    }
+
+    .exception .entry-card {
+      padding: 12px 12px 13px;
+      border: 1px solid rgba(245,189,114,.2);
+      border-radius: 15px;
+      background: linear-gradient(110deg, rgba(245,189,114,.105), rgba(27,19,37,.7));
+    }
+
+    .exception .entry-kicker { color: var(--amber); }
+    .exception.photo .entry-card { border-color: rgba(239,102,199,.2); background: linear-gradient(110deg, rgba(239,102,199,.09), rgba(27,19,37,.7)); }
+    .exception.photo .entry-kicker { color: var(--pink); }
+
+    .pin {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 22px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(245,189,114,.11);
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .pin svg { width: 12px; height: 12px; }
+
+    .dock {
+      position: sticky;
+      z-index: 20;
+      bottom: 0;
+      border-top: 1px solid var(--line-bright);
+      background: rgba(12, 9, 17, .94);
+      box-shadow: 0 -18px 38px rgba(4,3,7,.66);
+      backdrop-filter: blur(24px);
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      padding: 9px 10px 7px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .compose-action {
+      display: flex;
+      min-width: 0;
+      min-height: 52px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 3px;
+      padding: 4px 2px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(31, 21, 42, .76);
+      cursor: pointer;
+    }
+
+    .compose-action svg { width: 18px; height: 18px; color: #c79cff; }
+
+    .compose-action span {
+      max-width: 100%;
+      overflow: hidden;
+      color: #d1c7d7;
+      font-size: .59rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tabbar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      min-height: 72px;
+      padding: 5px 8px max(9px, env(safe-area-inset-bottom));
+    }
+
+    .tab {
+      display: flex;
+      min-width: 0;
+      min-height: 56px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 3px;
+      border-radius: 13px;
+      color: #837a8b;
+      text-decoration: none;
+    }
+
+    .tab svg { width: 20px; height: 20px; }
+
+    .tab span {
+      max-width: 100%;
+      overflow: hidden;
+      font-size: .59rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: #d5b7ff;
+      background: linear-gradient(rgba(168,107,255,.13), rgba(168,107,255,.03));
+    }
+
+    .tab.active svg { filter: drop-shadow(0 0 7px rgba(168,107,255,.52)); }
+
+    :where(button, a):focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    :where(button, a):active { transform: scale(.98); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 430px) {
+      body { padding: 18px 0 0; }
+      .direction { padding: 0 18px; }
+      .phone {
+        width: 100%;
+        height: calc(100vh - 99px);
+        min-height: 620px;
+        border-right: 0;
+        border-bottom: 0;
+        border-left: 0;
+        border-radius: 30px 30px 0 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="direction">
+    <h1>Pulse Ledger</h1>
+    <p>Главная как живой журнал: операции, оплаты и исключения складываются в одну понятную хронологию.</p>
+  </header>
+
+  <main class="phone" aria-label="Мобильный интерфейс DONA CRM">
+    <div class="app-content">
+      <header class="app-header">
+        <div>
+          <p class="date">Среда, 22 июля</p>
+          <h2>Доброе утро, Дона</h2>
+        </div>
+        <button class="header-action" type="button" aria-label="Фильтровать журнал">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        </button>
+      </header>
+      <p class="sync">Локальные данные актуальны</p>
+
+      <section class="ledger" aria-labelledby="ledger-title">
+        <div class="ledger-heading">
+          <h3 id="ledger-title">Живая лента</h3>
+          <span class="live">обновляется</span>
+        </div>
+
+        <div class="running-total" aria-label="Итоги дня">
+          <div class="total-cell"><span>Выручка</span><strong>1 647 000 UZS</strong></div>
+          <div class="total-cell"><span>Прибыль</span><strong>586 000 UZS</strong></div>
+          <div class="total-cell"><span>Продажи</span><strong>9 продаж</strong></div>
+        </div>
+
+        <div class="stock-strip" aria-label="Сигналы бизнеса">
+          <div class="stock-signal"><span>Доступный остаток</span><strong>10 ед.</strong></div>
+          <div class="stock-signal"><span>Входящие закупки</span><strong>24 ед.</strong></div>
+          <div class="stock-signal debt"><span>Долг клиентов</span><strong>389 000 UZS</strong></div>
+        </div>
+
+        <div class="day-divider">Сегодня</div>
+
+        <ol class="stream">
+          <li class="entry">
+            <time class="entry-time" datetime="PT12M">12 мин</time>
+            <article class="entry-card">
+              <div class="entry-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9"/></svg>Продажа завершена</div>
+              <strong>SALE-20260722-009 · Алина — 358 000 UZS</strong>
+              <p>Завершено 12 мин назад</p>
+            </article>
+          </li>
+
+          <li class="entry exception">
+            <span class="entry-time">Важно</span>
+            <article class="entry-card">
+              <div class="entry-kicker"><span class="pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 8 8M9 8l-5 5 7 1 1 7 5-5"/></svg>Закреплено</span></div>
+              <strong>Худи Minimal — осталось 2 ед.</strong>
+              <p>Низкий остаток требует решения</p>
+            </article>
+          </li>
+
+          <li class="entry">
+            <time class="entry-time" datetime="PT37M">37 мин</time>
+            <article class="entry-card">
+              <div class="entry-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M16 12h5M7 10h3"/></svg>Оплата</div>
+              <strong>Малика · Click — 169 000 UZS</strong>
+              <p>Оплата 37 мин назад</p>
+            </article>
+          </li>
+
+          <li class="entry exception">
+            <span class="entry-time">Долг</span>
+            <article class="entry-card">
+              <div class="entry-kicker"><span class="pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 8 8M9 8l-5 5 7 1 1 7 5-5"/></svg>Закреплено</span></div>
+              <strong>SALE-20260722-004 · Алина — долг 189 000 UZS</strong>
+              <p>Ожидается оплата по продаже</p>
+            </article>
+          </li>
+
+          <li class="entry">
+            <time class="entry-time" datetime="10:05">10:05</time>
+            <article class="entry-card">
+              <div class="entry-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8M12 12v8"/></svg>Приёмка товара</div>
+              <strong>Худи Minimal — принято 7 ед., 1 брак</strong>
+              <p>10:05</p>
+            </article>
+          </li>
+
+          <li class="entry exception">
+            <span class="entry-time">Сегодня</span>
+            <article class="entry-card">
+              <div class="entry-kicker"><span class="pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 8 8M9 8l-5 5 7 1 1 7 5-5"/></svg>Закреплено</span></div>
+              <strong>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</strong>
+              <p>Поставка должна прибыть сегодня</p>
+            </article>
+          </li>
+
+          <li class="entry">
+            <time class="entry-time" datetime="09:20">09:20</time>
+            <article class="entry-card">
+              <div class="entry-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h12v11H3z"/><path d="M15 10h3l3 3v4h-6z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>Движение закупки</div>
+              <strong>PO-104 · 1688 Store</strong>
+              <p>Отправлено в 09:20</p>
+            </article>
+          </li>
+
+          <li class="entry exception photo">
+            <span class="entry-time">Фото</span>
+            <article class="entry-card">
+              <div class="entry-kicker"><span class="pin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 8 8M9 8l-5 5 7 1 1 7 5-5"/></svg>Закреплено</span></div>
+              <strong>Сумка City Mini — нет фотографии</strong>
+              <p>Карточка товара неполная</p>
+            </article>
+          </li>
+        </ol>
+      </section>
+    </div>
+
+    <div class="dock">
+      <section class="composer" aria-label="Быстрые действия">
+        <button class="compose-action" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8M12 12v8"/></svg><span>Товар</span></button>
+        <button class="compose-action" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 9h8M8 13h5"/></svg><span>Продажа</span></button>
+        <button class="compose-action" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12v10H3z"/><path d="M15 10h3l3 3v4h-6z"/></svg><span>Закупка</span></button>
+        <button class="compose-action" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M6 17h12"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg><span>Корректировка</span></button>
+      </section>
+
+      <nav class="tabbar" aria-label="Основная навигация">
+        <a class="tab active" href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg><span>Главная</span></a>
+        <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8M12 12v8"/></svg><span>Каталог</span></a>
+        <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/></svg><span>Продажи</span></a>
+        <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12v10H3z"/><path d="M15 10h3l3 3v4h-6z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg><span>Закупки</span></a>
+        <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Ещё</span></a>
+      </nav>
+    </div>
+  </main>
+</body>
+</html>

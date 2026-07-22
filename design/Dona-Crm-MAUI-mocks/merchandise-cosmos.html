@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DONA — Merchandise Cosmos</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --void: #08060d;
+      --ink: #100b18;
+      --panel: #171020;
+      --raised: #20152b;
+      --line: #382745;
+      --line-soft: #271c31;
+      --text: #fff9ff;
+      --muted: #b2a6b9;
+      --pink: #ff62b4;
+      --violet: #b978ff;
+      --cyan: #63e6ea;
+      --amber: #ffc56f;
+      --mint: #79e6ba;
+      --danger: #ff8297;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: #040306; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% 0, rgba(163, 65, 225, .18), transparent 430px),
+        #040306;
+      color: var(--text);
+      font: 14px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    .phone {
+      position: relative;
+      width: min(100%, 390px);
+      min-height: 100vh;
+      margin-inline: auto;
+      overflow: hidden;
+      border-inline: 1px solid #211829;
+      background:
+        radial-gradient(circle at 84% 9%, rgba(255, 98, 180, .11), transparent 240px),
+        var(--void);
+      box-shadow: 0 0 70px rgba(0, 0, 0, .7);
+    }
+
+    .content { padding: max(18px, env(safe-area-inset-top)) 16px 104px; }
+
+    .direction {
+      padding-bottom: 14px;
+      border-bottom: 1px solid #694476;
+    }
+
+    .direction-kicker {
+      margin: 0 0 4px;
+      color: var(--pink);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .direction h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.05;
+      letter-spacing: -.035em;
+    }
+
+    .direction p:last-child {
+      max-width: 36ch;
+      margin: 7px 0 0;
+      color: #cabed0;
+      font-size: 12px;
+    }
+
+    .welcome {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 17px 0 14px;
+    }
+
+    .welcome h2 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.15;
+      letter-spacing: -.02em;
+    }
+
+    .welcome time {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border: 1px solid #2a5b4b;
+      border-radius: 999px;
+      background: rgba(70, 160, 123, .1);
+      color: var(--mint);
+      font-size: 10px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .sync::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      content: "";
+    }
+
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin: 0 0 9px;
+    }
+
+    .section-title h3 {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .inventory-shelf {
+      margin: 0 -16px;
+      padding: 0 16px 17px;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      scrollbar-width: none;
+    }
+
+    .inventory-shelf::-webkit-scrollbar { display: none; }
+
+    .product-track {
+      display: grid;
+      grid-template-columns: repeat(3, 178px);
+      gap: 10px;
+      width: max-content;
+    }
+
+    .product-card {
+      position: relative;
+      min-height: 224px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background:
+        linear-gradient(145deg, rgba(185, 120, 255, .12), transparent 54%),
+        var(--panel);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .05), 0 12px 30px rgba(0, 0, 0, .25);
+    }
+
+    .product-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 130px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line-soft);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255, 98, 180, .22), transparent 58%),
+        linear-gradient(160deg, #21152d, #0e0a15);
+    }
+
+    .product-card:nth-child(2) .product-visual {
+      background:
+        radial-gradient(circle at 52% 40%, rgba(99, 230, 234, .17), transparent 58%),
+        linear-gradient(160deg, #16252a, #0d0a15);
+    }
+
+    .product-card:nth-child(3) .product-visual {
+      background:
+        radial-gradient(circle at 50% 40%, rgba(185, 120, 255, .24), transparent 58%),
+        linear-gradient(160deg, #21142d, #0d0913);
+    }
+
+    .orbit {
+      position: absolute;
+      width: 128px;
+      height: 52px;
+      border: 1px solid rgba(218, 180, 255, .2);
+      border-radius: 50%;
+      transform: rotate(-12deg);
+    }
+
+    .product-art {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      filter: drop-shadow(0 12px 13px rgba(0, 0, 0, .45));
+    }
+
+    .stock-chip {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      min-height: 25px;
+      padding: 5px 7px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 999px;
+      background: rgba(8, 6, 13, .78);
+      color: var(--text);
+      font-size: 9px;
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+    }
+
+    .stock-chip.low {
+      border-color: #8a4156;
+      color: var(--danger);
+    }
+
+    .product-copy { padding: 11px 11px 12px; }
+
+    .product-copy h4 {
+      min-height: 34px;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .product-signal {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 34px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .product-signal span {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .product-signal strong {
+      color: var(--pink);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .shelf-base {
+      height: 6px;
+      margin: -18px 0 17px;
+      border-radius: 0 0 5px 5px;
+      background: linear-gradient(90deg, #392444, #856099 50%, #392444);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, .55), 0 0 17px rgba(185, 120, 255, .16);
+    }
+
+    .finance {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(135deg, rgba(255, 98, 180, .09), transparent 45%), var(--ink);
+    }
+
+    .finance-main {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 10px;
+    }
+
+    .money {
+      min-width: 0;
+      padding-right: 8px;
+      border-right: 1px solid var(--line-soft);
+    }
+
+    .money span,
+    .profit span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .money strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .money small,
+    .profit small { color: var(--muted); font-size: 9px; }
+
+    .profit strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 16px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .finance-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .mini-stat {
+      min-width: 0;
+      padding: 9px 6px 1px;
+      border-right: 1px solid var(--line-soft);
+    }
+
+    .mini-stat:first-child { padding-left: 0; }
+    .mini-stat:last-child { border-right: 0; }
+
+    .mini-stat strong {
+      display: block;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mini-stat span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.15;
+    }
+
+    .block { margin-top: 20px; }
+
+    .attention-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .attention-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 144px;
+      padding: 11px;
+      border: 1px solid var(--line-soft);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+
+    .attention-card.urgent { border-color: #754056; background: linear-gradient(145deg, rgba(255, 98, 132, .12), transparent 54%), var(--panel); }
+    .attention-card.incoming { border-color: #31575c; background: linear-gradient(145deg, rgba(99, 230, 234, .09), transparent 54%), var(--panel); }
+
+    .card-kind {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .card-kind svg { width: 16px; height: 16px; color: var(--violet); }
+
+    .attention-card strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .attention-card button {
+      width: 100%;
+      min-height: 44px;
+      margin-top: auto;
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #21172b;
+      color: var(--text);
+      font-size: 10px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .attention-card button:hover { border-color: var(--pink); }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .quick-action {
+      min-height: 68px;
+      padding: 8px 3px 6px;
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      background: var(--ink);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .quick-action:hover { border-color: var(--violet); background: var(--raised); }
+
+    .quick-action svg {
+      display: block;
+      width: 21px;
+      height: 21px;
+      margin: 0 auto 6px;
+      color: var(--pink);
+    }
+
+    .quick-action:nth-child(3) svg { color: var(--cyan); }
+
+    .quick-action span {
+      display: block;
+      font-size: 9px;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+
+    .activity-list { margin: 0; padding: 0; list-style: none; }
+
+    .activity-row {
+      display: grid;
+      grid-template-columns: 31px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 59px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .activity-mark {
+      display: grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--violet);
+      background: var(--ink);
+    }
+
+    .activity-mark svg { width: 17px; height: 17px; }
+
+    .activity-copy { min-width: 0; }
+
+    .activity-copy strong {
+      display: block;
+      overflow: hidden;
+      font-size: 11px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .activity-copy small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .activity-row time {
+      color: var(--muted);
+      font-size: 9px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      z-index: 20;
+      right: max(0px, calc((100vw - 390px) / 2));
+      bottom: 0;
+      left: max(0px, calc((100vw - 390px) / 2));
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 5px 5px max(6px, env(safe-area-inset-bottom));
+      border-top: 1px solid #573962;
+      background: rgba(9, 6, 13, .96);
+      box-shadow: 0 -12px 30px rgba(0, 0, 0, .55);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-item {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 55px;
+      padding: 5px 1px 3px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .nav-item svg { width: 21px; height: 21px; }
+
+    .nav-item span {
+      margin-top: 3px;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .nav-item.active {
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255, 98, 180, .18), rgba(255, 98, 180, .04));
+    }
+
+    .nav-item.active::before {
+      position: absolute;
+      top: -5px;
+      width: 31px;
+      height: 2px;
+      background: var(--pink);
+      box-shadow: 0 0 10px var(--pink);
+      content: "";
+    }
+
+    .nav-item.active svg { color: var(--pink); }
+
+    .icon {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 350px) {
+      .content { padding-inline: 12px; }
+      .inventory-shelf { margin-inline: -12px; padding-inline: 12px; }
+      .sync { white-space: normal; text-align: right; }
+      .money strong { font-size: 19px; }
+      .attention-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true">
+    <symbol id="i-product" viewBox="0 0 24 24"><rect class="icon" x="3" y="3" width="18" height="18" rx="4"/><path class="icon" d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-sale" viewBox="0 0 24 24"><path class="icon" d="M4 5h2l2.1 9.2a2 2 0 0 0 2 1.6h6.8a2 2 0 0 0 2-1.6L20 9H7"/><circle class="icon" cx="10" cy="19" r="1"/><circle class="icon" cx="17" cy="19" r="1"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path class="icon" d="M3 6h11v10H3zM14 10h4l3 3v3h-7z"/><circle class="icon" cx="7" cy="18" r="2"/><circle class="icon" cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-adjust" viewBox="0 0 24 24"><path class="icon" d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle class="icon" cx="16" cy="7" r="2"/><circle class="icon" cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path class="icon" d="m12 3 9 17H3zM12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle class="icon" cx="12" cy="8" r="4"/><path class="icon" d="M5 21a7 7 0 0 1 14 0"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect class="icon" x="3" y="4" width="18" height="16" rx="3"/><circle class="icon" cx="9" cy="9" r="2"/><path class="icon" d="m4 17 5-5 4 4 2-2 5 5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle class="icon" cx="12" cy="12" r="9"/><path class="icon" d="m8 12 2.5 2.5L16.5 9"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect class="icon" x="3" y="5" width="18" height="14" rx="3"/><path class="icon" d="M3 10h18M7 15h3"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path class="icon" d="m4 7 8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path class="icon" d="m3 11 9-8 9 8M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+    <symbol id="i-catalog" viewBox="0 0 24 24"><rect class="icon" x="4" y="3" width="16" height="18" rx="2"/><path class="icon" d="M8 7h8M8 11h8M8 15h5"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path class="icon" d="M5 8h14l1 13H4zM9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+    <symbol id="i-purchase" viewBox="0 0 24 24"><path class="icon" d="M4 7h16v13H4zM8 7a4 4 0 0 1 8 0M8 12h8"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle class="icon" cx="5" cy="12" r="1"/><circle class="icon" cx="12" cy="12" r="1"/><circle class="icon" cx="19" cy="12" r="1"/></symbol>
+  </svg>
+
+  <main class="phone">
+    <div class="content">
+      <header class="direction">
+        <p class="direction-kicker">Направление 06</p>
+        <h1>Merchandise Cosmos</h1>
+        <p>Магазин начинается с товара: остатки, спрос и задачи вращаются вокруг живой витрины.</p>
+      </header>
+
+      <section class="welcome" aria-labelledby="greeting">
+        <div>
+          <h2 id="greeting">Доброе утро, Дона</h2>
+          <time datetime="2026-07-22">Среда, 22 июля</time>
+        </div>
+        <span class="sync">Локальные данные актуальны</span>
+      </section>
+
+      <section aria-labelledby="shelf-title">
+        <div class="section-title">
+          <h3 id="shelf-title">Товарная орбита</h3>
+          <span>10 ед. в наличии</span>
+        </div>
+        <div class="inventory-shelf">
+          <div class="product-track">
+            <article class="product-card">
+              <div class="product-visual">
+                <span class="orbit" aria-hidden="true"></span>
+                <span class="stock-chip">5 ед.</span>
+                <svg class="product-art" viewBox="0 0 120 120" role="img" aria-label="Oversize футболка Basic">
+                  <path d="M39 26 51 19h18l12 7 18 13-13 19-10-7v49H44V51l-10 7-13-19Z" fill="#d7c2e8" stroke="#fff2ff" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M50 20c2 9 18 9 20 0M44 52h32" fill="none" stroke="#7d5a8d" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="90" cy="24" r="2" fill="#ff62b4"/><circle cx="25" cy="84" r="1.5" fill="#b978ff"/>
+                </svg>
+              </div>
+              <div class="product-copy">
+                <h4>Oversize футболка Basic</h4>
+                <div class="product-signal"><span>Сегодня</span><strong>4 продажи</strong></div>
+              </div>
+            </article>
+
+            <article class="product-card">
+              <div class="product-visual">
+                <span class="orbit" aria-hidden="true"></span>
+                <span class="stock-chip">3 ед.</span>
+                <svg class="product-art" viewBox="0 0 120 120" role="img" aria-label="Сумка City Mini">
+                  <path d="M31 48h58l7 49H24Z" fill="#3c3347" stroke="#d9c9e4" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M43 50V39c0-18 34-18 34 0v11" fill="none" stroke="#d9c9e4" stroke-width="3" stroke-linecap="round"/>
+                  <path d="M34 60h52M59 48v49" fill="none" stroke="#776681" stroke-width="2"/>
+                  <circle cx="27" cy="30" r="2" fill="#63e6ea"/><circle cx="92" cy="84" r="1.5" fill="#b978ff"/>
+                </svg>
+              </div>
+              <div class="product-copy">
+                <h4>Сумка City Mini</h4>
+                <div class="product-signal"><span>Карточка</span><strong>Нет фото</strong></div>
+              </div>
+            </article>
+
+            <article class="product-card">
+              <div class="product-visual">
+                <span class="orbit" aria-hidden="true"></span>
+                <span class="stock-chip low">2 ед.</span>
+                <svg class="product-art" viewBox="0 0 120 120" role="img" aria-label="Худи Minimal">
+                  <path d="M45 28c0-18 30-18 30 0l-5 12 16 9 9 25-14 7-7-15v36H46V66l-7 15-14-7 9-25 16-9Z" fill="#7c5a93" stroke="#ead8f7" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M45 29c5 9 25 9 30 0M46 73h28M60 73v28" fill="none" stroke="#b999cc" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="95" cy="34" r="2" fill="#ff62b4"/><circle cx="24" cy="95" r="1.5" fill="#b978ff"/>
+                </svg>
+              </div>
+              <div class="product-copy">
+                <h4>Худи Minimal</h4>
+                <div class="product-signal"><span>Остаток</span><strong>Критично</strong></div>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div class="shelf-base" aria-hidden="true"></div>
+      </section>
+
+      <section class="finance" aria-labelledby="finance-title">
+        <div class="section-title">
+          <h3 id="finance-title">Сегодня в магазине</h3>
+          <span>9 продаж</span>
+        </div>
+        <div class="finance-main">
+          <div class="money"><span>Выручка</span><strong>1 647 000</strong><small>UZS</small></div>
+          <div class="profit"><span>Прибыль</span><strong>586 000</strong><small>UZS</small></div>
+        </div>
+        <div class="finance-strip">
+          <div class="mini-stat"><strong>9</strong><span>продаж</span></div>
+          <div class="mini-stat"><strong>10</strong><span>ед. в наличии</span></div>
+          <div class="mini-stat"><strong>24</strong><span>ед. в закупках</span></div>
+          <div class="mini-stat"><strong>389 000</strong><span>UZS долг</span></div>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="attention-title">
+        <div class="section-title"><h3 id="attention-title">В работе</h3><span>4 задачи</span></div>
+        <div class="attention-grid">
+          <article class="attention-card urgent">
+            <span class="card-kind"><svg aria-hidden="true"><use href="#i-alert"/></svg>Остаток</span>
+            <strong>Худи Minimal — осталось 2 ед.</strong>
+            <button type="button">Пополнить</button>
+          </article>
+          <article class="attention-card">
+            <span class="card-kind"><svg aria-hidden="true"><use href="#i-user"/></svg>Оплата</span>
+            <strong>SALE-20260722-004 · Алина — долг 189 000 UZS</strong>
+            <button type="button">Открыть продажу</button>
+          </article>
+          <article class="attention-card incoming">
+            <span class="card-kind"><svg aria-hidden="true"><use href="#i-truck"/></svg>Поставка</span>
+            <strong>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</strong>
+            <button type="button">К приёмке</button>
+          </article>
+          <article class="attention-card">
+            <span class="card-kind"><svg aria-hidden="true"><use href="#i-image"/></svg>Контент</span>
+            <strong>Сумка City Mini — нет фотографии</strong>
+            <button type="button">Добавить фото</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="quick-title">
+        <div class="section-title"><h3 id="quick-title">Быстро создать</h3><span>Действия</span></div>
+        <div class="quick-actions">
+          <button class="quick-action" type="button" aria-label="Добавить товар"><svg aria-hidden="true"><use href="#i-product"/></svg><span>Товар</span></button>
+          <button class="quick-action" type="button" aria-label="Создать продажу"><svg aria-hidden="true"><use href="#i-sale"/></svg><span>Продажа</span></button>
+          <button class="quick-action" type="button" aria-label="Создать закупку"><svg aria-hidden="true"><use href="#i-truck"/></svg><span>Закупка</span></button>
+          <button class="quick-action" type="button" aria-label="Корректировать остаток"><svg aria-hidden="true"><use href="#i-adjust"/></svg><span>Остаток</span></button>
+        </div>
+      </section>
+
+      <section class="block" aria-labelledby="activity-title">
+        <div class="section-title"><h3 id="activity-title">Активность магазина</h3><span>Сегодня</span></div>
+        <ul class="activity-list">
+          <li class="activity-row">
+            <span class="activity-mark"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+            <div class="activity-copy"><strong>SALE-20260722-009 · Алина — 358 000 UZS</strong><small>Завершено</small></div>
+            <time>12 мин назад</time>
+          </li>
+          <li class="activity-row">
+            <span class="activity-mark"><svg aria-hidden="true"><use href="#i-card"/></svg></span>
+            <div class="activity-copy"><strong>Малика · Click — 169 000 UZS</strong><small>Оплата</small></div>
+            <time>37 мин назад</time>
+          </li>
+          <li class="activity-row">
+            <span class="activity-mark"><svg aria-hidden="true"><use href="#i-box"/></svg></span>
+            <div class="activity-copy"><strong>Худи Minimal — принято 7 ед., 1 брак</strong><small>Приёмка</small></div>
+            <time datetime="10:05">10:05</time>
+          </li>
+          <li class="activity-row">
+            <span class="activity-mark"><svg aria-hidden="true"><use href="#i-truck"/></svg></span>
+            <div class="activity-copy"><strong>PO-104 · 1688 Store</strong><small>Отправлено</small></div>
+            <time datetime="09:20">09:20</time>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <button class="nav-item active" type="button" aria-current="page"><svg aria-hidden="true"><use href="#i-home"/></svg><span>Главная</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-catalog"/></svg><span>Каталог</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-bag"/></svg><span>Продажи</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-purchase"/></svg><span>Закупки</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-more"/></svg><span>Ещё</span></button>
+    </nav>
+  </main>
+</body>
+</html>

@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DONA — Mission Control</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08070d;
+      --surface: #100d19;
+      --surface-2: #171224;
+      --line: #30253e;
+      --line-hot: #68427e;
+      --text: #faf7ff;
+      --muted: #aaa1b6;
+      --violet: #c76dff;
+      --magenta: #ff4fa4;
+      --cyan: #5de6e8;
+      --amber: #ffc56b;
+      --danger: #ff7b93;
+      --ok: #7ee9c2;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: #050409; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% -8%, rgba(182, 77, 255, .18), transparent 30rem),
+        #050409;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    button { font: inherit; }
+
+    button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    .phone {
+      width: min(100%, 390px);
+      min-height: 100vh;
+      margin: 0 auto;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(27, 14, 39, .88), transparent 210px),
+        var(--bg);
+      border-inline: 1px solid #221a2c;
+      box-shadow: 0 0 80px rgba(0, 0, 0, .72);
+    }
+
+    .app {
+      padding: max(18px, env(safe-area-inset-top)) 16px 104px;
+    }
+
+    .direction {
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line-hot);
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--violet);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .direction h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.05;
+      letter-spacing: -.03em;
+    }
+
+    .direction p:last-child {
+      max-width: 35ch;
+      margin: 7px 0 0;
+      color: #c9c0d2;
+      font-size: 12px;
+    }
+
+    .status-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      padding: 17px 0 13px;
+    }
+
+    .status-header h2 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.15;
+      letter-spacing: -.02em;
+    }
+
+    .date {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border: 1px solid #275446;
+      border-radius: 999px;
+      background: rgba(48, 128, 100, .12);
+      color: var(--ok);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .sync::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 9px currentColor;
+      content: "";
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 34px;
+      margin-top: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h3 {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .section-head span {
+      color: var(--muted);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .signal {
+      position: relative;
+      min-height: 78px;
+      padding: 10px 8px 9px;
+      border-right: 1px solid var(--line);
+    }
+
+    .signal:nth-child(3n) { border-right: 0; }
+    .signal:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+    .signal.wide { grid-column: span 2; }
+
+    .signal::before {
+      position: absolute;
+      top: 0;
+      left: 8px;
+      width: 24px;
+      height: 2px;
+      background: var(--violet);
+      content: "";
+    }
+
+    .signal.cyan::before { background: var(--cyan); }
+    .signal.magenta::before { background: var(--magenta); }
+
+    .signal .label {
+      display: block;
+      min-height: 28px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .signal strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 17px;
+      line-height: 1;
+      letter-spacing: -.025em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .signal small {
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .03em;
+    }
+
+    .attention-list,
+    .ledger {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .attention-item {
+      display: grid;
+      grid-template-columns: 28px 1fr 20px;
+      gap: 8px;
+      align-items: center;
+      min-height: 58px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .rank {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .attention-item:first-child .rank { color: var(--danger); }
+    .attention-item:nth-child(2) .rank { color: var(--amber); }
+
+    .attention-copy strong {
+      display: block;
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
+
+    .attention-copy small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .chevron {
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+    }
+
+    .command-dock {
+      margin: 14px -6px 2px;
+      padding: 10px 8px 8px;
+      border: 1px solid var(--line-hot);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(199, 109, 255, .12), transparent 55%),
+        var(--surface);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, .34), inset 0 1px rgba(255, 255, 255, .04);
+    }
+
+    .dock-title {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 2px 8px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .dock-title span:last-child { color: var(--cyan); }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .quick-action {
+      min-height: 66px;
+      padding: 7px 3px 6px;
+      border: 1px solid #342842;
+      border-radius: 9px;
+      background: #171220;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .quick-action:hover { border-color: var(--violet); background: #20172c; }
+
+    .quick-action svg {
+      display: block;
+      width: 21px;
+      height: 21px;
+      margin: 0 auto 6px;
+      color: var(--violet);
+    }
+
+    .quick-action:nth-child(3) svg { color: var(--cyan); }
+
+    .quick-action span {
+      display: block;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .ledger-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 58px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ledger-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid #3b2c4c;
+      border-radius: 7px;
+      color: var(--violet);
+    }
+
+    .ledger-icon svg { width: 16px; height: 16px; }
+
+    .ledger-copy strong {
+      display: block;
+      max-width: 230px;
+      overflow: hidden;
+      font-size: 11px;
+      font-weight: 650;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ledger-copy small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .ledger-time {
+      color: var(--muted);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      z-index: 10;
+      right: max(0px, calc((100vw - 390px) / 2));
+      bottom: 0;
+      left: max(0px, calc((100vw - 390px) / 2));
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 5px 5px max(6px, env(safe-area-inset-bottom));
+      border-top: 1px solid #4c3561;
+      background: rgba(11, 8, 16, .96);
+      box-shadow: 0 -12px 30px rgba(0, 0, 0, .55);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-item {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 55px;
+      padding: 5px 1px 3px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .nav-item svg { width: 21px; height: 21px; }
+
+    .nav-item span {
+      margin-top: 3px;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .nav-item.active {
+      background: linear-gradient(180deg, rgba(199, 109, 255, .2), rgba(199, 109, 255, .06));
+      color: var(--text);
+    }
+
+    .nav-item.active::before {
+      position: absolute;
+      top: -5px;
+      width: 30px;
+      height: 2px;
+      background: var(--magenta);
+      box-shadow: 0 0 11px var(--magenta);
+      content: "";
+    }
+
+    .nav-item.active svg { color: var(--magenta); }
+
+    .icon {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 350px) {
+      .app { padding-inline: 12px; }
+      .sync { white-space: normal; text-align: right; }
+      .signal strong { font-size: 15px; }
+      .quick-action span { font-size: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <svg class="sr-only" aria-hidden="true">
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path class="icon" d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-plusbox" viewBox="0 0 24 24"><rect class="icon" x="3" y="3" width="18" height="18" rx="4"/><path class="icon" d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-sale" viewBox="0 0 24 24"><path class="icon" d="M4 5h2l2.1 9.2a2 2 0 0 0 2 1.6h6.8a2 2 0 0 0 2-1.6L20 9H7"/><circle class="icon" cx="10" cy="19" r="1"/><circle class="icon" cx="17" cy="19" r="1"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path class="icon" d="M3 6h11v10H3zM14 10h4l3 3v3h-7z"/><circle class="icon" cx="7" cy="18" r="2"/><circle class="icon" cx="18" cy="18" r="2"/></symbol>
+    <symbol id="i-adjust" viewBox="0 0 24 24"><path class="icon" d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle class="icon" cx="16" cy="7" r="2"/><circle class="icon" cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle class="icon" cx="12" cy="12" r="9"/><path class="icon" d="m8 12 2.5 2.5L16.5 9"/></symbol>
+    <symbol id="i-payment" viewBox="0 0 24 24"><rect class="icon" x="3" y="5" width="18" height="14" rx="3"/><path class="icon" d="M3 10h18M7 15h3"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path class="icon" d="m4 7 8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path class="icon" d="m3 11 9-8 9 8M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+    <symbol id="i-catalog" viewBox="0 0 24 24"><rect class="icon" x="4" y="3" width="16" height="18" rx="2"/><path class="icon" d="M8 7h8M8 11h8M8 15h5"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path class="icon" d="M5 8h14l1 13H4zM9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+    <symbol id="i-purchase" viewBox="0 0 24 24"><path class="icon" d="M4 7h16v13H4zM8 7a4 4 0 0 1 8 0M8 12h8"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle class="icon" cx="5" cy="12" r="1"/><circle class="icon" cx="12" cy="12" r="1"/><circle class="icon" cx="19" cy="12" r="1"/></symbol>
+  </svg>
+
+  <main class="phone">
+    <div class="app">
+      <header class="direction">
+        <p class="eyebrow">Направление 03</p>
+        <h1>Mission Control</h1>
+        <p>Операционный пульт: важные сигналы, срочные решения и команды без лишних переходов.</p>
+      </header>
+
+      <section class="status-header" aria-labelledby="greeting">
+        <div>
+          <h2 id="greeting">Доброе утро, Дона</h2>
+          <p class="date">Среда, 22 июля</p>
+        </div>
+        <span class="sync">Локальные данные актуальны</span>
+      </section>
+
+      <section aria-labelledby="signals-title">
+        <div class="section-head">
+          <h3 id="signals-title">Сигнальная матрица</h3>
+          <span>Сегодня</span>
+        </div>
+        <div class="signal-grid">
+          <div class="signal wide magenta"><span class="label">Выручка</span><strong>1 647 000</strong><small>UZS</small></div>
+          <div class="signal wide"><span class="label">Прибыль</span><strong>586 000</strong><small>UZS</small></div>
+          <div class="signal wide cyan"><span class="label">Продажи</span><strong>9</strong><small>операций</small></div>
+          <div class="signal wide"><span class="label">В наличии</span><strong>10</strong><small>единиц</small></div>
+          <div class="signal wide cyan"><span class="label">В закупках</span><strong>24</strong><small>единицы</small></div>
+          <div class="signal wide magenta"><span class="label">Долг клиентов</span><strong>389 000</strong><small>UZS</small></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="attention-title">
+        <div class="section-head">
+          <h3 id="attention-title">Требует внимания</h3>
+          <span>4 сигнала</span>
+        </div>
+        <ol class="attention-list">
+          <li class="attention-item">
+            <span class="rank">01</span>
+            <div class="attention-copy"><strong>Худи Minimal — осталось 2 ед.</strong><small>Критический остаток</small></div>
+            <svg class="chevron" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </li>
+          <li class="attention-item">
+            <span class="rank">02</span>
+            <div class="attention-copy"><strong>SALE-20260722-004 · Алина — долг 189 000 UZS</strong><small>Ожидается оплата</small></div>
+            <svg class="chevron" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </li>
+          <li class="attention-item">
+            <span class="rank">03</span>
+            <div class="attention-copy"><strong>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</strong><small>Подготовить приёмку</small></div>
+            <svg class="chevron" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </li>
+          <li class="attention-item">
+            <span class="rank">04</span>
+            <div class="attention-copy"><strong>Сумка City Mini — нет фотографии</strong><small>Карточка товара не заполнена</small></div>
+            <svg class="chevron" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </li>
+        </ol>
+      </section>
+
+      <section class="command-dock" aria-labelledby="dock-title">
+        <h3 class="dock-title" id="dock-title"><span>Командный док</span><span>Быстрое действие</span></h3>
+        <div class="quick-actions">
+          <button class="quick-action" type="button" aria-label="Добавить товар"><svg aria-hidden="true"><use href="#i-plusbox"/></svg><span>Товар</span></button>
+          <button class="quick-action" type="button" aria-label="Создать продажу"><svg aria-hidden="true"><use href="#i-sale"/></svg><span>Продажа</span></button>
+          <button class="quick-action" type="button" aria-label="Создать закупку"><svg aria-hidden="true"><use href="#i-truck"/></svg><span>Закупка</span></button>
+          <button class="quick-action" type="button" aria-label="Корректировать остаток"><svg aria-hidden="true"><use href="#i-adjust"/></svg><span>Остаток</span></button>
+        </div>
+      </section>
+
+      <section aria-labelledby="activity-title">
+        <div class="section-head">
+          <h3 id="activity-title">Последняя активность</h3>
+          <span>Журнал</span>
+        </div>
+        <ul class="ledger">
+          <li class="ledger-row">
+            <span class="ledger-icon"><svg aria-hidden="true"><use href="#i-check"/></svg></span>
+            <div class="ledger-copy"><strong>SALE-20260722-009 · Алина — 358 000 UZS</strong><small>Завершено</small></div>
+            <time class="ledger-time">12 мин назад</time>
+          </li>
+          <li class="ledger-row">
+            <span class="ledger-icon"><svg aria-hidden="true"><use href="#i-payment"/></svg></span>
+            <div class="ledger-copy"><strong>Малика · Click — 169 000 UZS</strong><small>Оплата</small></div>
+            <time class="ledger-time">37 мин назад</time>
+          </li>
+          <li class="ledger-row">
+            <span class="ledger-icon"><svg aria-hidden="true"><use href="#i-box"/></svg></span>
+            <div class="ledger-copy"><strong>Худи Minimal — принято 7 ед., 1 брак</strong><small>Приёмка</small></div>
+            <time class="ledger-time">10:05</time>
+          </li>
+          <li class="ledger-row">
+            <span class="ledger-icon"><svg aria-hidden="true"><use href="#i-truck"/></svg></span>
+            <div class="ledger-copy"><strong>PO-104 · 1688 Store</strong><small>Отправлено</small></div>
+            <time class="ledger-time">09:20</time>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <button class="nav-item active" type="button" aria-current="page"><svg aria-hidden="true"><use href="#i-home"/></svg><span>Главная</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-catalog"/></svg><span>Каталог</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-bag"/></svg><span>Продажи</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-purchase"/></svg><span>Закупки</span></button>
+      <button class="nav-item" type="button"><svg aria-hidden="true"><use href="#i-more"/></svg><span>Ещё</span></button>
+    </nav>
+  </main>
+</body>
+</html>

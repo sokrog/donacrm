@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DONA CRM — Editorial Nebula</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f8f5ff;
+      --muted: #aaa3bb;
+      --line: rgba(255,255,255,.12);
+      --violet: #9d70ff;
+      --magenta: #ec4db7;
+      --cyan: #74e7f3;
+      --surface: rgba(26,20,38,.78);
+    }
+    * { box-sizing: border-box; }
+    html { background: #07060b; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 16% 4%, rgba(111,48,206,.22), transparent 30rem),
+        radial-gradient(circle at 88% 38%, rgba(226,51,164,.10), transparent 32rem),
+        #07060b;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, a { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, a:focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 3px;
+    }
+    .direction {
+      width: min(390px, 100%);
+      margin: 0 auto;
+      padding: 26px 20px 18px;
+    }
+    .direction b {
+      display: block;
+      font: 750 18px/1.15 Georgia, "Times New Roman", serif;
+      letter-spacing: -.02em;
+    }
+    .direction p { margin: 6px 0 0; color: #b8b1c6; font-size: 12px; line-height: 1.5; }
+    .phone {
+      position: relative;
+      width: min(390px, 100%);
+      min-height: 844px;
+      margin: 0 auto 32px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 88% 10%, rgba(155,83,255,.33), transparent 19rem),
+        radial-gradient(circle at -10% 27%, rgba(232,58,172,.19), transparent 16rem),
+        linear-gradient(180deg, #0f0b18 0%, #08070d 38%, #0b0811 100%);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      isolation: isolate;
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      width: 230px;
+      height: 230px;
+      top: 300px;
+      right: -150px;
+      border: 1px solid rgba(157,112,255,.23);
+      border-radius: 50%;
+      box-shadow: 0 0 0 24px rgba(157,112,255,.025), 0 0 0 66px rgba(157,112,255,.018);
+    }
+    main { padding-bottom: 116px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 25px 20px 0;
+    }
+    .eyebrow {
+      margin: 0 0 5px;
+      color: #d2cadd;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font: 700 19px/1.15 Georgia, "Times New Roman", serif; letter-spacing: -.025em; }
+    .sync {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      max-width: 128px;
+      margin-top: 1px;
+      color: #c9f5f5;
+      font-size: 9px;
+      line-height: 1.25;
+      text-align: right;
+    }
+    .sync i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+    .revenue {
+      position: relative;
+      min-height: 285px;
+      padding: 51px 20px 22px;
+    }
+    .revenue::after {
+      content: "22";
+      position: absolute;
+      top: 18px;
+      right: -6px;
+      color: rgba(255,255,255,.035);
+      font: 800 150px/.8 Georgia, serif;
+      letter-spacing: -.12em;
+      pointer-events: none;
+    }
+    .kicker { margin: 0 0 9px 2px; color: #c1b8ce; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
+    .amount {
+      position: relative;
+      z-index: 1;
+      max-width: 330px;
+      margin: 0;
+      font: 800 clamp(47px, 13.7vw, 57px)/.88 Georgia, "Times New Roman", serif;
+      letter-spacing: -.07em;
+      text-wrap: balance;
+    }
+    .amount span {
+      display: inline-block;
+      margin-left: 8px;
+      color: #cdaeff;
+      font: italic 500 24px/1 Georgia, serif;
+      letter-spacing: -.03em;
+    }
+    .revenue-note { display: flex; align-items: center; gap: 9px; margin: 20px 0 0 2px; color: #d9d2e2; font-size: 12px; }
+    .revenue-note::before { content: ""; width: 30px; height: 1px; background: var(--magenta); }
+    .profit-card {
+      position: absolute;
+      right: 18px;
+      bottom: -23px;
+      z-index: 2;
+      width: 154px;
+      padding: 14px 15px;
+      transform: rotate(2deg);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 2px 18px 18px 18px;
+      background: linear-gradient(135deg, rgba(107,65,162,.88), rgba(53,30,80,.92));
+      box-shadow: 0 18px 42px rgba(0,0,0,.3);
+    }
+    .profit-card small { display: block; color: #dbd0ed; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .profit-card strong { display: block; margin-top: 6px; font-size: 18px; letter-spacing: -.04em; }
+    .profit-card em { display: block; margin-top: 7px; color: #fff; font: italic 12px Georgia, serif; }
+    .kpis {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 10px;
+      padding: 42px 20px 20px;
+      align-items: start;
+    }
+    .kpi {
+      min-height: 122px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: rgba(17,13,25,.62);
+      backdrop-filter: blur(14px);
+    }
+    .kpi:first-child { border-radius: 20px 3px 20px 20px; }
+    .kpi:nth-child(2) { min-height: 148px; margin-top: 22px; border-radius: 3px 20px 20px 20px; background: rgba(48,31,70,.62); }
+    .kpi:last-child { grid-column: 1; min-height: 102px; margin-top: -36px; border-radius: 20px 20px 3px 20px; }
+    .kpi-label { color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .kpi strong { display: block; margin: 18px 0 4px; font: 700 34px/1 Georgia, serif; letter-spacing: -.06em; }
+    .kpi:nth-child(2) strong { color: #e2d2ff; }
+    .kpi:last-child strong { margin-top: 13px; color: #ff89ce; font-size: 25px; }
+    .kpi small { color: #cec7d8; font-size: 11px; }
+    .section { margin-top: 24px; }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 20px; }
+    h2 { margin: 0; font: 700 26px/1 Georgia, serif; letter-spacing: -.045em; }
+    .section-index { color: #796f88; font: italic 12px Georgia, serif; }
+    .story-rail {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 248px;
+      gap: 12px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      padding: 16px 20px 6px;
+    }
+    .story-rail::-webkit-scrollbar { display: none; }
+    .story {
+      position: relative;
+      min-height: 164px;
+      padding: 18px;
+      overflow: hidden;
+      scroll-snap-align: start;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 4px 24px 24px 24px;
+      background: linear-gradient(145deg, rgba(67,36,93,.92), rgba(22,15,31,.92));
+    }
+    .story:nth-child(2) { background: linear-gradient(145deg, rgba(106,28,78,.8), rgba(28,16,32,.94)); }
+    .story:nth-child(3) { background: linear-gradient(145deg, rgba(25,70,79,.72), rgba(15,24,31,.94)); }
+    .story:nth-child(4) { background: linear-gradient(145deg, rgba(56,43,73,.9), rgba(20,16,27,.94)); }
+    .story-no { color: #cdb7ed; font: italic 12px Georgia, serif; }
+    .story h3 { max-width: 195px; margin: 24px 0 0; font: 650 20px/1.16 Georgia, serif; letter-spacing: -.03em; }
+    .story-line { position: absolute; right: 17px; bottom: 18px; width: 51px; height: 2px; background: var(--magenta); }
+    .rail-hint { margin: 6px 20px 0; color: #8e869b; font-size: 10px; letter-spacing: .04em; }
+    .commands {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      padding: 15px 20px 0;
+    }
+    .command {
+      min-width: 0;
+      min-height: 72px;
+      padding: 10px 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.035);
+      cursor: pointer;
+    }
+    .command svg { width: 21px; height: 21px; stroke: #dbcfff; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .command span { display: block; margin-top: 6px; color: #ddd7e6; font-size: 9px; line-height: 1.15; }
+    .timeline { position: relative; margin: 18px 20px 0 30px; padding: 2px 0 0 25px; }
+    .timeline::before { content: ""; position: absolute; top: 5px; bottom: 10px; left: 5px; width: 1px; background: linear-gradient(var(--magenta), var(--violet), rgba(116,231,243,.35)); }
+    .event { position: relative; padding: 0 0 26px; }
+    .event::before { content: ""; position: absolute; top: 5px; left: -24px; width: 9px; height: 9px; border: 2px solid #0c0912; border-radius: 50%; background: var(--violet); box-shadow: 0 0 0 1px rgba(255,255,255,.22); }
+    .event:first-child::before { background: var(--magenta); box-shadow: 0 0 16px rgba(236,77,183,.62); }
+    .event:nth-child(3)::before { background: var(--cyan); }
+    .event-meta { display: flex; justify-content: space-between; gap: 12px; color: #9e96aa; font-size: 10px; }
+    .event-type { text-transform: uppercase; letter-spacing: .1em; }
+    .event p { margin: 7px 0 0; color: #eee9f3; font-size: 13px; line-height: 1.38; }
+    .bottom-nav {
+      position: fixed;
+      z-index: 10;
+      left: 50%;
+      width: min(362px, calc(100% - 28px));
+      transform: translateX(-50%);
+      bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      padding: 7px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 28px;
+      background: rgba(27,20,39,.78);
+      box-shadow: 0 18px 54px rgba(0,0,0,.55);
+      backdrop-filter: blur(22px) saturate(150%);
+    }
+    .bottom-nav a {
+      display: flex;
+      min-height: 52px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border-radius: 21px;
+      color: #aaa3b6;
+      text-decoration: none;
+      font-size: 8px;
+    }
+    .bottom-nav a[aria-current="page"] { color: #fff; background: linear-gradient(145deg, rgba(142,82,240,.75), rgba(210,55,157,.48)); }
+    .bottom-nav svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    @media (min-width: 430px) {
+      .phone { border: 1px solid rgba(255,255,255,.1); border-radius: 42px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="direction">
+    <b>Editorial Nebula</b>
+    <p>Финансовый день читается как обложка журнала: крупная мысль, выразительные акценты и живой ритм событий.</p>
+  </header>
+
+  <div class="phone">
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Среда, 22 июля</p>
+          <h1>Доброе утро, Дона</h1>
+        </div>
+        <div class="sync" aria-label="Статус синхронизации"><span>Локальные данные актуальны</span><i aria-hidden="true"></i></div>
+      </header>
+
+      <section class="revenue" aria-labelledby="revenue-title">
+        <p class="kicker" id="revenue-title">Сегодняшняя выручка</p>
+        <p class="amount">1 647 000 <span>UZS</span></p>
+        <p class="revenue-note">9 продаж за сегодня</p>
+        <aside class="profit-card" aria-label="Прибыль сегодня">
+          <small>Прибыль</small>
+          <strong>586 000 UZS</strong>
+          <em>сегодня</em>
+        </aside>
+      </section>
+
+      <section class="kpis" aria-label="Ключевые показатели">
+        <article class="kpi"><span class="kpi-label">Доступный остаток</span><strong>10</strong><small>единиц на складе</small></article>
+        <article class="kpi"><span class="kpi-label">Входящие закупки</span><strong>24</strong><small>единицы ожидаются</small></article>
+        <article class="kpi"><span class="kpi-label">Долг клиентов</span><strong>389 000</strong><small>UZS</small></article>
+      </section>
+
+      <section class="section" aria-labelledby="attention-title">
+        <div class="section-head"><h2 id="attention-title">Требует внимания</h2><span class="section-index">04 истории</span></div>
+        <div class="story-rail" aria-label="Истории, требующие внимания">
+          <article class="story"><span class="story-no">01 / остаток</span><h3>Худи Minimal — осталось 2 ед.</h3><span class="story-line" aria-hidden="true"></span></article>
+          <article class="story"><span class="story-no">02 / долг</span><h3>SALE-20260722-004 · Алина — долг 189 000 UZS</h3><span class="story-line" aria-hidden="true"></span></article>
+          <article class="story"><span class="story-no">03 / поставка</span><h3>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</h3><span class="story-line" aria-hidden="true"></span></article>
+          <article class="story"><span class="story-no">04 / каталог</span><h3>Сумка City Mini — нет фотографии</h3><span class="story-line" aria-hidden="true"></span></article>
+        </div>
+        <p class="rail-hint">Проведите в сторону, чтобы увидеть все истории</p>
+      </section>
+
+      <section class="section" aria-labelledby="actions-title">
+        <div class="section-head"><h2 id="actions-title">Быстрые команды</h2><span class="section-index">создать</span></div>
+        <div class="commands">
+          <button class="command" type="button" aria-label="Создать товар"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5zM12 12l8-4.5M12 12 4 7.5M12 12v9"/></svg><span>Товар</span></button>
+          <button class="command" type="button" aria-label="Создать продажу"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h2l2 10h9l2-7H7M10 19.5h.01M17 19.5h.01"/></svg><span>Продажа</span></button>
+          <button class="command" type="button" aria-label="Создать закупку"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg><span>Закупка</span></button>
+          <button class="command" type="button" aria-label="Скорректировать остаток"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10M18 8h2M4 16h2M10 16h10M14 5v6M6 13v6"/></svg><span>Коррекция<br>остатка</span></button>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="activity-title">
+        <div class="section-head"><h2 id="activity-title">Недавняя активность</h2><span class="section-index">сегодня</span></div>
+        <div class="timeline">
+          <article class="event"><div class="event-meta"><span class="event-type">Завершено</span><time>12 мин назад</time></div><p>SALE-20260722-009 · Алина — 358 000 UZS</p></article>
+          <article class="event"><div class="event-meta"><span class="event-type">Платёж</span><time>37 мин назад</time></div><p>Малика · Click — 169 000 UZS</p></article>
+          <article class="event"><div class="event-meta"><span class="event-type">Приёмка</span><time>10:05</time></div><p>Худи Minimal — принято 7 ед., 1 брак</p></article>
+          <article class="event"><div class="event-meta"><span class="event-type">Отгружено</span><time>09:20</time></div><p>PO-104 · 1688 Store</p></article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <a href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4z"/></svg><span>Главная</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v5H4zM14 15h6v5h-6z"/></svg><span>Каталог</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M7 3v4M17 3v4M6 11h4v4H6zM14 11h4M14 15h4M6 19h12"/></svg><span>Продажи</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5zM8 8a4 4 0 0 1 8 0"/></svg><span>Закупки</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Ещё</span></a>
+    </nav>
+  </div>
+</body>
+</html>

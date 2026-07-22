@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DONA CRM — Command Orbit</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --space: #09070f;
+      --space-2: #100b19;
+      --panel: rgba(29, 20, 42, .78);
+      --panel-solid: #1b1426;
+      --line: rgba(233, 222, 255, .11);
+      --line-strong: rgba(233, 222, 255, .18);
+      --text: #f7f1ff;
+      --muted: #aaa0b8;
+      --purple: #9f5cff;
+      --magenta: #f05bc8;
+      --cyan: #62dceb;
+      --amber: #f4bd6f;
+      --danger: #ff7894;
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-height: 100%; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 16px 42px;
+      background:
+        radial-gradient(circle at 12% 16%, rgba(150, 79, 255, .10), transparent 27rem),
+        radial-gradient(circle at 88% 70%, rgba(240, 91, 200, .07), transparent 24rem),
+        #07060b;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, a { font: inherit; }
+
+    button { color: inherit; }
+
+    .direction {
+      width: min(100%, 390px);
+      margin: 0 auto 18px;
+    }
+
+    .direction h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.35rem, 5vw, 1.75rem);
+      letter-spacing: -.035em;
+    }
+
+    .direction p {
+      margin: 0;
+      color: #b8afc2;
+      font-size: .9rem;
+      line-height: 1.5;
+    }
+
+    .phone {
+      position: relative;
+      isolation: isolate;
+      width: min(100%, 390px);
+      height: min(844px, calc(100vh - 132px));
+      min-height: 640px;
+      margin: 0 auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 36px;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(159, 92, 255, .19), transparent 17rem),
+        radial-gradient(circle at 15% 39%, rgba(240, 91, 200, .08), transparent 14rem),
+        linear-gradient(180deg, #0d0915 0%, #09070f 48%, #0d0913 100%);
+      box-shadow: 0 32px 90px rgba(0, 0, 0, .56), inset 0 1px rgba(255, 255, 255, .04);
+    }
+
+    .phone::-webkit-scrollbar { display: none; }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      opacity: .42;
+      background-image:
+        radial-gradient(circle at 9% 8%, #fff 0 1px, transparent 1.5px),
+        radial-gradient(circle at 83% 21%, #fff 0 .8px, transparent 1.4px),
+        radial-gradient(circle at 25% 31%, #a66cff 0 .8px, transparent 1.4px),
+        radial-gradient(circle at 71% 46%, #fff 0 .7px, transparent 1.3px),
+        radial-gradient(circle at 14% 63%, #62dceb 0 .7px, transparent 1.3px),
+        radial-gradient(circle at 91% 76%, #fff 0 .8px, transparent 1.4px);
+      background-size: 137px 149px, 173px 181px, 191px 167px, 223px 211px, 257px 233px, 281px 269px;
+    }
+
+    .app-content { padding-bottom: 14px; }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 24px 20px 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 650;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .app-header h2 {
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.15;
+      letter-spacing: -.035em;
+    }
+
+    .icon-button {
+      display: inline-grid;
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(24, 17, 34, .78);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .04);
+      cursor: pointer;
+    }
+
+    .icon-button svg,
+    .action-icon svg,
+    .attention-icon svg,
+    .tab svg,
+    .activity-mark svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 20px 15px;
+      color: #c5bbcF;
+      font-size: .78rem;
+    }
+
+    .connection::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(98, 220, 235, .65);
+    }
+
+    .hero {
+      position: relative;
+      margin: 0 14px;
+      overflow: hidden;
+      border: 1px solid rgba(220, 194, 255, .16);
+      border-radius: var(--radius-xl);
+      padding: 23px 20px 21px;
+      background:
+        radial-gradient(circle at 84% 15%, rgba(240, 91, 200, .22), transparent 42%),
+        linear-gradient(145deg, rgba(77, 42, 119, .78), rgba(29, 19, 43, .88) 58%, rgba(18, 14, 28, .94));
+      box-shadow: 0 18px 48px rgba(5, 3, 10, .35), inset 0 1px rgba(255, 255, 255, .06);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 170px;
+      height: 170px;
+      right: -83px;
+      bottom: -102px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 50%;
+      box-shadow: 0 0 0 22px rgba(255, 255, 255, .018), 0 0 0 44px rgba(255, 255, 255, .012);
+    }
+
+    .hero-label {
+      margin: 0 0 8px;
+      color: #d5c9e5;
+      font-size: .78rem;
+    }
+
+    .revenue {
+      margin: 0;
+      font-size: clamp(2.05rem, 9vw, 2.65rem);
+      font-weight: 740;
+      line-height: 1;
+      letter-spacing: -.055em;
+    }
+
+    .revenue span {
+      margin-left: 4px;
+      color: #cbbddd;
+      font-size: .74rem;
+      font-weight: 650;
+      letter-spacing: .08em;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+      margin-top: 24px;
+    }
+
+    .hero-meta div { min-width: 0; }
+
+    .hero-meta span {
+      display: block;
+      margin-bottom: 5px;
+      color: #b9abc9;
+      font-size: .72rem;
+    }
+
+    .hero-meta strong {
+      font-size: 1rem;
+      letter-spacing: -.02em;
+    }
+
+    .hero-meta .sales strong { color: var(--cyan); }
+
+    .signal-strip {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 45%;
+      gap: 9px;
+      margin: 12px 0 0;
+      padding: 0 14px 4px;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      scroll-snap-type: inline mandatory;
+      scrollbar-width: none;
+    }
+
+    .signal-strip::-webkit-scrollbar { display: none; }
+
+    .signal {
+      min-height: 91px;
+      padding: 15px;
+      scroll-snap-align: start;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(25, 18, 36, .72);
+      backdrop-filter: blur(14px);
+    }
+
+    .signal span {
+      display: block;
+      min-height: 31px;
+      color: var(--muted);
+      font-size: .72rem;
+      line-height: 1.35;
+    }
+
+    .signal strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.12rem;
+      letter-spacing: -.025em;
+    }
+
+    .signal.debt strong { color: var(--amber); }
+
+    section { margin: 34px 20px 0; }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-heading h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: -.025em;
+    }
+
+    .section-heading span {
+      color: var(--muted);
+      font-size: .72rem;
+    }
+
+    .attention-list,
+    .activity-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .attention-list {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(22, 16, 31, .68);
+    }
+
+    .attention-item {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 24px;
+      align-items: center;
+      gap: 11px;
+      min-height: 68px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .attention-item:last-child { border-bottom: 0; }
+
+    .attention-icon {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border-radius: 13px;
+      background: rgba(159, 92, 255, .13);
+      color: #c598ff;
+    }
+
+    .attention-item:nth-child(2) .attention-icon { color: var(--amber); background: rgba(244, 189, 111, .10); }
+    .attention-item:nth-child(3) .attention-icon { color: var(--cyan); background: rgba(98, 220, 235, .09); }
+    .attention-item:nth-child(4) .attention-icon { color: var(--magenta); background: rgba(240, 91, 200, .10); }
+
+    .attention-copy {
+      min-width: 0;
+      font-size: .82rem;
+      line-height: 1.35;
+    }
+
+    .chevron {
+      color: #736980;
+      text-align: center;
+      font-size: 1.25rem;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .action {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-height: 64px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(28, 20, 39, .72);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .action-icon {
+      display: grid;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border-radius: 12px;
+      color: #c79cff;
+      background: linear-gradient(145deg, rgba(159, 92, 255, .22), rgba(240, 91, 200, .09));
+    }
+
+    .action span:last-child {
+      font-size: .79rem;
+      font-weight: 640;
+      line-height: 1.2;
+    }
+
+    .activity-list { position: relative; }
+
+    .activity-list::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      bottom: 18px;
+      left: 17px;
+      width: 1px;
+      background: linear-gradient(var(--purple), rgba(159, 92, 255, .08));
+    }
+
+    .activity-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 13px;
+      padding: 0 0 25px;
+    }
+
+    .activity-item:last-child { padding-bottom: 8px; }
+
+    .activity-mark {
+      z-index: 1;
+      display: grid;
+      width: 36px;
+      height: 36px;
+      place-items: center;
+      border: 1px solid rgba(159, 92, 255, .28);
+      border-radius: 50%;
+      background: var(--panel-solid);
+      color: #bd86ff;
+    }
+
+    .activity-mark svg { width: 17px; height: 17px; }
+
+    .activity-copy strong {
+      display: block;
+      margin: 1px 0 5px;
+      font-size: .82rem;
+      font-weight: 640;
+      line-height: 1.4;
+    }
+
+    .activity-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .72rem;
+      line-height: 1.45;
+    }
+
+    .bottom-space { height: 18px; }
+
+    .tabbar {
+      position: sticky;
+      z-index: 20;
+      bottom: 0;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      min-height: 82px;
+      padding: 7px 8px max(11px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line-strong);
+      background: rgba(13, 9, 20, .93);
+      box-shadow: 0 -16px 34px rgba(6, 4, 10, .55);
+      backdrop-filter: blur(22px);
+    }
+
+    .tab {
+      display: flex;
+      min-width: 0;
+      min-height: 58px;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: #898092;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .tab span {
+      max-width: 100%;
+      overflow: hidden;
+      font-size: .62rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: #d8baff;
+      background: linear-gradient(180deg, rgba(159, 92, 255, .14), rgba(159, 92, 255, .03));
+    }
+
+    .tab.active svg { filter: drop-shadow(0 0 7px rgba(159, 92, 255, .55)); }
+
+    :where(button, a):focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    :where(button, a):active { transform: scale(.98); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 430px) {
+      body { padding: 18px 0 0; }
+      .direction { padding: 0 18px; }
+      .phone {
+        width: 100%;
+        height: calc(100vh - 99px);
+        min-height: 620px;
+        border-right: 0;
+        border-bottom: 0;
+        border-left: 0;
+        border-radius: 30px 30px 0 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="direction">
+    <h1>Command Orbit</h1>
+    <p>Спокойный центр управления: главное число дня в фокусе, а сигналы и действия выстроены вокруг него.</p>
+  </header>
+
+  <main class="phone" aria-label="Мобильный интерфейс DONA CRM">
+    <div class="app-content">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Среда, 22 июля</p>
+          <h2>Доброе утро, Дона</h2>
+        </div>
+        <button class="icon-button" type="button" aria-label="Открыть уведомления">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>
+        </button>
+      </header>
+
+      <p class="connection">Локальные данные актуальны</p>
+
+      <article class="hero" aria-labelledby="today-revenue">
+        <p class="hero-label" id="today-revenue">Выручка сегодня</p>
+        <p class="revenue">1 647 000 <span>UZS</span></p>
+        <div class="hero-meta">
+          <div>
+            <span>Прибыль</span>
+            <strong>586 000 UZS</strong>
+          </div>
+          <div class="sales">
+            <span>Продажи</span>
+            <strong>9 продаж</strong>
+          </div>
+        </div>
+      </article>
+
+      <div class="signal-strip" aria-label="Ключевые показатели">
+        <article class="signal"><span>Доступный остаток</span><strong>10 ед.</strong></article>
+        <article class="signal"><span>Входящие закупки</span><strong>24 ед.</strong></article>
+        <article class="signal debt"><span>Долг клиентов</span><strong>389 000 UZS</strong></article>
+      </div>
+
+      <section aria-labelledby="attention-heading">
+        <div class="section-heading">
+          <h3 id="attention-heading">Требует внимания</h3>
+          <span>4 сигнала</span>
+        </div>
+        <ul class="attention-list">
+          <li class="attention-item">
+            <span class="attention-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1 13H5L4 7Z"/><path d="M8 7a4 4 0 0 1 8 0"/><path d="M9 15h6"/></svg></span>
+            <span class="attention-copy">Худи Minimal — осталось 2 ед.</span><span class="chevron" aria-hidden="true">›</span>
+          </li>
+          <li class="attention-item">
+            <span class="attention-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l3 2"/></svg></span>
+            <span class="attention-copy">SALE-20260722-004 · Алина — долг 189 000 UZS</span><span class="chevron" aria-hidden="true">›</span>
+          </li>
+          <li class="attention-item">
+            <span class="attention-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h12v11H3z"/><path d="M15 10h3l3 3v4h-6z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg></span>
+            <span class="attention-copy">PO-104 · 1688 Store — ожидается сегодня, 24 ед.</span><span class="chevron" aria-hidden="true">›</span>
+          </li>
+          <li class="attention-item">
+            <span class="attention-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m5 17 5-5 3 3 2-2 4 4"/><path d="m18 3 3 3"/></svg></span>
+            <span class="attention-copy">Сумка City Mini — нет фотографии</span><span class="chevron" aria-hidden="true">›</span>
+          </li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="actions-heading">
+        <div class="section-heading"><h3 id="actions-heading">Быстрые действия</h3></div>
+        <div class="actions-grid">
+          <button class="action" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8"/><path d="M12 12v8"/></svg></span><span>Товар</span></button>
+          <button class="action" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/><path d="M16 17h.01"/></svg></span><span>Продажа</span></button>
+          <button class="action" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12v10H3z"/><path d="M15 10h3l3 3v4h-6z"/><path d="M8 12h2M9 11v2"/></svg></span><span>Закупка</span></button>
+          <button class="action" type="button"><span class="action-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M6 17h12"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg></span><span>Корректировка<br>остатка</span></button>
+        </div>
+      </section>
+
+      <section aria-labelledby="activity-heading">
+        <div class="section-heading"><h3 id="activity-heading">Последняя активность</h3><span>Сегодня</span></div>
+        <ol class="activity-list">
+          <li class="activity-item">
+            <span class="activity-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9"/></svg></span>
+            <div class="activity-copy"><strong>SALE-20260722-009 · Алина — 358 000 UZS</strong><p>Завершено · 12 мин назад</p></div>
+          </li>
+          <li class="activity-item">
+            <span class="activity-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4z"/><path d="M16 12h4M7 10h3"/></svg></span>
+            <div class="activity-copy"><strong>Малика · Click — 169 000 UZS</strong><p>Оплата · 37 мин назад</p></div>
+          </li>
+          <li class="activity-item">
+            <span class="activity-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8"/></svg></span>
+            <div class="activity-copy"><strong>Худи Minimal — принято 7 ед., 1 брак</strong><p>Приёмка · 10:05</p></div>
+          </li>
+          <li class="activity-item">
+            <span class="activity-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12v10H3z"/><path d="M15 10h3l3 3v4h-6z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg></span>
+            <div class="activity-copy"><strong>PO-104 · 1688 Store</strong><p>Отправлено · 09:20</p></div>
+          </li>
+        </ol>
+      </section>
+
+      <div class="bottom-space" aria-hidden="true"></div>
+    </div>
+
+    <nav class="tabbar" aria-label="Основная навигация">
+      <a class="tab active" href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg><span>Главная</span></a>
+      <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 8v8l8 4 8-4V8M12 12v8"/></svg><span>Каталог</span></a>
+      <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/></svg><span>Продажи</span></a>
+      <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h12v10H3z"/><path d="M15 10h3l3 3v4h-6z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg><span>Закупки</span></a>
+      <a class="tab" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Ещё</span></a>
+    </nav>
+  </main>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DONA CRM — Focus Beam</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08070d;
+      --panel: #15121e;
+      --panel-2: #1c1729;
+      --text: #fbf9ff;
+      --muted: #aaa4b6;
+      --line: rgba(255,255,255,.12);
+      --violet: #a276ff;
+      --pink: #ef58bc;
+      --cyan: #76e8ef;
+    }
+    * { box-sizing: border-box; }
+    html { background: #060509; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% -12%, rgba(131,76,230,.22), transparent 34rem),
+        #060509;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, a { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 3px;
+    }
+    .direction {
+      width: min(390px, 100%);
+      margin: 0 auto;
+      padding: 26px 20px 18px;
+    }
+    .direction strong { display: block; font-size: 18px; letter-spacing: -.02em; }
+    .direction p { margin: 6px 0 0; color: #b9b3c4; font-size: 12px; line-height: 1.5; }
+    .phone {
+      position: relative;
+      width: min(390px, 100%);
+      min-height: 844px;
+      margin: 0 auto 32px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(139,73,244,.08), transparent 22rem),
+        var(--bg);
+      box-shadow: 0 24px 80px rgba(0,0,0,.5);
+    }
+    main { padding: 0 18px 116px; }
+    .app-head { display: flex; justify-content: space-between; gap: 16px; padding-top: 24px; }
+    .date { margin: 0 0 5px; color: #beb6ca; font-size: 10px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: 22px; line-height: 1.15; letter-spacing: -.04em; }
+    .sync { display: flex; align-items: center; gap: 7px; width: 126px; color: #c9f6f7; font-size: 9px; line-height: 1.25; text-align: right; }
+    .sync::after { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px rgba(118,232,239,.8); }
+
+    .priority {
+      position: relative;
+      margin-top: 34px;
+      padding: 22px 20px 20px;
+      overflow: hidden;
+      border: 1px solid rgba(207,185,255,.24);
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(239,88,188,.22), transparent 15rem),
+        linear-gradient(145deg, rgba(86,52,142,.66), rgba(26,20,38,.96) 68%);
+      box-shadow: 0 22px 64px rgba(40,19,76,.38);
+    }
+    .priority::after {
+      content: "";
+      position: absolute;
+      top: -72px;
+      right: -74px;
+      width: 180px;
+      height: 180px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 50%;
+      box-shadow: 0 0 0 24px rgba(255,255,255,.025), 0 0 0 52px rgba(255,255,255,.018);
+      pointer-events: none;
+    }
+    .priority-label { display: flex; align-items: center; gap: 8px; color: #f3c5e3; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .priority-label::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--pink); box-shadow: 0 0 13px var(--pink); }
+    .priority h2 { position: relative; z-index: 1; max-width: 285px; margin: 28px 0 9px; font-size: 32px; line-height: 1.03; letter-spacing: -.055em; }
+    .priority p { max-width: 270px; margin: 0; color: #d4cddd; font-size: 12px; line-height: 1.5; }
+    .priority button {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      width: 100%;
+      min-height: 52px;
+      margin-top: 22px;
+      padding: 0 16px;
+      align-items: center;
+      justify-content: space-between;
+      border: 0;
+      border-radius: 16px;
+      background: #f7f2ff;
+      color: #1a1123;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .priority button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 14px 15px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(24,20,33,.82);
+    }
+    .metric + .metric { padding-left: 12px; border-left: 1px solid var(--line); }
+    .metric span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+    .metric strong { font-size: 13px; letter-spacing: -.02em; white-space: nowrap; }
+    .sales { min-width: 45px; padding: 7px 8px; border-radius: 11px; background: rgba(162,118,255,.14); color: #ded1fb; font-size: 10px; line-height: 1.2; text-align: center; }
+    .sales strong { display: block; color: #fff; font-size: 15px; }
+
+    .stock-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 9px;
+    }
+    .stock-stat { min-height: 74px; padding: 11px 10px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.026); }
+    .stock-stat span { display: block; min-height: 25px; color: #9f98aa; font-size: 9px; line-height: 1.25; }
+    .stock-stat strong { display: block; margin-top: 7px; font-size: 15px; line-height: 1; letter-spacing: -.02em; }
+
+    .section { margin-top: 31px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .section-head h2 { margin: 0; font-size: 19px; letter-spacing: -.035em; }
+    .section-head span { color: #8e8798; font-size: 10px; }
+    details.queue { margin-top: 13px; border: 1px solid var(--line); border-radius: 19px; background: rgba(20,17,28,.74); }
+    details.queue summary {
+      display: flex;
+      min-height: 48px;
+      padding: 0 15px;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      list-style: none;
+      color: #d9d3df;
+      font-size: 11px;
+    }
+    details.queue summary::-webkit-details-marker { display: none; }
+    details.queue summary svg { width: 18px; height: 18px; fill: none; stroke: var(--violet); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .queue-list { margin: 0; padding: 0 15px 4px; list-style: none; }
+    .queue-item { display: grid; grid-template-columns: 25px 1fr; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
+    .queue-no { color: var(--violet); font-size: 10px; font-weight: 800; }
+    .queue-item p { margin: 0; color: #e7e1eb; font-size: 12px; line-height: 1.42; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 13px; }
+    .task-button {
+      display: flex;
+      min-height: 76px;
+      padding: 13px 14px;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel-2);
+      text-align: left;
+      cursor: pointer;
+    }
+    .task-button:first-child { background: linear-gradient(140deg, rgba(98,61,157,.65), rgba(30,23,43,.96)); }
+    .task-button svg { width: 23px; height: 23px; flex: 0 0 auto; fill: none; stroke: #d8c6ff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .task-button span { font-size: 12px; font-weight: 700; line-height: 1.2; }
+
+    .activity { margin: 13px 0 0; padding: 0; list-style: none; }
+    .activity li { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .activity p { margin: 0; color: #d3cdd8; font-size: 11px; line-height: 1.35; }
+    .activity small { display: block; margin-top: 4px; color: #837c8d; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
+    .activity time { color: #928b9b; font-size: 9px; white-space: nowrap; }
+
+    .bottom-nav {
+      position: fixed;
+      z-index: 20;
+      left: 50%;
+      bottom: 12px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      width: min(366px, calc(100% - 24px));
+      padding: 7px;
+      transform: translateX(-50%);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 26px;
+      background: rgba(22,18,31,.88);
+      box-shadow: 0 16px 50px rgba(0,0,0,.55);
+      backdrop-filter: blur(20px) saturate(150%);
+    }
+    .bottom-nav a { display: flex; min-height: 51px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 20px; color: #9992a4; text-decoration: none; font-size: 8px; }
+    .bottom-nav a[aria-current="page"] { color: #fff; background: rgba(142,91,232,.44); }
+    .bottom-nav svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    @media (min-width: 430px) { .phone { border: 1px solid rgba(255,255,255,.09); border-radius: 40px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="direction">
+    <strong>05 · Focus Beam</strong>
+    <p>Один следующий шаг получает весь фокус, а остальная информация раскрывается спокойными уровнями.</p>
+  </header>
+
+  <div class="phone">
+    <main>
+      <header class="app-head">
+        <div><p class="date">Среда, 22 июля</p><h1>Доброе утро, Дона</h1></div>
+        <div class="sync">Локальные данные актуальны</div>
+      </header>
+
+      <section class="priority" aria-labelledby="priority-title">
+        <span class="priority-label">Следующее действие</span>
+        <h2 id="priority-title">Худи Minimal — осталось 2 ед.</h2>
+        <p>Пополните остаток сейчас, чтобы товар не исчез из доступных продаж.</p>
+        <button type="button"><span>Создать закупку</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg></button>
+      </section>
+
+      <section class="summary" aria-label="Итоги за сегодня">
+        <div class="metric"><span>Выручка</span><strong>1 647 000 UZS</strong></div>
+        <div class="metric"><span>Прибыль</span><strong>586 000 UZS</strong></div>
+        <div class="sales"><strong>9</strong>продаж</div>
+      </section>
+
+      <section class="stock-strip" aria-label="Ключевые показатели">
+        <article class="stock-stat"><span>Доступный остаток</span><strong>10 ед.</strong></article>
+        <article class="stock-stat"><span>Входящие закупки</span><strong>24 ед.</strong></article>
+        <article class="stock-stat"><span>Долг клиентов</span><strong>389 000 UZS</strong></article>
+      </section>
+
+      <section class="section" aria-labelledby="queue-title">
+        <div class="section-head"><h2 id="queue-title">Очередь внимания</h2><span>ещё 3</span></div>
+        <details class="queue" open>
+          <summary><span>Все предупреждения видимы</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary>
+          <ol class="queue-list">
+            <li class="queue-item"><span class="queue-no">01</span><p>SALE-20260722-004 · Алина — долг 189 000 UZS</p></li>
+            <li class="queue-item"><span class="queue-no">02</span><p>PO-104 · 1688 Store — ожидается сегодня, 24 ед.</p></li>
+            <li class="queue-item"><span class="queue-no">03</span><p>Сумка City Mini — нет фотографии</p></li>
+          </ol>
+        </details>
+      </section>
+
+      <section class="section" aria-labelledby="actions-title">
+        <div class="section-head"><h2 id="actions-title">Быстрые действия</h2><span>создать</span></div>
+        <div class="actions">
+          <button class="task-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5zM12 12l8-4.5M12 12 4 7.5M12 12v9"/></svg><span>Товар</span></button>
+          <button class="task-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h2l2 10h9l2-7H7M10 19.5h.01M17 19.5h.01"/></svg><span>Продажа</span></button>
+          <button class="task-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg><span>Закупка</span></button>
+          <button class="task-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10M18 8h2M4 16h2M10 16h10M14 5v6M6 13v6"/></svg><span>Коррекция остатка</span></button>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="activity-title">
+        <div class="section-head"><h2 id="activity-title">Недавняя активность</h2><span>сегодня</span></div>
+        <ul class="activity">
+          <li><div><p>SALE-20260722-009 · Алина — 358 000 UZS</p><small>Завершено</small></div><time>12 мин назад</time></li>
+          <li><div><p>Малика · Click — 169 000 UZS</p><small>Платёж</small></div><time>37 мин назад</time></li>
+          <li><div><p>Худи Minimal — принято 7 ед., 1 брак</p><small>Приёмка</small></div><time>10:05</time></li>
+          <li><div><p>PO-104 · 1688 Store</p><small>Отгружено</small></div><time>09:20</time></li>
+        </ul>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <a href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 10 8-7 8 7v10h-6v-6h-4v6H4z"/></svg><span>Главная</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v5H4zM14 15h6v5h-6z"/></svg><span>Каталог</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M7 3v4M17 3v4M6 11h4v4H6zM14 11h4M14 15h4M6 19h12"/></svg><span>Продажи</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5zM8 8a4 4 0 0 1 8 0"/></svg><span>Закупки</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Ещё</span></a>
+    </nav>
+  </div>
+</body>
+</html>
