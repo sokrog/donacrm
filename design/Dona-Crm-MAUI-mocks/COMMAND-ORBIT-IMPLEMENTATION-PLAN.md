@@ -61,6 +61,88 @@ Add only approved native integrations: secure local credentials, file/photo sele
 
 Run the full test suite, validate migrations and backups, profile startup and long lists, verify keyboard and screen-reader behavior, check Android/iOS safe areas, inspect final screenshots, and document every intentional departure from the Command Orbit mock.
 
+## Next implementation plan
+
+This plan continues the completed Command Orbit foundation. It supersedes the early constraints that limited the MAUI host to Android/iOS and required the old server-rendered Web UI to remain the long-term web application. The target product now consists of the shared Blazor UI running as MAUI Blazor Hybrid on Android, iOS, and Windows, plus the same functional UI running as browser WebAssembly/PWA. The old Web project remains temporarily available only as a behavior and migration reference.
+
+### 7. Stabilize the shared UI
+
+- Review every remaining route at phone, tablet, desktop browser, and Windows window widths.
+- Finish the responsive alignment of Catalog, Marketing, Content Plan, and other dense screens.
+- Standardize spacing between fields, validation messages, cards, sections, and sticky action areas through shared design tokens.
+- Use shared styled components for autocomplete, modal dialogs, pickers, date pickers, confirmation prompts, notifications, and loading/empty/error states instead of browser-native controls where practical.
+- Verify keyboard navigation, focus visibility, screen-reader semantics, reduced motion, and 200% text scaling.
+- Add repeatable visual-regression routes for the most important responsive and state variants.
+
+This phase is complete when shared components are used consistently and no supported viewport has unintended horizontal scrolling, clipped content, or bottom actions covering the end of a page.
+
+### 8. Add unified Google authorization without an application broker
+
+- Browser: use Google Identity Services and the browser OAuth flow.
+- Android and iOS: use the system OAuth browser with PKCE and an application callback.
+- Windows: use the system browser with PKCE and a loopback callback on `127.0.0.1`; do not depend on MAUI `WebAuthenticator`, which is not supported on Windows.
+- Store refresh/access credentials only in platform secure storage. Never persist tokens in SQLite, browser local storage, logs, or exported backups.
+- Replace technical connection settings with a guided flow: Google account, existing spreadsheet, Drive folder, permission check, and connection summary.
+- Remove the broker URL and other broker-specific settings from the user-facing application.
+
+### 9. Complete Google Drive photo support
+
+- Let the user choose local upload, external image URL, or the connected Google Drive folder for each product image.
+- Compress manually selected images before upload while preserving an acceptable catalog resolution and orientation.
+- Show upload progress, retry failed transfers, cache thumbnails locally, and support replacement and deletion.
+- Keep product saving local-first: temporary Drive unavailability must not discard the product or block later synchronization.
+
+### 10. Connect an existing spreadsheet safely
+
+- Discover and read the currently used visible sheets without requiring the user to recreate the spreadsheet.
+- Show a migration preview with record counts, validation errors, unsupported values, and duplicates before changing cloud data.
+- Create a backup before migration and create the private `_CommandOrbitSync` metadata sheet only after explicit confirmation.
+- Prevent an empty or incomplete cloud snapshot from overwriting valid local data.
+- Keep legacy sheets readable during the transition; archive or stop writing to them only through a separate, explicit action.
+
+### 11. Implement synchronization v2 and conflict resolution
+
+- Add record metadata: `Revision`, `UpdatedAt`, `UpdatedByDevice`, and deletion tombstones.
+- Use an immutable operation journal for inventory, payments, returns, receiving, and other financially significant actions.
+- Automatically merge changes to different records and independent fields of the same record.
+- Present a clear comparison UI when two devices change the same field from the same base revision.
+- Never use silent last-write-wins resolution for financial or inventory operations.
+- Make synchronization idempotent and resilient to interruption, retries, duplicate delivery, and application restarts.
+
+### 12. Add low-cost automatic synchronization
+
+- Pull changes at application launch and resume, but no more often than once every five minutes unless the user requests it.
+- Push local changes 45 seconds after the last edit while the application is online and in the foreground.
+- Retry transient failures after approximately 1, 5, and 15 minutes without blocking local work.
+- Keep explicit Compare and Sync actions for inspection and recovery.
+- Show a compact status everywhere it matters: synchronized, pending changes, conflict, or error.
+
+This polling and debounce model is the default because it avoids a continuously running custom broker and keeps Google API usage modest. Background and push-driven synchronization can be evaluated later only if real usage demonstrates a need.
+
+### 13. Prepare the Windows release
+
+- Verify Windows OAuth, secure storage, media picker, file import/export, external links, and window resizing.
+- Finish Windows icons, splash assets, publisher identity, and package metadata.
+- Produce and test an MSIX package, including clean install, update, data preservation, and uninstall behavior.
+- Add a repeatable CI build for the Windows package alongside Android, iOS, and browser builds.
+
+### 14. Cut over from the old Web application
+
+- Make the shared WebAssembly/PWA application the supported browser experience with functional parity for all retained workflows.
+- Use the old Web project only as a migration source and behavior reference during the transition.
+- Document deployment, backup, restore, Google redirect URIs, and rollback procedures.
+- After parity and migration verification, remove the old Web project from the main solution or move it to an explicitly named `legacy` area.
+
+### Recommended execution order
+
+1. Unified Google authorization.
+2. Google Drive photo workflow.
+3. Existing spreadsheet discovery and migration.
+4. Synchronization v2 and conflict resolution.
+5. Low-cost automatic synchronization.
+6. Windows MSIX production readiness.
+7. Final old Web retirement.
+
 ## Visual acceptance rule
 
 A phase is not complete until its simulator or emulator screenshot matches the intended hierarchy, spacing, contrast, touch reach, and information density. Build success alone is insufficient.
