@@ -1,12 +1,8 @@
 @page "/"
 @using System.Globalization
 @using Dona.Crm.Web.Domain
-@using Dona.Crm.Web.Storage
-@inject ICatalogRepository Catalog
-@inject ICommerceRepository Commerce
-@inject ISalesRepository Sales
-@inject IBusinessSettingsRepository Settings
-@inject IStockMovementRepository StockMovements
+@using Dona.Crm.Web.Services
+@inject HomeDashboardService Dashboard
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
@@ -129,19 +125,7 @@
         errorMessage = null;
         try
         {
-            var productsTask = Catalog.GetProductsAsync();
-            var purchasesTask = Commerce.GetPurchasesAsync();
-            var salesTask = Sales.GetSalesAsync();
-            var settingsTask = Settings.GetAsync();
-            var movementsTask = StockMovements.GetAsync();
-            await Task.WhenAll(productsTask, purchasesTask, salesTask, settingsTask, movementsTask);
-
-            BuildDashboard(
-                await productsTask,
-                await purchasesTask,
-                await salesTask,
-                await settingsTask,
-                await movementsTask);
+            BuildDashboard(await Dashboard.LoadAsync(DateTimeOffset.Now));
         }
         catch (Exception exception)
         {
@@ -154,53 +138,39 @@
     }
 
     private void BuildDashboard(
-        IReadOnlyList<Product> products,
-        IReadOnlyList<Purchase> purchases,
-        IReadOnlyList<Sale> sales,
-        BusinessSettings settings,
-        IReadOnlyList<StockMovement> movements)
+        HomeDashboardSnapshot snapshot)
     {
-        var today = DateTime.Today;
-        var activeSales = sales.Where(item => item.Status != SaleStatus.Cancelled).ToList();
-        var todaysSales = activeSales.Where(item => item.CreatedAt.LocalDateTime.Date == today).ToList();
-        var incoming = purchases.Where(item => item.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived).ToList();
-
-        todayRevenue = todaysSales.Sum(item => item.NetTotalUzs);
-        todayProfit = todaysSales.Sum(item => item.ProfitUzs);
-        todaySalesCount = todaysSales.Count;
-        customerDebt = activeSales.Sum(item => item.BalanceDueUzs);
-        availableQuantity = products.Sum(item => item.Variants.Sum(variant => variant.AvailableQuantity));
-        incomingQuantity = incoming.Sum(item => item.Items.Sum(line => line.MissingQuantity));
-
-        attentionItems = BuildAttention(products, incoming, activeSales, settings.LowStockThreshold).Take(4).ToList();
-        activityItems = BuildActivity(activeSales, movements).OrderByDescending(item => item.CreatedAt).Take(4).ToList();
+        todayRevenue = snapshot.TodayRevenueUzs;
+        todayProfit = snapshot.TodayProfitUzs;
+        todaySalesCount = snapshot.TodaySalesCount;
+        customerDebt = snapshot.CustomerDebtUzs;
+        availableQuantity = snapshot.AvailableQuantity;
+        incomingQuantity = snapshot.IncomingQuantity;
+        attentionItems = BuildAttention(snapshot).Take(4).ToList();
+        activityItems = BuildActivity(snapshot).OrderByDescending(item => item.CreatedAt).Take(4).ToList();
     }
 
-    private static IEnumerable<AttentionItem> BuildAttention(
-        IEnumerable<Product> products,
-        IEnumerable<Purchase> purchases,
-        IEnumerable<Sale> sales,
-        int lowStockThreshold)
+    private static IEnumerable<AttentionItem> BuildAttention(HomeDashboardSnapshot snapshot)
     {
-        foreach (var product in products.Where(item => item.Status is ProductStatus.InStock or ProductStatus.LowStock && item.Quantity <= lowStockThreshold).OrderBy(item => item.Quantity))
+        foreach (var product in snapshot.LowStockProducts)
             yield return new("catalog", string.Empty, $"{product.Name} — осталось {product.Quantity} ед.", "/products");
 
-        foreach (var sale in sales.Where(item => item.BalanceDueUzs > 0).OrderByDescending(item => item.BalanceDueUzs))
+        foreach (var sale in snapshot.SalesWithDebt)
             yield return new("clock", "amber", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
 
-        foreach (var purchase in purchases.Where(item => item.EstimatedDeliveryDate is not null && item.EstimatedDeliveryDate.Value.Date <= DateTime.Today).OrderBy(item => item.EstimatedDeliveryDate))
+        foreach (var purchase in snapshot.DuePurchases)
             yield return new("truck", "cyan", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
 
-        foreach (var product in products.Where(item => string.IsNullOrWhiteSpace(item.PrimaryImageUrl)))
+        foreach (var product in snapshot.ProductsWithoutImages)
             yield return new("image", "magenta", $"{product.Name} — нет фотографии", "/products");
     }
 
-    private static IEnumerable<ActivityItem> BuildActivity(IEnumerable<Sale> sales, IEnumerable<StockMovement> movements)
+    private static IEnumerable<ActivityItem> BuildActivity(HomeDashboardSnapshot snapshot)
     {
-        foreach (var sale in sales)
+        foreach (var sale in snapshot.RecentSales)
             yield return new("check", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — {Money(sale.NetTotalUzs)} UZS", $"{sale.Status.Display()} · {RelativeTime(sale.CreatedAt)}", sale.CreatedAt);
 
-        foreach (var movement in movements)
+        foreach (var movement in snapshot.RecentMovements)
             yield return new("catalog", $"{movement.ProductName} · {SignedQuantity(movement.QuantityDelta)} ед.", $"{movement.Type.Display()} · {RelativeTime(movement.CreatedAt)}", movement.CreatedAt);
     }
 

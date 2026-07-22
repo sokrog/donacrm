@@ -1,5 +1,6 @@
 using Dona.Crm.Storage.Sqlite;
 using Dona.Crm.Web.Domain;
+using Dona.Crm.Web.Services;
 using SQLite;
 
 namespace Dona.Crm.Storage.Sqlite.Tests;
@@ -133,5 +134,49 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(movement.Id, Assert.Single(await stock.GetAsync()).Id);
         Assert.Single((await history.GetAsync()).ProductCosts);
         Assert.Single((await history.GetAsync()).ExchangeRates);
+    }
+
+    [Fact]
+    public void Home_dashboard_calculates_local_first_signals()
+    {
+        var now = new DateTimeOffset(2026, 7, 22, 14, 0, 0, TimeSpan.FromHours(5));
+        var product = new Product
+        {
+            Name = "Худи",
+            Status = ProductStatus.LowStock,
+            Variants = [new ProductVariant { Quantity = 3, ReservedQuantity = 1 }]
+        };
+        var sale = new Sale
+        {
+            Number = "SALE-1",
+            CreatedAt = now.AddHours(-1),
+            Status = SaleStatus.Completed,
+            Items = [new SaleItem { Quantity = 1, SoldQuantity = 1, UnitPriceUzs = 200_000, UnitCostUzs = 120_000 }],
+            Payments = [new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, AmountUzs = 150_000 }]
+        };
+        var cancelled = new Sale
+        {
+            CreatedAt = now,
+            Status = SaleStatus.Cancelled,
+            Items = [new SaleItem { Quantity = 1, UnitPriceUzs = 999_000 }]
+        };
+        var purchase = new Purchase
+        {
+            Status = PurchaseStatus.Shipped,
+            EstimatedDeliveryDate = now.Date,
+            Items = [new PurchaseItem { Quantity = 5, ReceivedQuantity = 2 }]
+        };
+
+        var actual = HomeDashboardService.Calculate(
+            [product], [purchase], [sale, cancelled], new BusinessSettings { LowStockThreshold = 3 }, [], now);
+
+        Assert.Equal(200_000, actual.TodayRevenueUzs);
+        Assert.Equal(80_000, actual.TodayProfitUzs);
+        Assert.Equal(50_000, actual.CustomerDebtUzs);
+        Assert.Equal(2, actual.AvailableQuantity);
+        Assert.Equal(3, actual.IncomingQuantity);
+        Assert.Single(actual.LowStockProducts);
+        Assert.Single(actual.SalesWithDebt);
+        Assert.Single(actual.DuePurchases);
     }
 }
