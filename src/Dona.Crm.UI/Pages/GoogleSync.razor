@@ -2,6 +2,7 @@
 @using Dona.Crm.Web.Services
 @inject IGoogleConnectionService Google
 @inject IGoogleSyncService Sync
+@inject AppPlatformProfile Platform
 
 <PageTitle>Синхронизация — DONA CRM</PageTitle>
 <div class="sync-page">
@@ -17,7 +18,7 @@
     }
     else
     {
-        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>SQLite ↔ Google Sheets</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
+        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>@Platform.StorageTitle ↔ Google Sheets</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
 
         @if (preview is null)
         {
@@ -31,23 +32,23 @@
             <section class="section-list" aria-label="Сравнение разделов">
                 @foreach (var section in preview.Sections)
                 {
-                    <div><span><strong>@section.Title</strong><small>SQLite @section.LocalCount · Google @section.GoogleCount</small></span><b class="@(section.LocalCount == section.GoogleCount ? "same" : null)">@(section.LocalCount == section.GoogleCount ? "Совпадает" : "Отличается")</b></div>
+                    <div><span><strong>@section.Title</strong><small>Локально @section.LocalCount · Google @section.GoogleCount</small></span><b class="@(section.LocalCount == section.GoogleCount ? "same" : null)">@(section.LocalCount == section.GoogleCount ? "Совпадает" : "Отличается")</b></div>
                 }
             </section>
-            <p class="captured">Снимок Google: @preview.CapturedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+            <p class="captured">@(HasGoogleSnapshot ? $"Снимок Google: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : "Снимок Command Orbit в этой таблице ещё не создан. Первая отправка создаст его; загрузка из Google пока недоступна.")</p>
 
             @if (!confirmPull && !confirmPush)
             {
                 <button class="refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
-                <div class="sync-actions"><button class="secondary" disabled="@busy" @onclick="() => confirmPull = true">Google → устройство</button><button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button></div>
+                <div class="sync-actions"><button class="secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button><button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button></div>
             }
             else if (confirmPull)
             {
-                <section class="confirm-card"><strong>Заменить локальный снимок?</strong><p>Товары, закупки, продажи, маркетинг и настройки в SQLite будут заменены данными из Google. Операция выполняется одной транзакцией.</p><div><button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button></div></section>
+                <section class="confirm-card"><strong>Заменить локальный снимок?</strong><p>Товары, закупки, продажи, маркетинг и настройки в @Platform.StorageTitle.ToLowerInvariant() будут заменены данными из Google.</p><div><button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button></div></section>
             }
             else
             {
-                <section class="confirm-card push"><strong>Заменить данные в Google Sheets?</strong><p>В Google будет отправлен текущий снимок SQLite. Перед записью приложение ещё раз проверит версию таблицы, а все связанные листы обновятся одним атомарным пакетом.</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
+                <section class="confirm-card push"><strong>Заменить данные в Google Sheets?</strong><p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию таблицы@(Platform.UsesDirectGoogleAccess ? "." : ", а связанные листы обновятся атомарным пакетом.")</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
             }
         }
 
@@ -80,6 +81,7 @@
     private bool success;
     private string? message;
     private GoogleSyncOperation? retryOperation;
+    private bool HasGoogleSnapshot => preview is { CapturedAt: var capturedAt } && capturedAt != DateTimeOffset.MinValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,7 +102,7 @@
     {
         preview = await Sync.PullAsync(preview!.GoogleVersion);
         confirmPull = false;
-        return "Данные Google Sheets атомарно загружены в SQLite.";
+        return $"Данные Google Sheets загружены в {Platform.StorageTitle.ToLowerInvariant()}.";
     });
 
     private async Task PushAsync() => await RunAsync(async () =>
@@ -109,7 +111,7 @@
         confirmPush = false;
         await RefreshOperationsAsync();
         preview = await Sync.PreviewAsync();
-        return result.AlreadyApplied ? "Этот снимок уже находится в Google Sheets." : "Снимок SQLite атомарно отправлен в Google Sheets.";
+        return result.AlreadyApplied ? "Этот снимок уже находится в Google Sheets." : "Локальный снимок отправлен в Google Sheets.";
     });
 
     private async Task RetryAsync() => await RunAsync(async () =>
