@@ -32,6 +32,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IStockMovementRepository, SqliteStockMovementRepository>();
 		builder.Services.AddSingleton<IPurchaseHistoryRepository, SqlitePurchaseHistoryRepository>();
 		builder.Services.AddSingleton<HomeDashboardService>();
+		builder.Services.AddSingleton<ProductStatusService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

@@ -1,0 +1,106 @@
+@page "/products/new"
+@page "/products/{Id:guid}"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICatalogRepository Catalog
+@inject IBusinessSettingsRepository Settings
+@inject ProductStatusService StatusService
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
+
+<div class="editor-page" aria-busy="@isLoading">
+    <header><a href="/products" aria-label="Вернуться в каталог">‹</a><div><p>Каталог</p><h1>@(IsNew ? "Новый товар" : "Редактирование")</h1></div></header>
+
+    @if (isLoading) { <div class="editor-state" role="status">Загружаем товар…</div> }
+    else if (errorMessage is not null) { <div class="editor-state" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a href="/products">В каталог</a></div> }
+    else
+    {
+        <EditForm Model="model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <section aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
+                <label>Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
+                <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<InputText @bind-Value="model.Category" autocomplete="off" /></label></div>
+                <label>Ссылка на фотографию<InputText @bind-Value="model.ImageUrl" inputmode="url" placeholder="https://…" /></label>
+            </section>
+
+            <section aria-labelledby="prices"><h2 id="prices">Цена</h2>
+                <div class="field-row"><label>Закупка, CNY<InputNumber @bind-Value="model.PurchasePriceCny" /></label><label>Курс CNY<InputNumber @bind-Value="model.CnyRateUzs" /></label></div>
+                <div class="field-row"><label>Доставка, UZS<InputNumber @bind-Value="model.DeliveryCostUzs" /></label><label>Продажа, UZS<InputNumber @bind-Value="model.SellingPriceUzs" /></label></div>
+            </section>
+
+            <section aria-labelledby="variants"><div class="section-title"><h2 id="variants">Варианты и остатки</h2><button type="button" @onclick="AddVariant">＋ Добавить</button></div>
+                @if (model.Variants.Count == 0) { <p class="empty-variants">Добавьте цвет, размер и количество.</p> }
+                @foreach (var variant in model.Variants)
+                {
+                    <div class="variant-row" @key="variant.Id">
+                        <label>Цвет<InputText @bind-Value="variant.Color" /></label><label>Размер<InputText @bind-Value="variant.Size" /></label><label>Кол-во<InputNumber @bind-Value="variant.Quantity" /></label>
+                        <button type="button" class="remove" aria-label="Удалить вариант" @onclick="() => RemoveVariant(variant)">×</button>
+                    </div>
+                }
+            </section>
+
+            <ValidationSummary />
+            @if (saveError is not null) { <p class="save-error" role="alert">@saveError</p> }
+            @if (!IsNew)
+            {
+                @if (confirmArchive)
+                {
+                    <div class="archive-confirm" role="group" aria-label="Подтверждение архивирования"><span>Убрать товар из активного каталога?</span><button type="button" @onclick="() => confirmArchive = false">Нет</button><button type="button" class="danger-action" @onclick="ArchiveAsync">Да, в архив</button></div>
+                }
+                else
+                {
+                    <button type="button" class="archive-toggle" @onclick="() => confirmArchive = true">Переместить товар в архив</button>
+                }
+            }
+            <div class="form-actions"><a href="/products">Отмена</a><button type="submit" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button></div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private Product model = new();
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool confirmArchive;
+    private string? errorMessage;
+    private string? saveError;
+    private bool IsNew => Id is null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true; errorMessage = null;
+        try
+        {
+            if (Id is not null) model = await Catalog.GetProductAsync(Id.Value) ?? throw new InvalidOperationException("Товар не найден.");
+            else { model = new Product { Status = ProductStatus.OnOrder }; model.Variants.Add(new ProductVariant()); }
+        }
+        catch (Exception exception) { errorMessage = exception.Message; }
+        finally { isLoading = false; }
+    }
+
+    private void AddVariant() => model.Variants.Add(new ProductVariant());
+    private void RemoveVariant(ProductVariant variant) => model.Variants.Remove(variant);
+    private async Task SaveAsync()
+    {
+        isSaving = true; saveError = null;
+        try
+        {
+            model.Status = StatusService.Calculate(model, await Settings.GetAsync());
+            await Catalog.UpsertProductAsync(model);
+            Navigation.NavigateTo("/products");
+        }
+        catch (Exception exception) { saveError = exception.Message; }
+        finally { isSaving = false; }
+    }
+
+    private async Task ArchiveAsync()
+    {
+        isSaving = true; saveError = null;
+        try { model.Status = ProductStatus.Archived; await Catalog.UpsertProductAsync(model); Navigation.NavigateTo("/products"); }
+        catch (Exception exception) { saveError = exception.Message; }
+        finally { isSaving = false; }
+    }
+}
