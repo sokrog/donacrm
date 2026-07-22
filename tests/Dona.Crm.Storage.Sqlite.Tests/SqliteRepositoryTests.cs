@@ -265,6 +265,26 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(originalQuantity - 1, completedProduct!.Variants.Single(item => item.Id == variant.Id).Quantity);
         Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Reservation);
         Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Sale);
+
+        await new SalesReturnService(catalog, sales, movements).CreateAsync(sale, new SaleReturn
+        {
+            Reason = "Не подошёл размер",
+            RefundAmountUzs = sale.TotalUzs,
+            Items = [new SaleReturnItem { SaleItemId = sale.Items[0].Id, Quantity = 1, Disposition = ReturnDisposition.Restock }]
+        });
+        Assert.Equal(SaleStatus.Returned, sale.Status);
+        Assert.Equal(originalQuantity, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).Quantity);
+        Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Return);
+
+        await new SalesPaymentService(sales).AddAsync(sale, new SalePayment
+        {
+            Type = PaymentOperationType.Refund,
+            Status = PaymentStatus.Completed,
+            Method = PaymentMethod.Cash,
+            AmountUzs = sale.RefundDueUzs
+        });
+        Assert.Equal(0, sale.RefundDueUzs);
+        Assert.Equal(0, sale.PaidUzs);
     }
 
     [Fact]
