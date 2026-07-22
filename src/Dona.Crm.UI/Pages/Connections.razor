@@ -67,7 +67,8 @@
                 </div>
             </EditForm>
 
-            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Подключение пока только проверяет доступ. Следующим шагом добавим просмотр изменений и ручной обмен с SQLite.</small></div></div>
+            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Сравнение и загрузка из Google запускаются только вручную. Google-таблица не изменяется.</small></div></div>
+            @if (state.IsConnected) { <a class="sync-action" href="/sync">Сравнить SQLite и Google Sheets <span aria-hidden="true">›</span></a> }
             @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
         </section>
     }

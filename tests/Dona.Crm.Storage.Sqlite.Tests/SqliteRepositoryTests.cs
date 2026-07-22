@@ -1,6 +1,7 @@
 using Dona.Crm.Storage.Sqlite;
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Services;
+using Dona.Crm.Web.Storage;
 using SQLite;
 
 namespace Dona.Crm.Storage.Sqlite.Tests;
@@ -425,5 +426,34 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var historicalPurchase = Assert.Single(await repository.GetPurchasesAsync());
         Assert.Equal("1688 Store", historicalPurchase.SupplierName);
         Assert.Equal("Cargo One", historicalPurchase.IntermediaryName);
+    }
+
+    [Fact]
+    public async Task Google_snapshot_replaces_all_authoritative_collections_in_one_sqlite_transaction()
+    {
+        var existingCatalog = new SqliteCatalogRepository(store!);
+        _ = await existingCatalog.GetProductsAsync();
+        var product = new Product { Sku = "SYNC-1", Name = "Облачный товар", Status = ProductStatus.InStock };
+        var customer = new Customer { Name = "Облачный клиент" };
+        var sale = new Sale { Number = "SYNC-SALE-1", CustomerId = customer.Id, CustomerName = customer.Name };
+        var post = new ContentPost { Title = "Облачный контент", Status = ContentStatus.Ready };
+        var snapshot = new DonaSyncSnapshot
+        {
+            Products = [product],
+            Customers = [customer],
+            Sales = [sale],
+            Marketing = new MarketingData { ContentPosts = [post] },
+            BusinessSettings = new BusinessSettings { SaleNumberPrefix = "CLOUD", LowStockThreshold = 9 }
+        };
+
+        await store!.ReplaceSnapshotAsync(snapshot);
+        await store.CloseAsync();
+
+        Assert.Equal(product.Id, Assert.Single(await new SqliteCatalogRepository(store).GetProductsAsync()).Id);
+        Assert.Equal(customer.Id, Assert.Single(await new SqliteSalesRepository(store).GetCustomersAsync()).Id);
+        Assert.Equal(sale.Id, Assert.Single(await new SqliteSalesRepository(store).GetSalesAsync()).Id);
+        Assert.Equal(post.Id, Assert.Single(await new SqliteMarketingRepository(store).GetContentPostsAsync()).Id);
+        Assert.Equal("CLOUD", (await new SqliteBusinessSettingsRepository(store).GetAsync()).SaleNumberPrefix);
+        Assert.Empty(await new SqliteCommerceRepository(store).GetPurchasesAsync());
     }
 }

@@ -1010,3 +1010,31 @@ public sealed class GoogleMobileConnectionTests
         public HttpClient CreateClient(string name) => new();
     }
 }
+
+public sealed class GoogleSyncSnapshotTests
+{
+    [Fact]
+    public void Fingerprint_is_stable_when_top_level_record_order_changes()
+    {
+        var first = new Product { Name = "Первый" };
+        var second = new Product { Name = "Второй" };
+        var ordered = new DonaSyncSnapshot { Products = [first, second] };
+        var reversed = new DonaSyncSnapshot { Products = [second, first] };
+
+        Assert.Equal(DonaSyncFingerprint.Create(ordered), DonaSyncFingerprint.Create(reversed));
+    }
+
+    [Fact]
+    public void Preview_counts_every_visible_business_section()
+    {
+        var local = new DonaSyncSnapshot { Products = [new Product()], Categories = [new Category()], Customers = [new Customer()] };
+        var google = new DonaSyncSnapshot { Products = [new Product(), new Product()], Sales = [new Sale()] };
+
+        var sections = DonaSyncFingerprint.Compare(local, google);
+
+        Assert.Equal(2, sections.Single(value => value.Key == "products").LocalCount);
+        Assert.Equal(2, sections.Single(value => value.Key == "products").GoogleCount);
+        Assert.Equal(1, sections.Single(value => value.Key == "sales").LocalCount);
+        Assert.Equal(1, sections.Single(value => value.Key == "sales").GoogleCount);
+    }
+}

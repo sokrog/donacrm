@@ -5,7 +5,7 @@ using Dona.Crm.Web.Services;
 
 namespace Dona.Crm.App.Services;
 
-public sealed class MauiGoogleConnectionService(HttpClient http, ISecureValueStore secure) : IGoogleConnectionService
+public sealed class MauiGoogleConnectionService(HttpClient http, ISecureValueStore secure) : IGoogleConnectionService, IGoogleAccessTokenProvider
 {
     private const string BrokerKey = "google.broker";
     private const string SpreadsheetKey = "google.spreadsheet";
@@ -119,6 +119,9 @@ public sealed class MauiGoogleConnectionService(HttpClient http, ISecureValueSto
         ClearCheckDetails();
         return Task.CompletedTask;
     }
+
+    public Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default) =>
+        GetAccessTokenAsync(ReadSettings(), cancellationToken);
 
     private async Task<string> GetAccessTokenAsync(GoogleConnectionSettings settings, CancellationToken token)
     {

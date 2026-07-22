@@ -46,3 +46,11 @@
 - **Selection:** One Google OAuth account for Sheets and Drive, with the existing spreadsheet selected by URL or ID.
 - **Rationale:** The user can grant the signed-in account editor access to the existing spreadsheet without placing a service-account private key on the phone. One account also reduces setup steps.
 - **Constraints:** SQLite remains authoritative and synchronization is explicit. OAuth uses the system browser and a short-lived broker grant; refresh tokens are stored only in MAUI Secure Storage. The broker client secret stays in server configuration and never enters the app or Git. Google Drive uses the narrow `drive.file` scope.
+
+## D-007 — First synchronization direction
+
+- **Question:** Which data-transfer direction should be enabled first after previewing SQLite and Google Sheets?
+- **Options:** Google Sheets to SQLite; SQLite to Google Sheets; both directions immediately.
+- **Selection:** Google Sheets to SQLite first.
+- **Rationale:** It unlocks the user's existing table on mobile without risking partial writes across the authoritative product, purchase, sale, payment, and inventory sheets.
+- **Constraints:** The app fetches a complete remote snapshot, compares counts by business section, checks that its fingerprint has not changed, and then replaces all local collections in one SQLite transaction. Upload to Google remains unavailable until a durable operation journal can make multi-sheet writes recoverable.

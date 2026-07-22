@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Dona.Crm.Web.Domain;
+using Dona.Crm.Web.Services;
 using SQLite;
 
 namespace Dona.Crm.Storage.Sqlite;
@@ -58,6 +60,44 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
         {
             writeGate.Release();
         }
+    }
+
+    public async Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        cancellationToken.ThrowIfCancellationRequested();
+        var replacements = new Dictionary<string, List<AggregateRecord>>
+        {
+            ["catalog.products"] = Rows("catalog.products", snapshot.Products, value => value.Id),
+            ["commerce.suppliers"] = Rows("commerce.suppliers", snapshot.Suppliers, value => value.Id),
+            ["commerce.intermediaries"] = Rows("commerce.intermediaries", snapshot.Intermediaries, value => value.Id),
+            ["commerce.categories"] = Rows("commerce.categories", snapshot.Categories, value => value.Id),
+            ["commerce.purchases"] = Rows("commerce.purchases", snapshot.Purchases, value => value.Id),
+            ["sales.customers"] = Rows("sales.customers", snapshot.Customers, value => value.Id),
+            ["sales.sales"] = Rows("sales.sales", snapshot.Sales, value => value.Id),
+            ["marketing.collections"] = Rows("marketing.collections", snapshot.Marketing.Collections, value => value.Id),
+            ["marketing.outfits"] = Rows("marketing.outfits", snapshot.Marketing.Outfits, value => value.Id),
+            ["marketing.posts"] = Rows("marketing.posts", snapshot.Marketing.ContentPosts, value => value.Id),
+            ["settings.business"] = Rows("settings.business", [snapshot.BusinessSettings], _ => Guid.Parse("59b746f0-32f8-48a3-b1eb-ecf57969093a")),
+            ["stock.movements"] = Rows("stock.movements", snapshot.StockMovements, value => value.Id),
+            ["history.product-costs"] = Rows("history.product-costs", snapshot.PurchaseHistory.ProductCosts, value => value.Id),
+            ["history.exchange-rates"] = Rows("history.exchange-rates", snapshot.PurchaseHistory.ExchangeRates, value => value.Id)
+        };
+
+        await writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var connection = await GetDatabaseAsync(cancellationToken);
+            await connection.RunInTransactionAsync(transaction =>
+            {
+                foreach (var replacement in replacements)
+                {
+                    transaction.Execute("DELETE FROM aggregate_records WHERE collection = ?", replacement.Key);
+                    transaction.InsertAll(replacement.Value);
+                }
+            });
+        }
+        finally { writeGate.Release(); }
     }
 
     public async Task CloseAsync()
@@ -128,6 +168,16 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
     }
 
     private static string CreateKey(string collection, Guid id) => $"{collection}:{id:N}";
+
+    private static List<AggregateRecord> Rows<T>(string collection, IEnumerable<T> values, Func<T, Guid> id) =>
+        values.Select((value, index) => new AggregateRecord
+        {
+            Key = CreateKey(collection, id(value)),
+            Collection = collection,
+            SortOrder = index,
+            Payload = JsonSerializer.Serialize(value, JsonOptions),
+            UpdatedAtUtcTicks = DateTimeOffset.UtcNow.UtcTicks
+        }).ToList();
 
     private static T Deserialize<T>(AggregateRecord row) =>
         JsonSerializer.Deserialize<T>(row.Payload, JsonOptions)

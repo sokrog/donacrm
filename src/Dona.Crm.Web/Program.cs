@@ -18,6 +18,7 @@ builder.Services.AddSingleton<GoogleDriveOAuthStore>();
 builder.Services.AddSingleton<GoogleMobileOAuthGrantStore>();
 builder.Services.AddSingleton<GoogleMobileOAuthBroker>();
 builder.Services.AddHttpClient("google-mobile-oauth", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<GoogleMobileSyncSnapshotService>();
 builder.Services.AddScoped<LoadingState>();
 builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<CurrencyContext>();
@@ -122,6 +123,14 @@ app.MapPost("/api/mobile/google/refresh", async (GoogleRefreshRequest request, G
 {
     try { return Results.Ok(await broker.RefreshAsync(request.RefreshToken, token)); }
     catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status400BadRequest); }
+});
+app.MapGet("/api/mobile/sync/snapshot", async (string spreadsheetId, HttpRequest request, GoogleMobileSyncSnapshotService sync, CancellationToken token) =>
+{
+    var authorization = request.Headers.Authorization.ToString();
+    var accessToken = authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? authorization[7..].Trim() : string.Empty;
+    try { return Results.Ok(await sync.CreateAsync(spreadsheetId, accessToken, token)); }
+    catch (UnauthorizedAccessException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status401Unauthorized); }
+    catch (InvalidOperationException exception) { return Results.Problem(exception.Message, statusCode: StatusCodes.Status409Conflict); }
 });
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
