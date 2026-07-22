@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+#if !WINDOWS
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Maui.DevFlow.Blazor;
+#endif
 using Dona.Crm.Storage.Sqlite;
 using Dona.Crm.App.Services;
 using Dona.Crm.Web.Services;
@@ -68,8 +70,10 @@ public static class MauiProgram
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();
+#if !WINDOWS
 		builder.AddMauiDevFlowAgent();
 		builder.AddMauiBlazorDevFlowTools();
+#endif
 #endif
 
 		return builder.Build();
