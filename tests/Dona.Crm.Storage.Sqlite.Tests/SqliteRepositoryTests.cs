@@ -115,6 +115,29 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Marketing_repository_round_trips_outfit_products_and_prices()
+    {
+        var repository = new SqliteMarketingRepository(store!);
+        var outfit = new Outfit
+        {
+            Name = "Городской образ",
+            Status = MarketingStatus.Active,
+            Products =
+            [
+                new OutfitProduct { ProductName = "Худи", SellingPriceUzs = 279_000, SortOrder = 0 },
+                new OutfitProduct { ProductName = "Сумка", SellingPriceUzs = 169_000, SortOrder = 1 }
+            ]
+        };
+
+        await repository.UpsertOutfitAsync(outfit);
+        await store!.CloseAsync();
+
+        var actual = Assert.Single(await new SqliteMarketingRepository(store).GetOutfitsAsync());
+        Assert.Equal(448_000, actual.TotalPriceUzs);
+        Assert.Equal(["Худи", "Сумка"], actual.Products.OrderBy(item => item.SortOrder).Select(item => item.ProductName));
+    }
+
+    [Fact]
     public async Task Supporting_repositories_persist_settings_stock_and_purchase_history()
     {
         var settings = new SqliteBusinessSettingsRepository(store!);

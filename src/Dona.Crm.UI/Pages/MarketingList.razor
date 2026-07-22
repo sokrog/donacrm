@@ -1,0 +1,31 @@
+@page "/collections"
+@page "/outfits"
+@using System.Globalization
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Storage
+@inject IMarketingRepository Marketing
+@inject NavigationManager Navigation
+
+<PageTitle>@Title — DONA CRM</PageTitle>
+<div class="marketing-page" aria-busy="@isLoading">
+    <header><div><a href="/products">Каталог</a><h1>@Title</h1></div><a class="add" href="@($"/{Kind}/new")" aria-label="@AddLabel">＋</a></header>
+    <p class="intro">@(IsCollections ? "Группируйте товары по сезону, стилю или запуску." : "Собирайте готовые сочетания и сразу считайте их стоимость.")</p>
+    @if(isLoading){<div class="marketing-state">Загружаем…</div>}
+    else if(error is not null){<div class="marketing-state" role="alert">@error</div>}
+    else if((IsCollections && collections.Count==0) || (!IsCollections && outfits.Count==0)){<div class="marketing-state"><strong>Пока пусто</strong><p>Нажмите «＋», чтобы создать первую запись.</p></div>}
+    else if(IsCollections)
+    {
+        <ul class="marketing-list">@foreach(var item in collections){<li><a href="/collections/@item.Id"><span class="item-icon"><OrbitIcon Name="catalog" /></span><span><strong>@item.Name</strong><small>@Meta(item)</small></span><span class="count">@item.Products.Count<br/><small>тов.</small></span></a></li>}</ul>
+    }
+    else
+    {
+        <ul class="marketing-list">@foreach(var item in outfits){<li><a href="/outfits/@item.Id"><span class="item-icon magenta"><OrbitIcon Name="image" /></span><span><strong>@item.Name</strong><small>@(string.IsNullOrWhiteSpace(item.Occasion)?item.Status.Display():item.Occasion)</small></span><span class="price">@Money(item.TotalPriceUzs)<br/><small>UZS</small></span></a></li>}</ul>
+    }
+</div>
+@code{
+    private static readonly CultureInfo Ru=CultureInfo.GetCultureInfo("ru-RU"); private IReadOnlyList<ProductCollection> collections=[];private IReadOnlyList<Outfit> outfits=[];private bool isLoading=true;private string? error;
+    private bool IsCollections=>new Uri(Navigation.Uri).AbsolutePath.StartsWith("/collections",StringComparison.Ordinal);private string Kind=>IsCollections?"collections":"outfits";private string Title=>IsCollections?"Коллекции":"Образы";private string AddLabel=>IsCollections?"Создать коллекцию":"Создать образ";
+    protected override async Task OnParametersSetAsync(){isLoading=true;error=null;try{if(IsCollections)collections=await Marketing.GetCollectionsAsync();else outfits=await Marketing.GetOutfitsAsync();}catch(Exception ex){error=ex.Message;}finally{isLoading=false;}}
+    private static string Meta(ProductCollection item)=>string.Join(" · ",new[]{item.Season,item.Style,item.Status.Display()}.Where(value=>!string.IsNullOrWhiteSpace(value)));
+    private static string Money(decimal value)=>value.ToString("N0",Ru);
+}

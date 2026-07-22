@@ -18,6 +18,8 @@
         <input id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" @bind="query" @bind:event="oninput" />
     </div>
 
+    <nav class="catalog-tools" aria-label="Инструменты каталога"><a href="/collections"><OrbitIcon Name="catalog" /><span><strong>Коллекции</strong><small>Подборки товаров</small></span></a><a href="/outfits"><OrbitIcon Name="image" /><span><strong>Образы</strong><small>Готовые сочетания</small></span></a></nav>
+
     @if (errorMessage is not null)
     {
         <div class="catalog-state" role="alert"><strong>Каталог не загрузился</strong><p>@errorMessage</p><button @onclick="LoadAsync">Повторить</button></div>

@@ -6,6 +6,11 @@ h1 { margin: 0; font-size: 1.75rem; letter-spacing: -.04em; }
 .search-box label { display: block; margin: 0 0 8px; color: var(--dona-muted); font-size: .74rem; }
 .search-box input { width: 100%; min-height: 50px; border: 1px solid var(--dona-line-strong); border-radius: 15px; padding: 0 15px; background: rgba(24,17,34,.82); color: var(--dona-text); font: inherit; }
 .search-box input:focus { outline: 3px solid rgba(98,220,235,.35); border-color: var(--dona-cyan); }
+.catalog-tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:12px; }
+.catalog-tools a { display:flex; min-height:58px; align-items:center; gap:9px; border:1px solid var(--dona-line); border-radius:15px; padding:9px 11px; background:rgba(24,17,34,.7); color:var(--dona-text); text-decoration:none; }
+.catalog-tools ::deep svg { flex:0 0 auto; width:20px; color:#c598ff; }
+.catalog-tools span,.catalog-tools strong,.catalog-tools small { display:block; min-width:0; }
+.catalog-tools strong { font-size:.73rem; }.catalog-tools small { margin-top:3px; color:var(--dona-muted); font-size:.6rem; }
 .catalog-summary { display: flex; justify-content: space-between; gap: 12px; margin: 17px 2px 11px; color: var(--dona-muted); font-size: .72rem; }
 .product-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .product-card { display: grid; grid-template-columns: 56px minmax(0,1fr) auto; align-items: center; gap: 12px; min-height: 82px; padding: 12px; border: 1px solid var(--dona-line); border-radius: 18px; background: rgba(24,17,34,.78); color: var(--dona-text); text-decoration: none; }
