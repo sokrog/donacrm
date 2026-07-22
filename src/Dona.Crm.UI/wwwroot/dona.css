@@ -92,6 +92,18 @@ select.adjust-select {
 .customers-link small { margin-top: 3px; color: var(--dona-muted); font-size: .62rem; }
 .customers-link b { color: var(--dona-muted); font-size: 1.2rem; }
 
+.more-page { width: min(100%, 520px); margin: 0 auto; padding: calc(28px + env(safe-area-inset-top)) 20px 28px; }
+.more-page h1 { margin: 4px 0 0; font-size: 1.7rem; }
+.more-intro { margin: 7px 0 20px; color: var(--dona-muted); font-size: .75rem; }
+.more-list { display: grid; gap: 10px; }
+.more-list a { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 76px; border: 1px solid var(--dona-line); border-radius: 17px; padding: 11px; background: rgba(24,17,34,.76); color: var(--dona-text); text-decoration: none; }
+.more-list a > span, .more-list strong, .more-list small { display: block; }
+.more-list strong { font-size: .78rem; }
+.more-list small { margin-top: 4px; color: var(--dona-muted); font-size: .62rem; }
+.more-list b { color: var(--dona-muted); font-size: 1.2rem; }
+.more-list .sale-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 13px; background: rgba(159,92,255,.13); color: #c598ff; }
+.more-list .sale-icon svg { width: 21px; }
+
 :where(button, a):focus-visible {
     outline: 3px solid var(--dona-cyan);
     outline-offset: 2px;

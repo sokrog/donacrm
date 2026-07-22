@@ -357,4 +357,36 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(2, (await movements.GetAsync()).Count);
         Assert.Equal(2, (await history.GetAsync()).ProductCosts.Count);
     }
+
+    [Fact]
+    public async Task Commerce_partners_round_trip_and_deletion_preserves_purchase_snapshots()
+    {
+        var repository = new SqliteCommerceRepository(store!);
+        var supplier = new Supplier { Name = "1688 Store", Platform = "1688", Moq = 5, WeChat = "store-cn" };
+        var intermediary = new Intermediary { Name = "Cargo One", RatePerKgUsd = 7.5m, OfficialImport = true };
+        var purchase = new Purchase
+        {
+            Number = "PO-PARTNERS-001",
+            SupplierId = supplier.Id,
+            SupplierName = supplier.Name,
+            IntermediaryId = intermediary.Id,
+            IntermediaryName = intermediary.Name
+        };
+
+        await repository.UpsertSupplierAsync(supplier);
+        await repository.UpsertIntermediaryAsync(intermediary);
+        await repository.UpsertPurchaseAsync(purchase);
+
+        Assert.Equal("store-cn", Assert.Single(await repository.GetSuppliersAsync()).WeChat);
+        Assert.True(Assert.Single(await repository.GetIntermediariesAsync()).OfficialImport);
+
+        await repository.DeleteSupplierAsync(supplier.Id);
+        await repository.DeleteIntermediaryAsync(intermediary.Id);
+
+        Assert.Empty(await repository.GetSuppliersAsync());
+        Assert.Empty(await repository.GetIntermediariesAsync());
+        var historicalPurchase = Assert.Single(await repository.GetPurchasesAsync());
+        Assert.Equal("1688 Store", historicalPurchase.SupplierName);
+        Assert.Equal("Cargo One", historicalPurchase.IntermediaryName);
+    }
 }

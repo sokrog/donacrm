@@ -1,21 +1,10 @@
 @page "/more"
-@inject NavigationManager Navigation
-
-<PageTitle>@Title — DONA CRM</PageTitle>
-
-<div class="placeholder-page">
-    <p class="placeholder-kicker">DONA CRM</p>
-    <h1>@Title</h1>
-    <p>Мобильный экран будет подключён к существующей бизнес-логике на следующем вертикальном срезе.</p>
-    <a class="placeholder-link" href="/">Вернуться на главную</a>
+<PageTitle>Ещё — DONA CRM</PageTitle>
+<div class="more-page">
+    <p class="placeholder-kicker">DONA CRM</p><h1>Ещё</h1><p class="more-intro">Справочники и рабочие инструменты.</p>
+    <nav class="more-list" aria-label="Дополнительные разделы">
+        <a href="/partners"><span class="sale-icon"><OrbitIcon Name="purchases" /></span><span><strong>Партнёры</strong><small>Поставщики и посредники</small></span><b aria-hidden="true">›</b></a>
+        <a href="/marketing"><span class="sale-icon"><OrbitIcon Name="marketing" /></span><span><strong>Маркетинг</strong><small>Коллекции, образы и контент</small></span><b aria-hidden="true">›</b></a>
+        <a href="/inventory"><span class="sale-icon"><OrbitIcon Name="catalog" /></span><span><strong>Склад</strong><small>Остатки и корректировки</small></span><b aria-hidden="true">›</b></a>
+    </nav>
 </div>
-
-@code {
-    private string Title => new Uri(Navigation.Uri).AbsolutePath switch
-    {
-        "/products" => "Каталог",
-        "/sales" => "Продажи",
-        "/purchases" => "Закупки",
-        _ => "Ещё"
-    };
-}
