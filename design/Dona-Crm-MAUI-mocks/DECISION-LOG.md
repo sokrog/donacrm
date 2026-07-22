@@ -28,9 +28,9 @@
 
 - **Question:** How much UI should the web and mobile apps share?
 - **Options:** shared `Dona.Crm.UI` components plus platform shells; shared Core only with separate UIs; replace the web UI.
-- **Selection:** Pending user decision.
-- **Recommendation:** Share focused Razor components and design tokens through `Dona.Crm.UI`, while keeping separate navigation shells. This preserves the web app and avoids forcing desktop information architecture onto mobile.
-- **Constraints:** Shared components must remain medium-appropriate; mobile and web shells may compose them differently.
+- **Selection:** Shared `Dona.Crm.UI` components plus separate MAUI and Web hosts.
+- **Rationale:** The user selected option 1 and clarified that the solution must run on iPhone, Android, and the web while preserving the functionality of the existing browser application.
+- **Constraints:** `Dona.Crm.App` hosts the shared Razor UI in `BlazorWebView` on iOS and Android. `Dona.Crm.Web` remains the browser host and must retain all existing workflows. Shared components and design tokens may be composed differently by each host; the mobile shell must not force its information architecture or visual design onto the web application.
 
 ## D-005 — Version-control workflow
 

@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dona.Crm.Core\Dona.Crm.Core.csproj" />
+    <ProjectReference Include="..\Dona.Crm.UI\Dona.Crm.UI.csproj" />
   </ItemGroup>
 
 </Project>
