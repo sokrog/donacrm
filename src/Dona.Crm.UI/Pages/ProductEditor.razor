@@ -6,7 +6,9 @@
 @inject ICatalogRepository Catalog
 @inject IBusinessSettingsRepository Settings
 @inject ProductStatusService StatusService
+@inject IProductImagePicker ImagePicker
 @inject NavigationManager Navigation
+@implements IAsyncDisposable
 
 <PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
 
@@ -19,6 +21,26 @@
     {
         <EditForm Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
+            <section aria-labelledby="photos">
+                <div class="section-title"><h2 id="photos">Фотографии</h2><button type="button" disabled="@(imageBusy || model.Images.Count >= 12)" @onclick="PickImageAsync">@(imageBusy ? "Открываем…" : "＋ Выбрать")</button></div>
+                @if (model.Images.Count == 0)
+                {
+                    <p class="empty-variants">Выберите фото из галереи или укажите ссылку ниже.</p>
+                }
+                else
+                {
+                    <div class="image-grid">
+                        @foreach (var image in model.Images.OrderBy(item => item.SortOrder))
+                        {
+                            <article class="image-item" @key="image.Id">
+                                <img src="@image.Url" alt="Фото товара @(image.SortOrder + 1)" />
+                                <div><button type="button" class="main-image @(image.IsMain ? "selected" : null)" @onclick="() => SetMainImage(image)">@(image.IsMain ? "Главное" : "Сделать главным")</button><button type="button" class="delete-image" aria-label="Удалить фотографию" @onclick="() => RemoveImageAsync(image)">×</button></div>
+                            </article>
+                        }
+                    </div>
+                }
+                @if (imageMessage is not null) { <p class="@(imageError ? "save-error" : "image-note")" role="status">@imageMessage</p> }
+            </section>
             <section aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
                 <label>Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
                 <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<InputText @bind-Value="model.Category" autocomplete="off" /></label></div>
@@ -64,9 +86,14 @@
     private Product model = new();
     private bool isLoading = true;
     private bool isSaving;
+    private bool imageBusy;
+    private bool imageError;
     private bool confirmArchive;
     private string? errorMessage;
     private string? saveError;
+    private string? imageMessage;
+    private readonly List<ProductImage> pendingImages = [];
+    private readonly List<ProductImage> removedImages = [];
     private bool IsNew => Id is null;
 
     protected override async Task OnParametersSetAsync()
@@ -83,13 +110,55 @@
 
     private void AddVariant() => model.Variants.Add(new ProductVariant());
     private void RemoveVariant(ProductVariant variant) => model.Variants.Remove(variant);
+    private async Task PickImageAsync()
+    {
+        imageBusy = true; imageError = false; imageMessage = null;
+        try
+        {
+            var image = await ImagePicker.PickAsync(model.Id);
+            if (image is null) return;
+            image.SortOrder = model.Images.Count;
+            image.IsMain = model.Images.Count == 0;
+            model.Images.Add(image);
+            pendingImages.Add(image);
+            imageMessage = "Фотография добавлена. Сохраните товар, чтобы применить изменения.";
+        }
+        catch (Exception exception) { imageError = true; imageMessage = exception.Message; }
+        finally { imageBusy = false; }
+    }
+
+    private void SetMainImage(ProductImage selected)
+    {
+        foreach (var image in model.Images) image.IsMain = image.Id == selected.Id;
+        NormalizeImages();
+    }
+
+    private async Task RemoveImageAsync(ProductImage image)
+    {
+        model.Images.Remove(image);
+        if (pendingImages.Remove(image)) await ImagePicker.DeleteAsync(image); else removedImages.Add(image);
+        NormalizeImages();
+    }
+
+    private void NormalizeImages()
+    {
+        var ordered = model.Images.OrderBy(item => item.SortOrder).ThenBy(item => item.CreatedAt).ToList();
+        for (var index = 0; index < ordered.Count; index++) ordered[index].SortOrder = index;
+        if (ordered.Count > 0 && ordered.All(item => !item.IsMain)) ordered[0].IsMain = true;
+        model.Images = ordered;
+    }
+
     private async Task SaveAsync()
     {
         isSaving = true; saveError = null;
         try
         {
             model.Status = StatusService.Calculate(model, await Settings.GetAsync());
+            NormalizeImages();
             await Catalog.UpsertProductAsync(model);
+            foreach (var image in removedImages) await ImagePicker.DeleteAsync(image);
+            removedImages.Clear();
+            pendingImages.Clear();
             Navigation.NavigateTo("/products");
         }
         catch (Exception exception) { saveError = exception.Message; }
@@ -102,5 +171,11 @@
         try { model.Status = ProductStatus.Archived; await Catalog.UpsertProductAsync(model); Navigation.NavigateTo("/products"); }
         catch (Exception exception) { saveError = exception.Message; }
         finally { isSaving = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var image in pendingImages) await ImagePicker.DeleteAsync(image);
+        pendingImages.Clear();
     }
 }

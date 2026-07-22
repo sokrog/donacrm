@@ -2,6 +2,7 @@
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Maui.DevFlow.Blazor;
 using Dona.Crm.Storage.Sqlite;
+using Dona.Crm.App.Services;
 using Dona.Crm.Web.Services;
 using Dona.Crm.Web.Storage;
 
@@ -33,6 +34,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IPurchaseHistoryRepository, SqlitePurchaseHistoryRepository>();
 		builder.Services.AddSingleton<HomeDashboardService>();
 		builder.Services.AddSingleton<ProductStatusService>();
+		builder.Services.AddSingleton<IProductImagePicker, MauiProductImagePicker>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

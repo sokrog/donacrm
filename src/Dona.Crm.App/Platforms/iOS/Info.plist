@@ -28,5 +28,9 @@
     </array>
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>DONA CRM использует выбранные фотографии для карточек товаров.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>DONA CRM сохраняет фотографии товаров в локальном хранилище приложения.</string>
 </dict>
 </plist>
