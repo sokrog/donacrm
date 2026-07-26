@@ -219,11 +219,11 @@ public sealed class BrowserGoogleSyncService(
         using var response = await SendAsync(HttpMethod.Get,
             $"https://sheets.googleapis.com/v4/spreadsheets/{Uri.EscapeDataString(spreadsheetId)}/values/{range}", token, null, cancellationToken);
         if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-            return EmptyEnvelope();
+            return await ReadVisibleSheetsAsync(spreadsheetId, token, cancellationToken);
         await EnsureSuccessAsync(response, "Не удалось прочитать данные синхронизации", cancellationToken);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         if (!document.RootElement.TryGetProperty("values", out var values) || values.GetArrayLength() == 0)
-            return EmptyEnvelope();
+            return await ReadVisibleSheetsAsync(spreadsheetId, token, cancellationToken);
         var rows = values.EnumerateArray().ToArray();
         if (rows[0].GetArrayLength() < 3 || rows[0][0].GetString() != "CommandOrbitSyncV1")
             throw new InvalidOperationException("Скрытый лист синхронизации имеет неизвестный формат.");
@@ -235,6 +235,90 @@ public sealed class BrowserGoogleSyncService(
             ?? throw new InvalidOperationException("Google Sheets вернул пустой снимок данных.");
         return new(version, capturedAt, snapshot);
     }
+
+    private async Task<GoogleSyncEnvelope> ReadVisibleSheetsAsync(
+        string spreadsheetId,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        var escapedSpreadsheetId = Uri.EscapeDataString(spreadsheetId);
+        using var metadataResponse = await SendAsync(
+            HttpMethod.Get,
+            $"https://sheets.googleapis.com/v4/spreadsheets/{escapedSpreadsheetId}?fields=sheets.properties.title",
+            token,
+            null,
+            cancellationToken);
+        await EnsureSuccessAsync(metadataResponse, "Не удалось получить список листов Google-таблицы", cancellationToken);
+
+        using var metadata = JsonDocument.Parse(await metadataResponse.Content.ReadAsStringAsync(cancellationToken));
+        var existingTitles = metadata.RootElement.GetProperty("sheets")
+            .EnumerateArray()
+            .Select(sheet => sheet.GetProperty("properties").GetProperty("title").GetString())
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var titles = GoogleSheetSnapshotParser.SheetTitles
+            .Where(existingTitles.Contains)
+            .ToArray();
+        if (titles.Length == 0)
+            return EmptyEnvelope();
+
+        var ranges = string.Join(
+            "&",
+            titles.Select(title => $"ranges={Uri.EscapeDataString($"'{title}'!A:ZZ")}"));
+        using var valuesResponse = await SendAsync(
+            HttpMethod.Get,
+            $"https://sheets.googleapis.com/v4/spreadsheets/{escapedSpreadsheetId}/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING&{ranges}",
+            token,
+            null,
+            cancellationToken);
+        await EnsureSuccessAsync(valuesResponse, "Не удалось прочитать бизнес-листы Google-таблицы", cancellationToken);
+
+        using var valuesDocument = JsonDocument.Parse(await valuesResponse.Content.ReadAsStringAsync(cancellationToken));
+        var valueRanges = valuesDocument.RootElement.TryGetProperty("valueRanges", out var rangesElement)
+            ? rangesElement.EnumerateArray().ToArray()
+            : [];
+        var sheets = new List<GoogleSyncSheet>();
+        for (var index = 0; index < titles.Length && index < valueRanges.Length; index++)
+        {
+            if (!valueRanges[index].TryGetProperty("values", out var rowsElement) || rowsElement.GetArrayLength() == 0)
+                continue;
+
+            var rows = rowsElement.EnumerateArray().ToArray();
+            var headers = rows[0].EnumerateArray().Select(CellValue).Select(value => value.ToString() ?? string.Empty).ToArray();
+            var dataRows = rows.Skip(1)
+                .Select(row => (IReadOnlyList<object>)row.EnumerateArray().Select(CellValue).ToArray())
+                .ToArray();
+            sheets.Add(new GoogleSyncSheet(titles[index], headers, dataRows));
+        }
+
+        if (sheets.Count == 0)
+            return EmptyEnvelope();
+
+        var import = GoogleSheetSnapshotParser.Parse(sheets);
+        if (!import.IsValid)
+        {
+            var details = string.Join(
+                "; ",
+                import.Issues.Take(5).Select(issue => $"{issue.Sheet}, строка {issue.Row}: {issue.Message}"));
+            var suffix = import.Issues.Count > 5 ? $" Ещё ошибок: {import.Issues.Count - 5}." : string.Empty;
+            throw new InvalidOperationException($"В существующей Google-таблице найдены ошибки: {details}.{suffix}");
+        }
+
+        return new(
+            DonaSyncFingerprint.Create(import.Snapshot),
+            DateTimeOffset.UtcNow,
+            import.Snapshot);
+    }
+
+    private static object CellValue(JsonElement cell) => cell.ValueKind switch
+    {
+        JsonValueKind.String => cell.GetString() ?? string.Empty,
+        JsonValueKind.Number when cell.TryGetInt64(out var integer) => integer,
+        JsonValueKind.Number when cell.TryGetDecimal(out var number) => number,
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => cell.ToString()
+    };
 
     private async Task WriteRemoteAsync(GoogleSyncEnvelope envelope, CancellationToken cancellationToken)
     {
