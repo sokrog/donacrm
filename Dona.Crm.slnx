@@ -9,6 +9,7 @@
     <Project Path="src/Dona.Crm.Web.Client/Dona.Crm.Web.Client.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Dona.Crm.Core.Tests/Dona.Crm.Core.Tests.csproj" />
     <Project Path="tests/Dona.Crm.Storage.Browser.Tests/Dona.Crm.Storage.Browser.Tests.csproj" />
     <Project Path="tests/Dona.Crm.Storage.Sqlite.Tests/Dona.Crm.Storage.Sqlite.Tests.csproj" />
     <Project Path="tests/Dona.Crm.Web.Tests/Dona.Crm.Web.Tests.csproj" />
