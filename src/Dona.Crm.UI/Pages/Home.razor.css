@@ -21,7 +21,7 @@
 .eyebrow {
     margin: 0 0 5px;
     color: var(--dona-muted);
-    font-size: .75rem;
+    font-size: var(--dona-type-body-sm);
     font-weight: 700;
     letter-spacing: .08em;
     text-transform: uppercase;
@@ -29,7 +29,7 @@
 
 h1 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: var(--dona-type-title-md);
     line-height: 1.15;
     letter-spacing: -.035em;
 }
@@ -55,13 +55,22 @@ h1 {
     height: 22px;
 }
 
-.connection {
+.connection-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     margin: 0 20px 15px;
+}
+
+.connection {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
     color: #c5bbcf;
-    font-size: .78rem;
+    font-size: var(--dona-type-body-sm);
 }
 
 .connection span {
@@ -83,6 +92,24 @@ h1 {
     box-shadow: 0 0 12px rgba(255, 120, 148, .55);
 }
 
+.sync-shortcut {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border: 1px solid var(--dona-line);
+    border-radius: 14px;
+    background: rgba(24, 17, 34, .72);
+    color: var(--dona-cyan);
+    text-decoration: none;
+}
+
+.sync-shortcut ::deep svg {
+    width: 21px;
+    height: 21px;
+}
+
 .state-card,
 .empty-state {
     border: 1px solid var(--dona-line);
@@ -98,7 +125,7 @@ h1 {
 .state-card p,
 .empty-state {
     color: var(--dona-muted);
-    font-size: .8rem;
+    font-size: var(--dona-type-body);
     line-height: 1.5;
 }
 
@@ -169,12 +196,12 @@ h1 {
 .hero-label {
     margin: 0 0 8px;
     color: #d5c9e5;
-    font-size: .78rem;
+    font-size: var(--dona-type-body-sm);
 }
 
 .revenue {
     margin: 0;
-    font-size: clamp(2rem, 10vw, 2.75rem);
+    font-size: var(--dona-type-metric);
     font-weight: 760;
     line-height: 1;
     letter-spacing: -.055em;
@@ -183,7 +210,7 @@ h1 {
 .revenue span {
     margin-left: 4px;
     color: #cbbddd;
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
     font-weight: 700;
     letter-spacing: .08em;
 }
@@ -199,11 +226,11 @@ h1 {
     display: block;
     margin-bottom: 5px;
     color: #b9abc9;
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
 }
 
 .hero-meta strong {
-    font-size: 1rem;
+    font-size: var(--dona-type-body-lg);
     letter-spacing: -.02em;
 }
 
@@ -236,14 +263,14 @@ h1 {
     display: block;
     min-height: 31px;
     color: var(--dona-muted);
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
     line-height: 1.35;
 }
 
 .signal strong {
     display: block;
     margin-top: 6px;
-    font-size: 1.12rem;
+    font-size: var(--dona-type-body-lg);
     letter-spacing: -.025em;
 }
 
@@ -265,13 +292,13 @@ section {
 
 .section-heading h2 {
     margin: 0;
-    font-size: 1.06rem;
+    font-size: var(--dona-type-body-lg);
     letter-spacing: -.025em;
 }
 
 .section-heading > span {
     color: var(--dona-muted);
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
 }
 
 .attention-list,
@@ -300,7 +327,7 @@ section {
     min-height: 68px;
     padding: 10px 12px;
     color: var(--dona-text);
-    font-size: .82rem;
+    font-size: var(--dona-type-body);
     line-height: 1.35;
     text-decoration: none;
 }
@@ -325,7 +352,7 @@ section {
 
 .chevron {
     color: #8f849c;
-    font-size: 1.25rem;
+    font-size: var(--dona-type-title-sm);
     text-align: center;
 }
 
@@ -345,7 +372,7 @@ section {
     border-radius: 16px;
     background: rgba(28, 20, 39, .76);
     color: var(--dona-text);
-    font-size: .8rem;
+    font-size: var(--dona-type-body);
     font-weight: 680;
     line-height: 1.25;
     text-decoration: none;
@@ -400,7 +427,7 @@ section {
 .activity-list strong {
     display: block;
     margin: 1px 0 5px;
-    font-size: .82rem;
+    font-size: var(--dona-type-body);
     font-weight: 680;
     line-height: 1.4;
 }
@@ -408,7 +435,7 @@ section {
 .activity-list p {
     margin: 0;
     color: var(--dona-muted);
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
     line-height: 1.45;
 }
 
@@ -427,7 +454,7 @@ section {
         padding: 28px 6px 14px;
     }
 
-    .connection {
+    .connection-row {
         margin-right: 6px;
         margin-bottom: 20px;
         margin-left: 6px;

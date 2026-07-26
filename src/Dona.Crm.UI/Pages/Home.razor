@@ -18,7 +18,12 @@
         </button>
     </header>
 
-    <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
+    <div class="connection-row">
+        <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
+        <a class="sync-shortcut" href="/sync" aria-label="Открыть синхронизацию" title="Синхронизация">
+            <OrbitIcon Name="sync" />
+        </a>
+    </div>
 
     @if (errorMessage is not null)
     {

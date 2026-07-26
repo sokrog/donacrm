@@ -14,7 +14,7 @@
     gap: 12px;
 }
 
-h2 { margin: 0; font-size: .95rem; }
+h2 { margin: 0; font-size: var(--dona-type-subtitle); }
 
 .entity-images__heading button,
 .entity-images__url > button {
@@ -24,7 +24,7 @@ h2 { margin: 0; font-size: .95rem; }
     padding: 0 12px;
     background: rgba(159,92,255,.12);
     color: #d1b2ff;
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
     font-weight: 700;
 }
 
@@ -39,7 +39,7 @@ label {
     display: grid;
     gap: 7px;
     color: var(--dona-muted);
-    font-size: .7rem;
+    font-size: var(--dona-type-small);
 }
 
 ::deep input {
@@ -52,7 +52,7 @@ label {
     background: #120d1b;
     color: var(--dona-text);
     font: inherit;
-    font-size: .82rem;
+    font-size: var(--dona-type-body);
 }
 
 .entity-images__url > button {
@@ -97,7 +97,7 @@ label {
     border-radius: 9px;
     background: transparent;
     color: var(--dona-muted);
-    font-size: .63rem;
+    font-size: var(--dona-type-caption);
 }
 
 .entity-images__item button.selected {
@@ -107,14 +107,14 @@ label {
 
 .entity-images__item button.delete {
     color: var(--dona-danger);
-    font-size: 1.2rem;
+    font-size: var(--dona-type-title-sm);
 }
 
 .entity-images__empty,
 .entity-images__message {
     margin: 0;
     color: var(--dona-muted);
-    font-size: .72rem;
+    font-size: var(--dona-type-small);
     line-height: 1.45;
 }
 
