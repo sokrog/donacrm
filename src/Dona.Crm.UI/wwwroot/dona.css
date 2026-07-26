@@ -397,10 +397,6 @@ select.adjust-select {
     .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }
     .content-page .content-tools { grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); align-items:end; }
     :where(.form-actions,.actions,.settings-actions) { position:static !important; bottom:auto !important; margin-top:4px; }
-    .editor-page form { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
-    .editor-page form > section:nth-of-type(1) { grid-column:2; grid-row:1 / span 2; }
-    .editor-page form > section:nth-of-type(2),.editor-page form > section:nth-of-type(3) { grid-column:1; }
-    .editor-page form > :where(.form-actions,.save-error,.archive-toggle,.archive-confirm,.validation-errors) { grid-column:1/-1; }
 }
 
 @media (max-width: 899px) {
