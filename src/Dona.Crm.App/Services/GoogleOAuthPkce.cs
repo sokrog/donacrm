@@ -9,11 +9,11 @@ internal static class GoogleOAuthPkce
     internal const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     internal const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     internal const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
-    internal const string Scopes = "openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
+    internal const string Scopes = "openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive";
     private static readonly string[] RequiredDataScopes =
     [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.file"
+        "https://www.googleapis.com/auth/drive"
     ];
 
     public static string CreateVerifier() => Base64Url(RandomNumberGenerator.GetBytes(64));
@@ -149,7 +149,7 @@ internal static class GoogleOAuthPkce
         var permissions = new List<string>();
         if (missing.Contains("https://www.googleapis.com/auth/spreadsheets", StringComparer.Ordinal))
             permissions.Add("Google Таблицы");
-        if (missing.Contains("https://www.googleapis.com/auth/drive.file", StringComparer.Ordinal))
+        if (missing.Contains("https://www.googleapis.com/auth/drive", StringComparer.Ordinal))
             permissions.Add("Google Drive");
         throw new InvalidOperationException(
             $"Google не выдал обязательные разрешения: {string.Join(" и ", permissions)}. Повторите вход и отметьте оба разрешения на экране Google.");

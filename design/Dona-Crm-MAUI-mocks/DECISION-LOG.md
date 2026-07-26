@@ -45,7 +45,7 @@
 - **Options:** one Google OAuth account for Sheets and Drive; copy the Web service-account JSON plus separate Drive OAuth; route all access through a hosted DONA backend.
 - **Selection:** One Google OAuth account for Sheets and Drive, with the existing spreadsheet selected by URL or ID.
 - **Rationale:** The user can grant the signed-in account editor access to the existing spreadsheet without placing a service-account private key on the phone. One account also reduces setup steps.
-- **Constraints:** SQLite remains authoritative and synchronization is explicit. Browser authorization uses Google Identity Services, Android uses Google Play Services AuthorizationClient, iOS uses the system browser with PKCE and an application callback, and Windows uses PKCE with a loopback callback. No DONA authorization broker or user-entered server address is part of the architecture. Tokens are stored only in platform secure storage. Google Drive uses the narrow `drive.file` scope.
+- **Constraints:** SQLite remains authoritative and synchronization is explicit. Browser authorization uses Google Identity Services, Android uses Google Play Services AuthorizationClient, iOS uses the system browser with PKCE and an application callback, and Windows uses PKCE with a loopback callback. No DONA authorization broker or user-entered server address is part of the architecture. Tokens are stored only in platform secure storage. Access to a pre-existing folder entered by ID requires the restricted `drive` scope; `drive.file` would require adding Google Picker to explicitly share that folder with the app.
 
 ## D-007 — First synchronization direction
 

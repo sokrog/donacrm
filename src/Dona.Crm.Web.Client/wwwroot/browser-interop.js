@@ -7,7 +7,7 @@ window.donaGoogle = {
             }
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: clientId,
-                scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+                scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive',
                 callback: response => response?.access_token ? resolve(response.access_token) : reject(new Error(response?.error_description || response?.error || 'Google не вернул токен доступа.')),
                 error_callback: error => reject(new Error(error?.message || error?.type || 'Окно авторизации Google было закрыто.'))
             });
