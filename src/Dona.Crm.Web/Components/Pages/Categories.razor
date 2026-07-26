@@ -1,8 +1,0 @@
-@page "/categories"
-@attribute [StreamRendering]
-@inject ICommerceRepository Repository
-<PageTitle>Категории — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Справочник</span><h1>Категории</h1><p>Категории доступны при заполнении каталога.</p></div><a class="button primary" href="/categories/new">＋ Добавить</a></div>
-<div class="toolbar"><input class="search" placeholder="Поиск по названию" @bind="_query" @bind:event="oninput"/><select @bind="_activity"><option value="">Все категории</option><option value="active">Активные</option><option value="hidden">Скрытые</option></select></div>
-<section class="panel table-panel narrow-panel"><div class="simple-list-header"><strong>@Filtered.Count() категорий</strong></div>@foreach(var item in Filtered.OrderBy(x=>x.SortOrder)){<a class="simple-list-row" href="/categories/@item.Id"><span class="product-thumb">◇</span><span><strong>@item.Name</strong><small>Порядок @(item.SortOrder?.ToString()??"—") · @(item.IsActive?"активна":"скрыта")</small></span><em>→</em></a>}@if(!Filtered.Any()){<div class="empty-state">Категории не найдены. Измените параметры фильтра.</div>}</section>
-@code { private IReadOnlyList<Category> _items=[];private string _query=string.Empty;private string _activity=string.Empty;private IEnumerable<Category> Filtered=>_items.Where(x=>(string.IsNullOrWhiteSpace(_query)||x.Name.Contains(_query,StringComparison.OrdinalIgnoreCase))&&(_activity switch{"active"=>x.IsActive,"hidden"=>!x.IsActive,_=>true}));protected override async Task OnInitializedAsync()=>_items=await Repository.GetCategoriesAsync(); }

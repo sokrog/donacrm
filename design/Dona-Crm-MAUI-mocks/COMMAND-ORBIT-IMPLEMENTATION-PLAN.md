@@ -4,12 +4,12 @@
 
 **Command Orbit** is the visual north star. The implementation may borrow one compact “next action” treatment from Focus Beam, but the hierarchy, density, navigation, and overall atmosphere remain Command Orbit.
 
-## Preservation rules
+## Historical preservation rules
 
-- Keep `Dona.Crm.Web` working throughout the migration.
+- Keep `Dona.Crm.Web` working while extracting behavior; remove it after the shared clients reach functional parity.
 - Treat existing domain models, repository contracts, services, tests, and Russian business terminology as the source of truth.
 - Move code before rewriting it: extraction must preserve behavior and keep existing tests green.
-- Target only `net10.0-android` and `net10.0-ios` in the MAUI host.
+- Target Android, iOS, and Windows in the MAUI host, plus WebAssembly/PWA in the browser host.
 - Use `BlazorWebView`, Razor components, semantic HTML, CSS variables, and small focused JavaScript interop only where necessary.
 - Add no CommunityToolkit package, large UI library, AI provider, telemetry service, or external data-sharing behavior.
 
@@ -63,7 +63,7 @@ Run the full test suite, validate migrations and backups, profile startup and lo
 
 ## Next implementation plan
 
-This plan continues the completed Command Orbit foundation. It supersedes the early constraints that limited the MAUI host to Android/iOS and required the old server-rendered Web UI to remain the long-term web application. The target product now consists of the shared Blazor UI running as MAUI Blazor Hybrid on Android, iOS, and Windows, plus the same functional UI running as browser WebAssembly/PWA. The old Web project remains temporarily available only as a behavior and migration reference.
+This plan continues the completed Command Orbit foundation. It supersedes the early constraints that limited the MAUI host to Android/iOS and required the old server-rendered Web UI to remain the long-term web application. The target product consists of the shared Blazor UI running as MAUI Blazor Hybrid on Android, iOS, and Windows, plus the same functional UI running as browser WebAssembly/PWA. The old Web project has been removed after the reusable behavior and tests were extracted.
 
 ### 7. Stabilize the shared UI
 
@@ -79,7 +79,8 @@ This phase is complete when shared components are used consistently and no suppo
 ### 8. Add unified Google authorization without an application broker
 
 - Browser: use Google Identity Services and the browser OAuth flow.
-- Android and iOS: use the system OAuth browser with PKCE and an application callback.
+- Android: use Google Play Services AuthorizationClient.
+- iOS: use the system OAuth browser with PKCE and an application callback.
 - Windows: use the system browser with PKCE and a loopback callback on `127.0.0.1`; do not depend on MAUI `WebAuthenticator`, which is not supported on Windows.
 - Store refresh/access credentials only in platform secure storage. Never persist tokens in SQLite, browser local storage, logs, or exported backups.
 - Replace technical connection settings with a guided flow: Google account, existing spreadsheet, Drive folder, permission check, and connection summary.
@@ -128,10 +129,10 @@ This polling and debounce model is the default because it avoids a continuously 
 
 ### 14. Cut over from the old Web application
 
-- Make the shared WebAssembly/PWA application the supported browser experience with functional parity for all retained workflows.
-- Use the old Web project only as a migration source and behavior reference during the transition.
-- Document deployment, backup, restore, Google redirect URIs, and rollback procedures.
-- After parity and migration verification, remove the old Web project from the main solution or move it to an explicitly named `legacy` area.
+- [x] Make the shared WebAssembly/PWA application the supported browser experience with functional parity for all retained workflows.
+- [x] Extract portable Google Sheets synchronization, Google Drive images, backup contracts, and business regression tests.
+- [x] Remove the old Web and Web test projects from the solution and repository.
+- [x] Document the platform-specific Google OAuth setup without a broker, service account, or client secret.
 
 ### Recommended execution order
 
@@ -141,7 +142,7 @@ This polling and debounce model is the default because it avoids a continuously 
 4. Synchronization v2 and conflict resolution.
 5. Low-cost automatic synchronization.
 6. Windows MSIX production readiness.
-7. Final old Web retirement.
+7. Final old Web retirement. Completed.
 
 ## Visual acceptance rule
 
@@ -150,6 +151,6 @@ A phase is not complete until its simulator or emulator screenshot matches the i
 ## Intentional implementation differences
 
 - The production shell fills the real device viewport; the decorative phone frame and direction caption remain mockup-only review aids.
-- Bottom navigation is implemented in the shared Razor layout, while the existing Web layout and routes remain unchanged. Mobile and Web therefore share components without being forced into the same information architecture or visual design.
+- Bottom navigation and desktop navigation are responsive variants of the shared Razor layout used by both MAUI and WebAssembly hosts.
 - The first shell iteration uses representative DONA records only to validate hierarchy. Authoritative SQLite-backed values, loading, offline, empty, and error states belong to the Home vertical slice in phase 3.
 - Android was visually verified on the Pixel 9 Pro emulator through DevFlow at both the top and bottom of the long Home screen. The iOS target compiles successfully, but an iPhone simulator screenshot remains pending until a Mac simulator is available to this Windows workspace.

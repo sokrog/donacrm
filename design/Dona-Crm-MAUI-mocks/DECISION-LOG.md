@@ -30,7 +30,7 @@
 - **Options:** shared `Dona.Crm.UI` components plus platform shells; shared Core only with separate UIs; replace the web UI.
 - **Selection:** Shared `Dona.Crm.UI` components plus separate MAUI and Web hosts.
 - **Rationale:** The user selected option 1 and clarified that the solution must run on iPhone, Android, and the web while preserving the functionality of the existing browser application.
-- **Constraints:** `Dona.Crm.App` hosts the shared Razor UI in `BlazorWebView` on iOS and Android. `Dona.Crm.Web` remains the browser host and must retain all existing workflows. Shared components and design tokens may be composed differently by each host; the mobile shell must not force its information architecture or visual design onto the web application.
+- **Constraints:** `Dona.Crm.App` hosts the shared Razor UI in `BlazorWebView` on Android, iOS, and Windows. `Dona.Crm.Web.Client` hosts the same functional UI as WebAssembly/PWA in the browser. The former server-rendered `Dona.Crm.Web` host was removed after parity extraction.
 
 ## D-005 — Version-control workflow
 
@@ -45,7 +45,7 @@
 - **Options:** one Google OAuth account for Sheets and Drive; copy the Web service-account JSON plus separate Drive OAuth; route all access through a hosted DONA backend.
 - **Selection:** One Google OAuth account for Sheets and Drive, with the existing spreadsheet selected by URL or ID.
 - **Rationale:** The user can grant the signed-in account editor access to the existing spreadsheet without placing a service-account private key on the phone. One account also reduces setup steps.
-- **Constraints:** SQLite remains authoritative and synchronization is explicit. Browser authorization uses Google Identity Services; Android and iOS use the system browser with PKCE and an application callback; Windows uses PKCE with a loopback callback. No DONA authorization broker or user-entered server address is part of the target architecture. Tokens are stored only in platform secure storage. Google Drive uses the narrow `drive.file` scope.
+- **Constraints:** SQLite remains authoritative and synchronization is explicit. Browser authorization uses Google Identity Services, Android uses Google Play Services AuthorizationClient, iOS uses the system browser with PKCE and an application callback, and Windows uses PKCE with a loopback callback. No DONA authorization broker or user-entered server address is part of the architecture. Tokens are stored only in platform secure storage. Google Drive uses the narrow `drive.file` scope.
 
 ## D-007 — First synchronization direction
 

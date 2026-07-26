@@ -1,8 +1,0 @@
-@page "/customers"
-@attribute [StreamRendering]
-@inject ISalesRepository Repository
-<PageTitle>Клиенты — Dona CRM</PageTitle>
-<div class="page-heading"><div><span class="eyebrow">Продажи</span><h1>Клиенты</h1><p>Контакты покупателей и адреса доставки.</p></div><a class="button primary" href="/customers/new">＋ Добавить</a></div>
-<div class="toolbar"><input class="search" placeholder="Имя, телефон, Instagram или Telegram" @bind="_query" @bind:event="oninput"/></div>
-<section class="panel table-panel"><div class="simple-list-header"><strong>@Filtered.Count() клиентов</strong></div>@foreach(var item in Filtered.OrderBy(x=>x.Name)){<a class="simple-list-row" href="/customers/@item.Id"><span class="product-thumb">@(string.IsNullOrWhiteSpace(item.Name)?"?":item.Name[..1])</span><span><strong>@item.Name</strong><small>@Contact(item)</small></span><em>→</em></a>}@if(!Filtered.Any()){<div class="empty-state">Клиенты не найдены. Измените строку поиска.</div>}</section>
-@code { private IReadOnlyList<Customer> _items=[];private string _query=string.Empty;private IEnumerable<Customer> Filtered=>_items.Where(x=>string.IsNullOrWhiteSpace(_query)||x.Name.Contains(_query,StringComparison.OrdinalIgnoreCase)||(x.Phone?.Contains(_query,StringComparison.OrdinalIgnoreCase)??false)||(x.Instagram?.Contains(_query,StringComparison.OrdinalIgnoreCase)??false)||(x.Telegram?.Contains(_query,StringComparison.OrdinalIgnoreCase)??false));protected override async Task OnInitializedAsync()=>_items=await Repository.GetCustomersAsync();private static string Contact(Customer x)=>new[]{x.Phone,x.Instagram,x.Telegram}.FirstOrDefault(v=>!string.IsNullOrWhiteSpace(v))??"Контакты не указаны"; }

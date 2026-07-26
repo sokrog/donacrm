@@ -104,9 +104,7 @@
         if (state.IsConnected) state = await Google.CheckAsync();
         return state.IsConnected
             ? "Настройки сохранены, доступ подтверждён."
-            : Platform.UsesDirectGoogleAccess
-                ? "Настройки сохранены. Теперь войдите через Google."
-                : "Таблица и папка сохранены локально. Прямой вход Google для этой платформы будет подключён без адреса старого Web.";
+            : "Настройки сохранены. Теперь войдите через Google.";
     });
 
     private async Task ConnectAsync() => await RunAsync(async () =>
