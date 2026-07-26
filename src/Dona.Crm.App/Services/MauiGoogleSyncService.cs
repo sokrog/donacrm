@@ -8,24 +8,59 @@ public sealed class MauiGoogleSyncService(
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
     SqliteSyncStore local,
-    SqliteSyncOperationStore operations) : IGoogleSyncService
+    SqliteSyncOperationStore operations,
+    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService
 {
+    public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var connectionState = await connection.GetStateAsync(cancellationToken);
+        if (!connectionState.IsConnected || !connectionState.IsConfigured)
+            return new(GoogleSyncState.LocalOnly);
+        var localVersion = DonaSyncFingerprint.Create(await local.ReadAsync(cancellationToken));
+        return GoogleSyncStatusEvaluator.Evaluate(true, localVersion, await checkpointStore.ReadAsync(cancellationToken));
+    }
+
     public async Task<GoogleSyncPreview> PreviewAsync(CancellationToken cancellationToken = default)
     {
-        var remote = await GetRemoteAsync(cancellationToken);
         var localSnapshot = await local.ReadAsync(cancellationToken);
-        return Preview(localSnapshot, remote);
+        var localVersion = DonaSyncFingerprint.Create(localSnapshot);
+        try
+        {
+            var remote = await GetRemoteAsync(cancellationToken);
+            var preview = Preview(localSnapshot, remote);
+            if (string.Equals(preview.LocalVersion, preview.GoogleVersion, StringComparison.Ordinal))
+                await SaveSuccessAsync(preview.LocalVersion, preview.GoogleVersion, DateTimeOffset.UtcNow, cancellationToken);
+            else
+                await SavePendingAsync(preview.GoogleVersion, cancellationToken);
+            return preview;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await SaveFailureAsync(localVersion, exception, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<GoogleSyncPreview> PullAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(expectedGoogleVersion)) throw new InvalidOperationException("Сначала обновите предварительный просмотр.");
-        var remote = await GetRemoteAsync(cancellationToken);
-        if (!string.Equals(remote.Version, expectedGoogleVersion, StringComparison.Ordinal))
-            throw new InvalidOperationException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
-        await local.ReplaceAsync(remote.Snapshot, cancellationToken);
-        var applied = await local.ReadAsync(cancellationToken);
-        return Preview(applied, remote);
+        var localVersion = DonaSyncFingerprint.Create(await local.ReadAsync(cancellationToken));
+        try
+        {
+            var remote = await GetRemoteAsync(cancellationToken);
+            if (!string.Equals(remote.Version, expectedGoogleVersion, StringComparison.Ordinal))
+                throw new GoogleSyncConflictException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
+            await local.ReplaceAsync(remote.Snapshot, cancellationToken);
+            var applied = await local.ReadAsync(cancellationToken);
+            var preview = Preview(applied, remote);
+            await SaveSuccessAsync(preview.LocalVersion, remote.Version, DateTimeOffset.UtcNow, cancellationToken);
+            return preview;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await SaveFailureAsync(localVersion, exception, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<GoogleSyncPushResult> PushAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default)
@@ -72,11 +107,12 @@ public sealed class MauiGoogleSyncService(
                 operation.AppliedAt = alreadyApplied.AppliedAt;
                 operation.Error = null;
                 await operations.SaveAsync(operation, cancellationToken);
+                await SaveSuccessAsync(operation.LocalVersion, current.Version, alreadyApplied.AppliedAt, cancellationToken);
                 return alreadyApplied;
             }
 
             if (!string.Equals(current.Version, operation.ExpectedGoogleVersion, StringComparison.Ordinal))
-                throw new InvalidOperationException("Google-таблица изменилась после сравнения. Обновите сравнение и проверьте данные ещё раз.");
+                throw new GoogleSyncConflictException("Google-таблица изменилась после сравнения. Обновите сравнение и проверьте данные ещё раз.");
 
             var appliedAt = DateTimeOffset.UtcNow;
             await remote.WriteAsync(
@@ -89,6 +125,7 @@ public sealed class MauiGoogleSyncService(
             operation.AppliedAt = result.AppliedAt;
             operation.Error = null;
             await operations.SaveAsync(operation, cancellationToken);
+            await SaveSuccessAsync(operation.LocalVersion, result.Version, result.AppliedAt, cancellationToken);
             return result;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -96,6 +133,7 @@ public sealed class MauiGoogleSyncService(
             operation.Status = GoogleSyncOperationStatus.RequiresRetry;
             operation.Error = exception.Message;
             await operations.SaveAsync(operation, cancellationToken);
+            await SaveFailureAsync(operation.LocalVersion, exception, cancellationToken);
             throw;
         }
     }
@@ -113,4 +151,36 @@ public sealed class MauiGoogleSyncService(
         remote.Version,
         remote.CapturedAt,
         DonaSyncFingerprint.Compare(localSnapshot, remote.Snapshot));
+
+    private Task SaveSuccessAsync(string localVersion, string googleVersion, DateTimeOffset appliedAt, CancellationToken cancellationToken) =>
+        checkpointStore.WriteAsync(new GoogleSyncCheckpoint
+        {
+            LocalVersion = localVersion,
+            GoogleVersion = googleVersion,
+            LastAttemptAt = DateTimeOffset.UtcNow,
+            LastSuccessfulAt = appliedAt,
+            IsPending = false
+        }, cancellationToken);
+
+    private async Task SavePendingAsync(string googleVersion, CancellationToken cancellationToken)
+    {
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken) ?? new GoogleSyncCheckpoint();
+        checkpoint.GoogleVersion = googleVersion;
+        checkpoint.LastAttemptAt = DateTimeOffset.UtcNow;
+        checkpoint.LastError = null;
+        checkpoint.HasConflict = false;
+        checkpoint.IsPending = true;
+        await checkpointStore.WriteAsync(checkpoint, cancellationToken);
+    }
+
+    private async Task SaveFailureAsync(string localVersion, Exception exception, CancellationToken cancellationToken)
+    {
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken) ?? new GoogleSyncCheckpoint();
+        checkpoint.LocalVersion = localVersion;
+        checkpoint.LastAttemptAt = DateTimeOffset.UtcNow;
+        checkpoint.LastError = exception.Message;
+        checkpoint.HasConflict = exception is GoogleSyncConflictException;
+        checkpoint.IsPending = false;
+        await checkpointStore.WriteAsync(checkpoint, cancellationToken);
+    }
 }

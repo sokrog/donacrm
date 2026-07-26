@@ -72,6 +72,17 @@ h1 {
     box-shadow: 0 0 12px rgba(98, 220, 235, .65);
 }
 
+.connection.pending span {
+    background: #f3be69;
+    box-shadow: 0 0 12px rgba(243, 190, 105, .55);
+}
+
+.connection.conflict span,
+.connection.error span {
+    background: var(--dona-danger);
+    box-shadow: 0 0 12px rgba(255, 120, 148, .55);
+}
+
 .state-card,
 .empty-state {
     border: 1px solid var(--dona-line);

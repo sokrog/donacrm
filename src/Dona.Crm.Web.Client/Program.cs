@@ -23,6 +23,8 @@ builder.Services.AddScoped<GoogleDriveFileClient>();
 builder.Services.AddScoped<IProductImageResolver, GoogleDriveProductImageResolver>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
+builder.Services.AddScoped<BrowserGoogleSyncCheckpointStore>();
+builder.Services.AddScoped<IGoogleSyncCheckpointStore>(services => services.GetRequiredService<BrowserGoogleSyncCheckpointStore>());
 builder.Services.AddScoped<IGoogleSyncService, BrowserGoogleSyncService>();
 builder.Services.AddScoped<IProductImagePicker, BrowserProductImagePicker>();
 builder.Services.AddSingleton(new AppPlatformProfile(

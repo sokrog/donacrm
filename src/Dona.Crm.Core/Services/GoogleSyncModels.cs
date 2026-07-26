@@ -53,13 +53,59 @@ public sealed record GoogleSyncPushRequest(
 
 public sealed record GoogleSyncPushResult(Guid OperationId, string Version, DateTimeOffset AppliedAt, bool AlreadyApplied);
 
+public enum GoogleSyncState { LocalOnly, Pending, Synced, Conflict, Error }
+
+public sealed class GoogleSyncCheckpoint
+{
+    public string LocalVersion { get; set; } = string.Empty;
+    public string GoogleVersion { get; set; } = string.Empty;
+    public DateTimeOffset? LastSuccessfulAt { get; set; }
+    public DateTimeOffset? LastAttemptAt { get; set; }
+    public string? LastError { get; set; }
+    public bool HasConflict { get; set; }
+    public bool IsPending { get; set; }
+}
+
+public sealed record GoogleSyncStatus(
+    GoogleSyncState State,
+    DateTimeOffset? LastSuccessfulAt = null,
+    string? Error = null);
+
+public interface IGoogleSyncCheckpointStore
+{
+    Task<GoogleSyncCheckpoint?> ReadAsync(CancellationToken cancellationToken = default);
+    Task WriteAsync(GoogleSyncCheckpoint checkpoint, CancellationToken cancellationToken = default);
+}
+
 public interface IGoogleSyncService
 {
+    Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default);
     Task<GoogleSyncPreview> PreviewAsync(CancellationToken cancellationToken = default);
     Task<GoogleSyncPreview> PullAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default);
     Task<GoogleSyncPushResult> PushAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default);
     Task<GoogleSyncPushResult> RetryPushAsync(Guid operationId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed class GoogleSyncConflictException(string message) : InvalidOperationException(message);
+
+public static class GoogleSyncStatusEvaluator
+{
+    public static GoogleSyncStatus Evaluate(bool connected, string localVersion, GoogleSyncCheckpoint? checkpoint)
+    {
+        if (!connected)
+            return new(GoogleSyncState.LocalOnly);
+        if (checkpoint?.HasConflict == true)
+            return new(GoogleSyncState.Conflict, checkpoint.LastSuccessfulAt, checkpoint.LastError);
+        if (!string.IsNullOrWhiteSpace(checkpoint?.LastError))
+            return new(GoogleSyncState.Error, checkpoint.LastSuccessfulAt, checkpoint.LastError);
+        if (checkpoint?.IsPending == true)
+            return new(GoogleSyncState.Pending, checkpoint.LastSuccessfulAt);
+        if (checkpoint?.LastSuccessfulAt is not null &&
+            string.Equals(localVersion, checkpoint.LocalVersion, StringComparison.Ordinal))
+            return new(GoogleSyncState.Synced, checkpoint.LastSuccessfulAt);
+        return new(GoogleSyncState.Pending, checkpoint?.LastSuccessfulAt);
+    }
 }
 
 public interface IGoogleAccessTokenProvider

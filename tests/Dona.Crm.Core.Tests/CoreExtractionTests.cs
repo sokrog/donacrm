@@ -28,6 +28,36 @@ public sealed class GoogleResourceIdTests
 public sealed class GoogleSyncContractTests
 {
     [Fact]
+    public void Sync_status_distinguishes_local_pending_synced_conflict_and_error_states()
+    {
+        var successfulAt = DateTimeOffset.UtcNow.AddMinutes(-3);
+        var checkpoint = new GoogleSyncCheckpoint
+        {
+            LocalVersion = "local-v1",
+            GoogleVersion = "remote-v1",
+            LastSuccessfulAt = successfulAt
+        };
+
+        Assert.Equal(GoogleSyncState.LocalOnly, GoogleSyncStatusEvaluator.Evaluate(false, "local-v2", checkpoint).State);
+        Assert.Equal(GoogleSyncState.Pending, GoogleSyncStatusEvaluator.Evaluate(true, "local-v2", checkpoint).State);
+
+        var synced = GoogleSyncStatusEvaluator.Evaluate(true, "local-v1", checkpoint);
+        Assert.Equal(GoogleSyncState.Synced, synced.State);
+        Assert.Equal(successfulAt, synced.LastSuccessfulAt);
+
+        checkpoint.HasConflict = true;
+        checkpoint.LastError = "changed remotely";
+        Assert.Equal(GoogleSyncState.Conflict, GoogleSyncStatusEvaluator.Evaluate(true, "local-v1", checkpoint).State);
+
+        checkpoint.HasConflict = false;
+        Assert.Equal(GoogleSyncState.Error, GoogleSyncStatusEvaluator.Evaluate(true, "local-v1", checkpoint).State);
+
+        checkpoint.LastError = null;
+        checkpoint.IsPending = true;
+        Assert.Equal(GoogleSyncState.Pending, GoogleSyncStatusEvaluator.Evaluate(true, "local-v1", checkpoint).State);
+    }
+
+    [Fact]
     public void Fingerprint_is_stable_when_top_level_record_order_changes()
     {
         var first = new Product { Name = "Первый" };

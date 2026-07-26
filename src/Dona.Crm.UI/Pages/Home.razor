@@ -3,6 +3,7 @@
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Services
 @inject HomeDashboardService Dashboard
+@inject IGoogleSyncService Sync
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
@@ -17,7 +18,7 @@
         </button>
     </header>
 
-    <p class="connection" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
+    <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
 
     @if (errorMessage is not null)
     {
@@ -118,10 +119,32 @@
     private int incomingQuantity;
     private List<AttentionItem> attentionItems = [];
     private List<ActivityItem> activityItems = [];
+    private GoogleSyncStatus syncStatus = new(GoogleSyncState.LocalOnly);
 
     private string DateLabel => DateTime.Now.ToString("dddd, d MMMM", RussianCulture);
     private string Greeting => DateTime.Now.Hour switch { < 6 => "Доброй ночи", < 12 => "Доброе утро", < 18 => "Добрый день", _ => "Добрый вечер" };
-    private string ConnectionLabel => errorMessage is not null ? "Локальное хранилище недоступно" : isLoading ? "Читаем локальные данные" : "Локальные данные актуальны";
+    private string ConnectionLabel => errorMessage is not null
+        ? "Локальное хранилище недоступно"
+        : isLoading
+            ? "Читаем локальные данные"
+            : syncStatus.State switch
+            {
+                GoogleSyncState.LocalOnly => "Локальные данные загружены",
+                GoogleSyncState.Pending => "Есть изменения для синхронизации",
+                GoogleSyncState.Synced when syncStatus.LastSuccessfulAt is not null =>
+                    $"Синхронизировано · {syncStatus.LastSuccessfulAt.Value.ToLocalTime():dd.MM HH:mm}",
+                GoogleSyncState.Synced => "Синхронизировано",
+                GoogleSyncState.Conflict => "Требуется разрешить конфликт",
+                GoogleSyncState.Error => "Ошибка синхронизации",
+                _ => "Локальные данные загружены"
+            };
+    private string ConnectionTone => errorMessage is not null || syncStatus.State == GoogleSyncState.Error
+        ? "error"
+        : syncStatus.State == GoogleSyncState.Conflict
+            ? "conflict"
+            : syncStatus.State == GoogleSyncState.Pending
+                ? "pending"
+                : string.Empty;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -132,6 +155,14 @@
         try
         {
             BuildDashboard(await Dashboard.LoadAsync(DateTimeOffset.Now));
+            try
+            {
+                syncStatus = await Sync.GetStatusAsync();
+            }
+            catch (Exception exception)
+            {
+                syncStatus = new(GoogleSyncState.Error, Error: exception.Message);
+            }
         }
         catch (Exception exception)
         {

@@ -179,24 +179,60 @@ public sealed class BrowserGoogleSyncService(
     IJSRuntime javascript,
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
-    BrowserCrmRepository local) : IGoogleSyncService
+    BrowserCrmRepository local,
+    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService
 {
     private const string OperationsKey = "dona.crm.google.sync-operations.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var connectionState = await connection.GetStateAsync(cancellationToken);
+        if (!connectionState.IsConnected || !connectionState.IsConfigured)
+            return new(GoogleSyncState.LocalOnly);
+        var localVersion = DonaSyncFingerprint.Create(await local.ReadSnapshotAsync(cancellationToken));
+        return GoogleSyncStatusEvaluator.Evaluate(true, localVersion, await checkpointStore.ReadAsync(cancellationToken));
+    }
+
     public async Task<GoogleSyncPreview> PreviewAsync(CancellationToken cancellationToken = default)
     {
-        var remote = await ReadRemoteAsync(cancellationToken);
-        return Preview(await local.ReadSnapshotAsync(cancellationToken), remote);
+        var localSnapshot = await local.ReadSnapshotAsync(cancellationToken);
+        var localVersion = DonaSyncFingerprint.Create(localSnapshot);
+        try
+        {
+            var remote = await ReadRemoteAsync(cancellationToken);
+            var preview = Preview(localSnapshot, remote);
+            if (string.Equals(preview.LocalVersion, preview.GoogleVersion, StringComparison.Ordinal))
+                await SaveSuccessAsync(preview.LocalVersion, preview.GoogleVersion, DateTimeOffset.UtcNow, cancellationToken);
+            else
+                await SavePendingAsync(preview.GoogleVersion, cancellationToken);
+            return preview;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await SaveFailureAsync(localVersion, exception, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<GoogleSyncPreview> PullAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default)
     {
         RequirePreview(expectedGoogleVersion);
-        var remote = await ReadRemoteAsync(cancellationToken);
-        EnsureUnchanged(remote.Version, expectedGoogleVersion);
-        await local.ReplaceSnapshotAsync(remote.Snapshot, cancellationToken);
-        return Preview(await local.ReadSnapshotAsync(cancellationToken), remote);
+        var localVersion = DonaSyncFingerprint.Create(await local.ReadSnapshotAsync(cancellationToken));
+        try
+        {
+            var remote = await ReadRemoteAsync(cancellationToken);
+            EnsureUnchanged(remote.Version, expectedGoogleVersion);
+            await local.ReplaceSnapshotAsync(remote.Snapshot, cancellationToken);
+            var preview = Preview(await local.ReadSnapshotAsync(cancellationToken), remote);
+            await SaveSuccessAsync(preview.LocalVersion, remote.Version, DateTimeOffset.UtcNow, cancellationToken);
+            return preview;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await SaveFailureAsync(localVersion, exception, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<GoogleSyncPushResult> PushAsync(string expectedGoogleVersion, CancellationToken cancellationToken = default)
@@ -242,6 +278,7 @@ public sealed class BrowserGoogleSyncService(
             operation.AppliedAt = capturedAt;
             operation.Error = null;
             await SaveOperationAsync(operation, cancellationToken);
+            await SaveSuccessAsync(operation.LocalVersion, operation.LocalVersion, capturedAt, cancellationToken);
             return new(operation.Id, operation.LocalVersion, capturedAt, false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -249,6 +286,7 @@ public sealed class BrowserGoogleSyncService(
             operation.Status = GoogleSyncOperationStatus.RequiresRetry;
             operation.Error = exception.Message;
             await SaveOperationAsync(operation, cancellationToken);
+            await SaveFailureAsync(operation.LocalVersion, exception, cancellationToken);
             throw;
         }
     }
@@ -289,10 +327,59 @@ public sealed class BrowserGoogleSyncService(
     private static void EnsureUnchanged(string actual, string expected)
     {
         if (!string.Equals(actual, expected, StringComparison.Ordinal))
-            throw new InvalidOperationException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
+            throw new GoogleSyncConflictException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
     }
 
     private static GoogleSyncPreview Preview(DonaSyncSnapshot localSnapshot, GoogleSyncEnvelope remote) => new(
         DonaSyncFingerprint.Create(localSnapshot), remote.Version, remote.CapturedAt,
         DonaSyncFingerprint.Compare(localSnapshot, remote.Snapshot));
+
+    private Task SaveSuccessAsync(string localVersion, string googleVersion, DateTimeOffset appliedAt, CancellationToken cancellationToken) =>
+        checkpointStore.WriteAsync(new GoogleSyncCheckpoint
+        {
+            LocalVersion = localVersion,
+            GoogleVersion = googleVersion,
+            LastAttemptAt = DateTimeOffset.UtcNow,
+            LastSuccessfulAt = appliedAt,
+            IsPending = false
+        }, cancellationToken);
+
+    private async Task SavePendingAsync(string googleVersion, CancellationToken cancellationToken)
+    {
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken) ?? new GoogleSyncCheckpoint();
+        checkpoint.GoogleVersion = googleVersion;
+        checkpoint.LastAttemptAt = DateTimeOffset.UtcNow;
+        checkpoint.LastError = null;
+        checkpoint.HasConflict = false;
+        checkpoint.IsPending = true;
+        await checkpointStore.WriteAsync(checkpoint, cancellationToken);
+    }
+
+    private async Task SaveFailureAsync(string localVersion, Exception exception, CancellationToken cancellationToken)
+    {
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken) ?? new GoogleSyncCheckpoint();
+        checkpoint.LocalVersion = localVersion;
+        checkpoint.LastAttemptAt = DateTimeOffset.UtcNow;
+        checkpoint.LastError = exception.Message;
+        checkpoint.HasConflict = exception is GoogleSyncConflictException;
+        checkpoint.IsPending = false;
+        await checkpointStore.WriteAsync(checkpoint, cancellationToken);
+    }
+}
+
+public sealed class BrowserGoogleSyncCheckpointStore(IJSRuntime javascript) : IGoogleSyncCheckpointStore
+{
+    private const string StorageKey = "dona.crm.google.sync-checkpoint.v1";
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<GoogleSyncCheckpoint?> ReadAsync(CancellationToken cancellationToken = default)
+    {
+        var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StorageKey);
+        return string.IsNullOrWhiteSpace(json)
+            ? null
+            : JsonSerializer.Deserialize<GoogleSyncCheckpoint>(json, JsonOptions);
+    }
+
+    public async Task WriteAsync(GoogleSyncCheckpoint checkpoint, CancellationToken cancellationToken = default) =>
+        await javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, StorageKey, JsonSerializer.Serialize(checkpoint, JsonOptions));
 }
