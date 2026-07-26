@@ -165,8 +165,8 @@ OAuth запрашивает разрешение Google Sheets для чтен�
 1. В одном Google Cloud-проекте включите Google Sheets API и Google Drive API, настройте OAuth consent screen.
 2. Создайте отдельные OAuth-клиенты для используемых платформ:
    - **Web application** — для `Dona.Crm.Web.Client`; его Client ID вводится на странице подключений;
-   - **Android** — для package name `com.companyname.dona.crm.app` и SHA-1 сертификата подписи; Client ID в приложении вводить не требуется;
-   - **iOS** — для bundle ID `com.companyname.dona.crm.app`; Client ID и выданный Google Client Secret вводятся на странице подключений;
+   - **Android** — для package name `com.tnadevelopment.donacrm` и SHA-1 сертификата подписи; Client ID в приложении вводить не требуется;
+   - **iOS** — OAuth-клиент для bundle ID `com.tnadevelopment.donacrm` встроен в приложение; callback: `com.googleusercontent.apps.440684132138-iudhahju73tqgkkjr4i7oetgnu8ra7mn:/oauthredirect`; Client ID и Client Secret вводить не требуется;
    - **Desktop app** — для Windows; Client ID и выданный Google Client Secret вводятся на странице подключений.
 3. Добавьте используемый Google-аккаунт в список тестовых пользователей OAuth, пока приложение находится в режиме Testing.
 4. В **Ещё → Подключения** вставьте ссылку или ID существующей Google-таблицы, укажите платформенный Client ID там, где поле показано, и войдите в Google.

@@ -2,9 +2,12 @@ namespace Dona.Crm.App.Services;
 
 public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatformAuthorization
 {
-    private static readonly Uri CallbackUri = new("com.companyname.dona.crm.app:/oauth2redirect");
+    private const string ClientId =
+        "440684132138-iudhahju73tqgkkjr4i7oetgnu8ra7mn.apps.googleusercontent.com";
+    private static readonly Uri CallbackUri = new(
+        "com.googleusercontent.apps.440684132138-iudhahju73tqgkkjr4i7oetgnu8ra7mn:/oauthredirect");
 
-    public bool RequiresClientId => true;
+    public bool RequiresClientId => false;
 
     public async Task<GooglePlatformToken> AuthorizeAsync(
         string? clientId,
@@ -13,12 +16,11 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
         string? refreshToken,
         CancellationToken cancellationToken = default)
     {
-        clientId = RequireClientId(clientId);
         if (!interactive)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
                 throw new InvalidOperationException("Сессия Google завершена. Выполните вход ещё раз.");
-            return await GoogleOAuthPkce.RefreshAsync(http, clientId, clientSecret, refreshToken, cancellationToken);
+            return await GoogleOAuthPkce.RefreshAsync(http, ClientId, null, refreshToken, cancellationToken);
         }
 
         var verifier = GoogleOAuthPkce.CreateVerifier();
@@ -28,7 +30,7 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
         {
             result = await WebAuthenticator.Default.AuthenticateAsync(new WebAuthenticatorOptions
             {
-                Url = GoogleOAuthPkce.AuthorizationUri(clientId, CallbackUri, verifier, state),
+                Url = GoogleOAuthPkce.AuthorizationUri(ClientId, CallbackUri, verifier, state),
                 CallbackUrl = CallbackUri,
                 PrefersEphemeralWebBrowserSession = false
             });
@@ -50,8 +52,8 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
 
         return await GoogleOAuthPkce.ExchangeAsync(
             http,
-            clientId,
-            clientSecret,
+            ClientId,
+            null,
             CallbackUri,
             code,
             verifier,
@@ -64,9 +66,4 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
             await GoogleOAuthPkce.RevokeAsync(http, accessToken, cancellationToken);
     }
 
-    private static string RequireClientId(string? clientId) =>
-        !string.IsNullOrWhiteSpace(clientId) &&
-        clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)
-            ? clientId
-            : throw new InvalidOperationException("Для iOS укажите OAuth Client ID типа iOS.");
 }

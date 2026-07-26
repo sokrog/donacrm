@@ -46,10 +46,8 @@ public static class MauiProgram
 			"SQLite на устройстве",
 			"Основное хранилище · доступно без интернета",
 			UsesDirectGoogleAccess: true,
-			RequiresOAuthClientId: true,
-			OAuthClientDescription: "OAuth Client ID типа iOS из Google Cloud Console",
-			SupportsOAuthClientSecret: true,
-			OAuthClientSecretDescription: "Client Secret из JSON iOS OAuth-клиента; сохраняется в Keychain"));
+			RequiresOAuthClientId: false,
+			OAuthClientDescription: "iOS OAuth-клиент DONA CRM встроен в приложение"));
 #else
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",

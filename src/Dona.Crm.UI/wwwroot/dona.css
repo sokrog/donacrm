@@ -80,6 +80,14 @@ input, select, textarea {
     accent-color: var(--dona-purple);
 }
 
+@media (max-width: 899px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select,
+    textarea {
+        font-size: 1rem !important;
+    }
+}
+
 input::placeholder, textarea::placeholder { color: #7f758d; }
 
 :where(input, select, textarea):focus-visible {

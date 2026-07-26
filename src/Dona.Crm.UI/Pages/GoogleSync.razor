@@ -30,9 +30,9 @@
                 <div><span>На устройстве</span><strong>@preview.LocalTotal</strong></div><i aria-hidden="true">→</i><div><span>В Google</span><strong>@preview.GoogleTotal</strong></div>
             </section>
             <section class="section-list" aria-label="Сравнение разделов">
-                @foreach (var section in preview.Sections)
+                @foreach (var syncSection in preview.Sections)
                 {
-                    <div><span><strong>@section.Title</strong><small>Локально @section.LocalCount · Google @section.GoogleCount</small></span><b class="@(section.LocalCount == section.GoogleCount ? "same" : null)">@(section.LocalCount == section.GoogleCount ? "Совпадает" : "Отличается")</b></div>
+                    <div><span><strong>@syncSection.Title</strong><small>Локально @syncSection.LocalCount · Google @syncSection.GoogleCount</small></span><b class="@(syncSection.LocalCount == syncSection.GoogleCount ? "same" : null)">@(syncSection.LocalCount == syncSection.GoogleCount ? "Совпадает" : "Отличается")</b></div>
                 }
             </section>
             <p class="captured">@(HasGoogleSnapshot ? $"Снимок Google: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : "Снимок Command Orbit в этой таблице ещё не создан. Первая отправка создаст его; загрузка из Google пока недоступна.")</p>

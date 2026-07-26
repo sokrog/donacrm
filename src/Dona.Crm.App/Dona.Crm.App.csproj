@@ -27,7 +27,7 @@
         <ApplicationTitle>DONA CRM</ApplicationTitle>
 
         <!-- App Identifier -->
-        <ApplicationId>com.companyname.dona.crm.app</ApplicationId>
+        <ApplicationId>com.tnadevelopment.donacrm</ApplicationId>
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -46,10 +46,16 @@
 
     <ItemGroup>
         <!-- App Icon -->
-        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+        <MauiIcon Include="Resources\AppIcon\appicon.svg"
+                  ForegroundFile="Resources\AppIcon\appiconfg.svg"
+                  ForegroundScale="0.65"
+                  BaseSize="456,456"
+                  Color="#09070F" />
 
         <!-- Splash Screen -->
-        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+        <MauiSplashScreen Include="Resources\Splash\splash.svg"
+                          Color="#09070F"
+                          BaseSize="256,256" />
 
         <!-- Images -->
         <MauiImage Include="Resources\Images\*" />
