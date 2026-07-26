@@ -43,7 +43,7 @@
                     <li>
                         <a class="product-card" href="/products/@product.Id">
                             <span class="product-visual">
-                                @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <img src="@product.PrimaryImageUrl" alt="" /> }
+                                @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <ProductImageView Image="@product.PrimaryImage" FallbackUrl="@product.PrimaryImageUrl" Alt="" /> }
                                 else { <OrbitIcon Name="catalog" /> }
                             </span>
                             <span class="product-info"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small><span class="status @StatusClass(product.Status)">@product.Status.Display()</span></span>

@@ -1,0 +1,39 @@
+@inject IProductImageResolver Resolver
+
+@if (!string.IsNullOrWhiteSpace(source))
+{
+    <img src="@source" alt="@Alt" class="@Class" />
+}
+
+@code {
+    [Parameter] public ProductImage? Image { get; set; }
+    [Parameter] public string? FallbackUrl { get; set; }
+    [Parameter] public string Alt { get; set; } = string.Empty;
+    [Parameter] public string? Class { get; set; }
+
+    private string? source;
+    private Guid? resolvedImageId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Image is null)
+        {
+            source = FallbackUrl;
+            resolvedImageId = null;
+            return;
+        }
+
+        if (resolvedImageId == Image.Id)
+            return;
+
+        resolvedImageId = Image.Id;
+        try
+        {
+            source = await Resolver.ResolveAsync(Image);
+        }
+        catch
+        {
+            source = FallbackUrl;
+        }
+    }
+}

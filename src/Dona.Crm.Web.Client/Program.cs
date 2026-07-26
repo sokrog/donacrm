@@ -19,6 +19,8 @@ builder.Services.AddScoped<IPurchaseHistoryRepository>(services => services.GetR
 
 builder.Services.AddScoped<BrowserGoogleConnectionService>();
 builder.Services.AddScoped<GoogleSheetsSnapshotClient>();
+builder.Services.AddScoped<GoogleDriveFileClient>();
+builder.Services.AddScoped<IProductImageResolver, GoogleDriveProductImageResolver>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleSyncService, BrowserGoogleSyncService>();

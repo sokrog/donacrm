@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Services;
+using Dona.Crm.Web.Storage;
 using Microsoft.JSInterop;
 
 namespace Dona.Crm.Storage.Browser;
@@ -108,12 +109,48 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
         javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, StateKey, JsonSerializer.Serialize(state, JsonOptions)).AsTask();
 }
 
-public sealed class BrowserProductImagePicker(IJSRuntime javascript) : IProductImagePicker
+public sealed class BrowserProductImagePicker(
+    IJSRuntime javascript,
+    IBusinessSettingsRepository businessSettings,
+    IGoogleConnectionService google,
+    IGoogleAccessTokenProvider tokens,
+    GoogleDriveFileClient drive) : IProductImagePicker
 {
     public async Task<ProductImage?> PickAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         var picked = await javascript.InvokeAsync<BrowserPickedImage?>("donaBrowser.pickImage", cancellationToken, 600_000);
-        return picked is null ? null : new ProductImage
+        if (picked is null)
+            return null;
+
+        var settings = await businessSettings.GetAsync(cancellationToken);
+        if (settings.UseGoogleDriveImages)
+        {
+            var state = await google.GetStateAsync(cancellationToken);
+            if (!state.IsConnected)
+                throw new InvalidOperationException("Сначала подключите Google в разделе «Подключения».");
+            var separator = picked.DataUrl.IndexOf(',');
+            if (separator < 0)
+                throw new InvalidDataException("Браузер вернул повреждённое изображение.");
+            var bytes = Convert.FromBase64String(picked.DataUrl[(separator + 1)..]);
+            var uploaded = await drive.UploadAsync(
+                state.Settings.DriveFolderId,
+                picked.Name,
+                picked.ContentType,
+                bytes,
+                await tokens.GetAccessTokenAsync(cancellationToken),
+                cancellationToken);
+            return new ProductImage
+            {
+                FileName = picked.Name,
+                ContentType = uploaded.MimeType,
+                SizeBytes = uploaded.Size,
+                Storage = ProductImageStorage.GoogleDrive,
+                StorageKey = uploaded.Id,
+                Url = $"drive:{uploaded.Id}"
+            };
+        }
+
+        return new ProductImage
         {
             FileName = picked.Name,
             ContentType = picked.ContentType,
@@ -124,7 +161,15 @@ public sealed class BrowserProductImagePicker(IJSRuntime javascript) : IProductI
         };
     }
 
-    public Task DeleteAsync(ProductImage image, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public async Task DeleteAsync(ProductImage image, CancellationToken cancellationToken = default)
+    {
+        if (image.Storage != ProductImageStorage.GoogleDrive || string.IsNullOrWhiteSpace(image.StorageKey))
+            return;
+        await drive.DeleteAsync(
+            image.StorageKey,
+            await tokens.GetAccessTokenAsync(cancellationToken),
+            cancellationToken);
+    }
 
     private sealed record BrowserPickedImage(string Name, string ContentType, long Size, string DataUrl);
 }

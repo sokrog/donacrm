@@ -35,7 +35,7 @@
                         @foreach (var image in model.Images.OrderBy(item => item.SortOrder))
                         {
                             <article class="image-item" @key="image.Id">
-                                <img src="@image.Url" alt="Фото товара @(image.SortOrder + 1)" />
+                                <ProductImageView Image="@image" FallbackUrl="@image.Url" Alt="@($"Фото товара {image.SortOrder + 1}")" />
                                 <div><button type="button" class="main-image @(image.IsMain ? "selected" : null)" @onclick="() => SetMainImage(image)">@(image.IsMain ? "Главное" : "Сделать главным")</button><button type="button" class="delete-image" aria-label="Удалить фотографию" @onclick="() => RemoveImageAsync(image)">×</button></div>
                             </article>
                         }

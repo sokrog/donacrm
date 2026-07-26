@@ -1,9 +1,14 @@
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Services;
+using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.App.Services;
 
-public sealed class MauiProductImagePicker : IProductImagePicker
+public sealed class MauiProductImagePicker(
+    IBusinessSettingsRepository businessSettings,
+    IGoogleConnectionService google,
+    IGoogleAccessTokenProvider tokens,
+    GoogleDriveFileClient drive) : IProductImagePicker
 {
     private const long MaxImageBytes = 5 * 1024 * 1024;
     private readonly string imageDirectory = Path.Combine(FileSystem.Current.AppDataDirectory, "product-images");
@@ -37,10 +42,35 @@ public sealed class MauiProductImagePicker : IProductImagePicker
 
         var contentType = NormalizeContentType(result.ContentType, result.FileName);
         var extension = ExtensionFor(contentType);
+        var bytes = buffer.ToArray();
+        var settings = await businessSettings.GetAsync(cancellationToken);
+        if (settings.UseGoogleDriveImages)
+        {
+            var state = await google.GetStateAsync(cancellationToken);
+            if (!state.IsConnected)
+                throw new InvalidOperationException("Сначала подключите Google в разделе «Подключения».");
+            var uploaded = await drive.UploadAsync(
+                state.Settings.DriveFolderId,
+                $"{productId:N}-{Guid.NewGuid():N}{extension}",
+                contentType,
+                bytes,
+                await tokens.GetAccessTokenAsync(cancellationToken),
+                cancellationToken);
+            return new ProductImage
+            {
+                FileName = result.FileName,
+                ContentType = uploaded.MimeType,
+                SizeBytes = uploaded.Size,
+                Storage = ProductImageStorage.GoogleDrive,
+                StorageKey = uploaded.Id,
+                Url = $"drive:{uploaded.Id}"
+            };
+        }
+
         var storageKey = $"{productId:N}-{Guid.NewGuid():N}{extension}";
         Directory.CreateDirectory(imageDirectory);
         var path = Path.Combine(imageDirectory, storageKey);
-        await File.WriteAllBytesAsync(path, buffer.ToArray(), cancellationToken);
+        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
 
         return new ProductImage
         {
@@ -53,11 +83,20 @@ public sealed class MauiProductImagePicker : IProductImagePicker
         };
     }
 
-    public Task DeleteAsync(ProductImage image, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(ProductImage image, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (image.Storage == ProductImageStorage.GoogleDrive && !string.IsNullOrWhiteSpace(image.StorageKey))
+        {
+            await drive.DeleteAsync(
+                image.StorageKey,
+                await tokens.GetAccessTokenAsync(cancellationToken),
+                cancellationToken);
+            return;
+        }
+
         if (image.Storage != ProductImageStorage.Local || string.IsNullOrWhiteSpace(image.StorageKey))
-            return Task.CompletedTask;
+            return;
 
         var fileName = Path.GetFileName(image.StorageKey);
         var path = Path.GetFullPath(Path.Combine(imageDirectory, fileName));
@@ -66,7 +105,6 @@ public sealed class MauiProductImagePicker : IProductImagePicker
             throw new InvalidDataException("Некорректный путь локального изображения.");
 
         if (File.Exists(path)) File.Delete(path);
-        return Task.CompletedTask;
     }
 
     private static string NormalizeContentType(string? contentType, string fileName)

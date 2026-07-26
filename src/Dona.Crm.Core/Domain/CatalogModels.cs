@@ -27,7 +27,8 @@ public sealed class Product
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ProductVariant> Variants { get; set; } = [];
     public List<ProductImage> Images { get; set; } = [];
-    public string? PrimaryImageUrl => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault()?.Url ?? ImageUrl;
+    public ProductImage? PrimaryImage => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault();
+    public string? PrimaryImageUrl => PrimaryImage?.Url ?? ImageUrl;
     public decimal CostUzs => Math.Round((PurchasePriceCny ?? 0) * (CnyRateUzs ?? 0) * (1 + (AgentCommissionPercent ?? 0) / 100) + (DeliveryCostUzs ?? 0));
     public decimal ProfitUzs => (SellingPriceUzs ?? 0) - CostUzs;
     public decimal MarkupPercent => CostUzs == 0 ? 0 : Math.Round(ProfitUzs / CostUzs * 100, 1);
