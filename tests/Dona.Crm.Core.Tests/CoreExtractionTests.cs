@@ -60,6 +60,117 @@ public sealed class GoogleSyncContractTests
             sheets.Single(value => value.Title == "AppSettings").Rows,
             row => string.Equals(row[0]?.ToString(), "SimpleInterfaceMode", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Visible_sheet_parser_restores_nested_business_data()
+    {
+        var product = new Product
+        {
+            Sku = "DR-1",
+            Name = "Dress",
+            Variants = [new ProductVariant { Color = "Black", Size = "M", Quantity = 2 }],
+            Images = [new ProductImage { FileName = "dress.webp", Url = "https://example.test/dress.webp", IsMain = true }]
+        };
+        var purchase = new Purchase
+        {
+            Number = "PO-1",
+            Items = [new PurchaseItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2 }],
+            Receipts =
+            [
+                new PurchaseReceipt
+                {
+                    Lines =
+                    [
+                        new PurchaseReceiptLine
+                        {
+                            PurchaseItemId = Guid.Empty,
+                            ProductId = product.Id,
+                            ProductName = product.Name,
+                            ReceivedQuantity = 2,
+                            StockedQuantity = 2
+                        }
+                    ]
+                }
+            ]
+        };
+        purchase.Receipts[0].Lines[0].PurchaseItemId = purchase.Items[0].Id;
+        var sale = new Sale
+        {
+            Number = "SALE-1",
+            Items = [new SaleItem { ProductId = product.Id, ProductName = product.Name, Quantity = 1 }],
+            Payments = [new SalePayment { AmountUzs = 125_000, Status = PaymentStatus.Completed }]
+        };
+        var snapshot = new DonaSyncSnapshot
+        {
+            Products = [product],
+            Purchases = [purchase],
+            Sales = [sale],
+            BusinessSettings = new BusinessSettings { LowStockThreshold = 9 }
+        };
+
+        var result = GoogleSheetSnapshotParser.Parse(GoogleSyncSheetMapper.Map(snapshot));
+
+        Assert.True(result.IsValid, string.Join(Environment.NewLine, result.Issues));
+        Assert.Single(Assert.Single(result.Snapshot.Products).Variants);
+        Assert.Single(result.Snapshot.Products[0].Images);
+        Assert.Single(Assert.Single(result.Snapshot.Purchases).Items);
+        Assert.Single(result.Snapshot.Purchases[0].Receipts[0].Lines);
+        Assert.Single(Assert.Single(result.Snapshot.Sales).Payments);
+        Assert.Equal(9, result.Snapshot.BusinessSettings.LowStockThreshold);
+        Assert.Equal("DR-1", result.Snapshot.Products[0].Sku);
+        Assert.Equal(125_000, result.Snapshot.Sales[0].Payments[0].AmountUzs);
+    }
+
+    [Fact]
+    public void Visible_sheet_parser_matches_columns_by_header_name()
+    {
+        var id = Guid.NewGuid();
+        var sheet = new GoogleSyncSheet(
+            "Products",
+            ["Name", "UnknownColumn", "Id", "Sku"],
+            [new object[] { "Dress", "ignored", id.ToString(), "DR-1" }]);
+
+        var result = GoogleSheetSnapshotParser.Parse([sheet]);
+
+        Assert.True(result.IsValid);
+        var product = Assert.Single(result.Snapshot.Products);
+        Assert.Equal(id, product.Id);
+        Assert.Equal("DR-1", product.Sku);
+        Assert.Equal("Dress", product.Name);
+    }
+
+    [Fact]
+    public void Visible_sheet_parser_reports_orphaned_child_rows()
+    {
+        var sheet = new GoogleSyncSheet(
+            "ProductVariants",
+            ["Id", "ProductId", "Color"],
+            [new object[] { Guid.NewGuid().ToString(), Guid.NewGuid().ToString(), "Black" }]);
+
+        var result = GoogleSheetSnapshotParser.Parse([sheet]);
+
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("ProductVariants", issue.Sheet);
+        Assert.Equal(2, issue.Row);
+        Assert.Contains("ProductId", issue.Message);
+    }
+
+    [Fact]
+    public void Visible_sheet_parser_ignores_removed_legacy_setting()
+    {
+        var sheet = new GoogleSyncSheet(
+            "AppSettings",
+            ["Key", "Value"],
+            [
+                new object[] { "SimpleInterfaceMode", true },
+                new object[] { nameof(BusinessSettings.LowStockThreshold), 6 }
+            ]);
+
+        var result = GoogleSheetSnapshotParser.Parse([sheet]);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(6, result.Snapshot.BusinessSettings.LowStockThreshold);
+    }
 }
 
 public sealed class BackupArchiveCodecTests
