@@ -26,6 +26,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<MainPage>();
 		builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(45) });
 		builder.Services.AddSingleton<ISecureValueStore, MauiSecureValueStore>();
+		builder.Services.AddSingleton<IGooglePlatformAuthorization, GooglePlatformAuthorization>();
 		builder.Services.AddSingleton<MauiGoogleConnectionService>();
 		builder.Services.AddSingleton<IGoogleConnectionService>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
@@ -33,10 +34,28 @@ public static class MauiProgram
 		builder.Services.AddSingleton<GoogleDriveFileClient>();
 		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
 		builder.Services.AddSingleton<IGoogleSyncService, MauiGoogleSyncService>();
+#if ANDROID
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",
 			"Основное хранилище · доступно без интернета",
-			UsesDirectGoogleAccess: false));
+			UsesDirectGoogleAccess: true,
+			RequiresOAuthClientId: false,
+			OAuthClientDescription: "Android OAuth-клиент определяется пакетом приложения и подписью"));
+#elif IOS
+		builder.Services.AddSingleton(new AppPlatformProfile(
+			"SQLite на устройстве",
+			"Основное хранилище · доступно без интернета",
+			UsesDirectGoogleAccess: true,
+			RequiresOAuthClientId: true,
+			OAuthClientDescription: "OAuth Client ID типа iOS из Google Cloud Console"));
+#else
+		builder.Services.AddSingleton(new AppPlatformProfile(
+			"SQLite на устройстве",
+			"Основное хранилище · доступно без интернета",
+			UsesDirectGoogleAccess: true,
+			RequiresOAuthClientId: true,
+			OAuthClientDescription: "OAuth Client ID типа Desktop app из Google Cloud Console"));
+#endif
 		builder.Services.AddSingleton(new SqliteStoreOptions(
 			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));
 		builder.Services.AddSingleton<SqliteAggregateStore>();

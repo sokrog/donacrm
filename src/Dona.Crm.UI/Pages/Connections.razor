@@ -41,16 +41,16 @@
                     <small>@(state.DriveFolderName is null ? "Для новых фотографий; пустое поле — без папки" : $"Проверено: {state.DriveFolderName}")</small>
                 </label>
 
-                @if (Platform.UsesDirectGoogleAccess)
+                @if (Platform.RequiresOAuthClientId)
                 {
                     <label>Google OAuth Client ID
                         <InputText @bind-Value="form.OAuthClientId" placeholder="…apps.googleusercontent.com" />
-                        <small>Web Client ID из Google Cloud Console; секрет в браузере не используется</small>
+                        <small>@Platform.OAuthClientDescription; секрет в приложении не используется</small>
                     </label>
                 }
                 else
                 {
-                    <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без отдельного сервера авторизации</strong><small>Адрес старой Web-версии не требуется. Прямой вход через системный браузер и PKCE будет включён для этой платформы на этапе единой Google-авторизации.</small></div></div>
+                    <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Нативная авторизация Google</strong><small>@Platform.OAuthClientDescription.</small></div></div>
                 }
 
                 @if (message is not null)
@@ -84,7 +84,7 @@
 </div>
 
 @code {
-    private GoogleConnectionState state = new(new GoogleConnectionSettings(string.Empty, string.Empty, null), false);
+    private GoogleConnectionState state = new(new GoogleConnectionSettings(string.Empty, null), false);
     private ConnectionForm form = new();
     private bool loading = true;
     private bool busy;
@@ -130,7 +130,7 @@
         return "Google-аккаунт отключён. Локальные данные не изменены.";
     });
 
-    private GoogleConnectionSettings Settings() => new(string.Empty, form.Spreadsheet, form.DriveFolder, form.OAuthClientId);
+    private GoogleConnectionSettings Settings() => new(form.Spreadsheet, form.DriveFolder, form.OAuthClientId);
     private static string Initial(string? value) => string.IsNullOrWhiteSpace(value) ? "G" : value.Trim()[0].ToString().ToUpperInvariant();
 
     private async Task RunAsync(Func<Task<string>> action)

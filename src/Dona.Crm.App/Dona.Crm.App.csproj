@@ -12,6 +12,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
+        <!-- Google Play Services bindings use narrow AndroidX patch constraints; MAUI resolves newer compatible patch releases. -->
+        <NoWarn>$(NoWarn);NU1608</NoWarn>
 
         <!-- Enable XAML source generation for faster build times and improved performance.
              This generates C# code from XAML at compile time instead of runtime inflation.
@@ -65,6 +67,7 @@
         <PackageReference Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.12.26368.2" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'" />
         <PackageReference Include="Microsoft.Maui.DevFlow.Blazor" Version="0.1.0-preview.12.26368.2" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+        <PackageReference Include="Xamarin.GooglePlayServices.Auth" Version="121.6.0.1" Condition="'$(TargetFramework)' == 'net10.0-android'" />
     </ItemGroup>
 
     <ItemGroup>

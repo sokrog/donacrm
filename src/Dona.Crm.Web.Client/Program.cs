@@ -28,7 +28,9 @@ builder.Services.AddScoped<IProductImagePicker, BrowserProductImagePicker>();
 builder.Services.AddSingleton(new AppPlatformProfile(
     "Хранилище в браузере",
     "Локальные данные · доступны офлайн на этом устройстве",
-    UsesDirectGoogleAccess: true));
+    UsesDirectGoogleAccess: true,
+    RequiresOAuthClientId: true,
+    OAuthClientDescription: "Web Client ID из Google Cloud Console"));
 
 builder.Services.AddScoped<HomeDashboardService>();
 builder.Services.AddScoped<ProductStatusService>();

@@ -3,7 +3,6 @@ using System.Text.RegularExpressions;
 namespace Dona.Crm.Web.Services;
 
 public sealed record GoogleConnectionSettings(
-    string BrokerBaseUrl,
     string SpreadsheetId,
     string? DriveFolderId,
     string? OAuthClientId = null);
@@ -16,14 +15,15 @@ public sealed record GoogleConnectionState(
     string? DriveFolderName = null,
     DateTimeOffset? LastCheckedAt = null)
 {
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Settings.SpreadsheetId)
-        && (!string.IsNullOrWhiteSpace(Settings.BrokerBaseUrl) || !string.IsNullOrWhiteSpace(Settings.OAuthClientId));
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Settings.SpreadsheetId);
 }
 
 public sealed record AppPlatformProfile(
     string StorageTitle,
     string StorageDescription,
-    bool UsesDirectGoogleAccess);
+    bool UsesDirectGoogleAccess,
+    bool RequiresOAuthClientId,
+    string OAuthClientDescription);
 
 public interface IGoogleConnectionService
 {
@@ -58,13 +58,6 @@ public static partial class GoogleResourceIds
         var match = DriveFolderUrl().Match(value);
         if (match.Success) return match.Groups[1].Value;
         return ResourceId().IsMatch(value) ? value : string.Empty;
-    }
-
-    public static string BrokerBaseUrl(string? value)
-    {
-        if (!Uri.TryCreate(value?.Trim().TrimEnd('/'), UriKind.Absolute, out var uri)) return string.Empty;
-        if (uri.Scheme != Uri.UriSchemeHttps && !uri.IsLoopback) return string.Empty;
-        return uri.GetLeftPart(UriPartial.Authority);
     }
 
     [GeneratedRegex(@"/spreadsheets/d/([a-zA-Z0-9_-]+)", RegexOptions.IgnoreCase)]

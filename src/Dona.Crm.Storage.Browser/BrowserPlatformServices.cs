@@ -30,7 +30,7 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
         if (!clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Укажите Web Client ID из Google Cloud Console.");
 
         var current = await GetStateAsync(cancellationToken);
-        var updated = current with { Settings = new GoogleConnectionSettings(string.Empty, spreadsheetId, driveFolderId, clientId) };
+        var updated = current with { Settings = new GoogleConnectionSettings(spreadsheetId, driveFolderId, clientId) };
         await WriteStateAsync(updated, cancellationToken);
         return updated;
     }
@@ -100,9 +100,9 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
     {
         var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StateKey);
         return string.IsNullOrWhiteSpace(json)
-            ? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, string.Empty, null, string.Empty), false)
+            ? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, string.Empty), false)
             : JsonSerializer.Deserialize<GoogleConnectionState>(json, JsonOptions)
-                ?? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, string.Empty, null, string.Empty), false);
+                ?? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, string.Empty), false);
     }
 
     private Task WriteStateAsync(GoogleConnectionState state, CancellationToken cancellationToken) =>

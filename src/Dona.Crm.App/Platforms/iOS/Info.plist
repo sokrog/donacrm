@@ -9,7 +9,7 @@
 			<string>Google OAuth callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>donacrm</string>
+				<string>com.companyname.dona.crm.app</string>
 			</array>
 		</dict>
 	</array>
