@@ -1,0 +1,173 @@
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@inject IProductImagePicker ImagePicker
+@implements IAsyncDisposable
+
+<div class="entity-images" role="group" aria-labelledby="@headingId">
+    <div class="entity-images__heading">
+        <h2 id="@headingId">Фотографии</h2>
+        <button type="button" disabled="@(busy || Images.Count >= MaxImages)" @onclick="PickAsync">
+            @if (!busy) { <OrbitIcon Name="plus" Class="orbit-inline-icon" /> }
+            @(busy ? "Открываем…" : "Выбрать")
+        </button>
+    </div>
+    <div class="entity-images__url">
+        <label>Добавить по ссылке
+            <InputText @bind-Value="imageUrl" inputmode="url" placeholder="https://…/photo.jpg" />
+        </label>
+        <button type="button" disabled="@(busy || Images.Count >= MaxImages || string.IsNullOrWhiteSpace(imageUrl))" @onclick="AddUrlAsync">Добавить</button>
+    </div>
+    @if (Images.Count == 0)
+    {
+        <p class="entity-images__empty">Выберите фото из галереи или добавьте его по ссылке.</p>
+    }
+    else
+    {
+        <div class="entity-images__grid">
+            @foreach (var image in Images.OrderBy(item => item.SortOrder))
+            {
+                <article class="entity-images__item" @key="image.Id">
+                    <ProductImageView Image="@image" FallbackUrl="@image.Url" Class="entity-image-preview" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {image.SortOrder + 1}")" />
+                    <div>
+                        <button type="button" class="@(image.IsMain ? "selected" : null)" @onclick="() => SetMainAsync(image)">@(image.IsMain ? "Главное" : "Сделать главным")</button>
+                        <button type="button" class="delete" aria-label="Удалить фотографию" @onclick="() => RemoveAsync(image)">×</button>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+    @if (message is not null)
+    {
+        <p class="entity-images__message @(hasError ? "error" : null)" role="status">@message</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<ProductImage> Images { get; set; } = [];
+    [Parameter] public Guid OwnerId { get; set; }
+    [Parameter] public string EntityLabel { get; set; } = "записи";
+    [Parameter] public int MaxImages { get; set; } = 12;
+    [Parameter] public EventCallback ImagesChanged { get; set; }
+
+    private readonly string headingId = $"images-{Guid.NewGuid():N}";
+    private readonly List<ProductImage> pending = [];
+    private readonly List<ProductImage> removed = [];
+    private string? imageUrl;
+    private string? message;
+    private bool busy;
+    private bool hasError;
+
+    public async Task CommitAsync()
+    {
+        Normalize();
+        foreach (var image in removed)
+            await ImagePicker.DeleteAsync(image);
+        removed.Clear();
+        pending.Clear();
+    }
+
+    public async Task DeleteAllAsync()
+    {
+        foreach (var image in Images.Concat(removed).DistinctBy(item => item.Id).ToList())
+            await ImagePicker.DeleteAsync(image);
+        Images.Clear();
+        pending.Clear();
+        removed.Clear();
+    }
+
+    private async Task PickAsync()
+    {
+        busy = true;
+        hasError = false;
+        message = null;
+        try
+        {
+            var image = await ImagePicker.PickAsync(OwnerId);
+            if (image is null)
+                return;
+            image.SortOrder = Images.Count;
+            image.IsMain = Images.Count == 0;
+            Images.Add(image);
+            pending.Add(image);
+            Normalize();
+            await ImagesChanged.InvokeAsync();
+            message = "Фотография добавлена. Сохраните изменения.";
+        }
+        catch (Exception exception)
+        {
+            hasError = true;
+            message = exception.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task AddUrlAsync()
+    {
+        hasError = false;
+        message = null;
+        if (!Uri.TryCreate(imageUrl?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            hasError = true;
+            message = "Укажите полную ссылку на изображение с https://.";
+            return;
+        }
+
+        var fileName = Path.GetFileName(uri.AbsolutePath);
+        var image = new ProductImage
+        {
+            FileName = string.IsNullOrWhiteSpace(fileName) ? "external-image" : fileName,
+            ContentType = "image/*",
+            Storage = ProductImageStorage.External,
+            StorageKey = uri.ToString(),
+            Url = uri.ToString(),
+            SortOrder = Images.Count,
+            IsMain = Images.Count == 0
+        };
+        Images.Add(image);
+        pending.Add(image);
+        imageUrl = null;
+        Normalize();
+        await ImagesChanged.InvokeAsync();
+        message = "Ссылка добавлена. Сохраните изменения.";
+    }
+
+    private async Task SetMainAsync(ProductImage selected)
+    {
+        foreach (var image in Images)
+            image.IsMain = image.Id == selected.Id;
+        Normalize();
+        await ImagesChanged.InvokeAsync();
+    }
+
+    private async Task RemoveAsync(ProductImage image)
+    {
+        Images.Remove(image);
+        if (pending.Remove(image))
+            await ImagePicker.DeleteAsync(image);
+        else
+            removed.Add(image);
+        Normalize();
+        await ImagesChanged.InvokeAsync();
+    }
+
+    private void Normalize()
+    {
+        var ordered = Images.OrderBy(item => item.SortOrder).ThenBy(item => item.CreatedAt).ToList();
+        Images.Clear();
+        Images.AddRange(ordered);
+        for (var index = 0; index < Images.Count; index++)
+            Images[index].SortOrder = index;
+        if (Images.Count > 0 && Images.All(item => !item.IsMain))
+            Images[0].IsMain = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var image in pending)
+            await ImagePicker.DeleteAsync(image);
+        pending.Clear();
+    }
+}

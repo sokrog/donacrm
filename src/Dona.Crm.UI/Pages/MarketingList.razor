@@ -15,11 +15,11 @@
     else if((IsCollections && collections.Count==0) || (!IsCollections && outfits.Count==0)){<div class="marketing-state"><strong>Пока пусто</strong><p>Нажмите кнопку добавления, чтобы создать первую запись.</p></div>}
     else if(IsCollections)
     {
-        <ul class="marketing-list">@foreach(var item in collections){<li><a href="/collections/@item.Id"><span class="item-icon"><OrbitIcon Name="catalog" /></span><span><strong>@item.Name</strong><small>@Meta(item)</small></span><span class="count">@item.Products.Count<br/><small>тов.</small></span></a></li>}</ul>
+        <ul class="marketing-list">@foreach(var item in collections){<li><a href="/collections/@item.Id"><span class="item-icon">@if(item.PrimaryImage is not null){<ProductImageView Image="@item.PrimaryImage" Alt="" />}else{<OrbitIcon Name="catalog" />}</span><span><strong>@item.Name</strong><small>@Meta(item)</small></span><span class="count">@item.Products.Count<br/><small>тов.</small></span></a></li>}</ul>
     }
     else
     {
-        <ul class="marketing-list">@foreach(var item in outfits){<li><a href="/outfits/@item.Id"><span class="item-icon magenta"><OrbitIcon Name="image" /></span><span><strong>@item.Name</strong><small>@(string.IsNullOrWhiteSpace(item.Occasion)?item.Status.Display():item.Occasion)</small></span><span class="price">@Money(item.TotalPriceUzs)<br/><small>UZS</small></span></a></li>}</ul>
+        <ul class="marketing-list">@foreach(var item in outfits){<li><a href="/outfits/@item.Id"><span class="item-icon magenta">@if(item.PrimaryImage is not null){<ProductImageView Image="@item.PrimaryImage" Alt="" />}else{<OrbitIcon Name="image" />}</span><span><strong>@item.Name</strong><small>@(string.IsNullOrWhiteSpace(item.Occasion)?item.Status.Display():item.Occasion)</small></span><span class="price">@Money(item.TotalPriceUzs)<br/><small>UZS</small></span></a></li>}</ul>
     }
 </div>
 @code{

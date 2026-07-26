@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Dona.Crm.Web.Domain;
+using Dona.Crm.Web.Storage;
 using Dona.Crm.Web.Services;
 
 namespace Dona.Crm.Core.Tests;
@@ -51,13 +52,30 @@ public sealed class GoogleSyncContractTests
             Number = "SALE-1",
             Payments = [new SalePayment { AmountUzs = 125_000, Status = PaymentStatus.Completed }]
         };
+        var collection = new ProductCollection
+        {
+            Name = "Summer",
+            Images = [new ProductImage { FileName = "collection.webp", IsMain = true }]
+        };
+        var outfit = new Outfit
+        {
+            Name = "Evening",
+            Images = [new ProductImage { FileName = "outfit.webp", IsMain = true }]
+        };
 
-        var sheets = GoogleSyncSheetMapper.Map(new DonaSyncSnapshot { Products = [product], Sales = [sale] });
+        var sheets = GoogleSyncSheetMapper.Map(new DonaSyncSnapshot
+        {
+            Products = [product],
+            Sales = [sale],
+            Marketing = new MarketingData { Collections = [collection], Outfits = [outfit] }
+        });
 
-        Assert.Equal(25, sheets.Count);
+        Assert.Equal(27, sheets.Count);
         Assert.Equal(sheets.Count, sheets.Select(value => value.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(product.Id.ToString(), sheets.Single(value => value.Title == "ProductVariants").Rows.Single()[1]);
         Assert.Equal(sale.Id.ToString(), sheets.Single(value => value.Title == "Payments").Rows.Single()[1]);
+        Assert.Equal(collection.Id.ToString(), sheets.Single(value => value.Title == "CollectionImages").Rows.Single()[1]);
+        Assert.Equal(outfit.Id.ToString(), sheets.Single(value => value.Title == "OutfitImages").Rows.Single()[1]);
         Assert.DoesNotContain(
             sheets.Single(value => value.Title == "AppSettings").Rows,
             row => string.Equals(row[0]?.ToString(), "SimpleInterfaceMode", StringComparison.Ordinal));

@@ -17,6 +17,8 @@ public sealed class ProductCollection
     public MarketingStatus? Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<CollectionProduct> Products { get; set; } = [];
+    public List<ProductImage> Images { get; set; } = [];
+    public ProductImage? PrimaryImage => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault();
 }
 
 public sealed class CollectionProduct
@@ -36,6 +38,8 @@ public sealed class Outfit
     public MarketingStatus? Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<OutfitProduct> Products { get; set; } = [];
+    public List<ProductImage> Images { get; set; } = [];
+    public ProductImage? PrimaryImage => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault();
     public decimal TotalPriceUzs => Products.Sum(x => x.SellingPriceUzs ?? 0);
 }
 

@@ -28,7 +28,7 @@
 
             @if (state.IsConnected)
             {
-                <div class="account-row"><span>@Initial(state.AccountEmail)</span><div><strong>@state.AccountEmail</strong><small>Токен защищён хранилищем устройства</small></div></div>
+                <div class="account-row"><InitialBadge Text="@state.AccountEmail" Compact="true" /><div><strong>@state.AccountEmail</strong><small>Токен защищён хранилищем устройства</small></div></div>
             }
 
             <EditForm Model="form" OnValidSubmit="SaveAsync">
@@ -141,7 +141,6 @@
     });
 
     private GoogleConnectionSettings Settings() => new(form.Spreadsheet, form.DriveFolder, form.OAuthClientId, form.OAuthClientSecret);
-    private static string Initial(string? value) => string.IsNullOrWhiteSpace(value) ? "G" : value.Trim()[0].ToString().ToUpperInvariant();
 
     private async Task RunAsync(Func<Task<string>> action)
     {

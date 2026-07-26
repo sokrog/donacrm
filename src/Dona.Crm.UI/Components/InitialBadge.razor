@@ -1,0 +1,12 @@
+<span class="orbit-initial-badge @Variant @(Compact ? "compact" : null) @Class" aria-hidden="true">@Initial</span>
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string Variant { get; set; } = "purple";
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string Initial => string.IsNullOrWhiteSpace(Text)
+        ? "?"
+        : Text.Trim()[0].ToString().ToUpperInvariant();
+}

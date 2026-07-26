@@ -40,8 +40,10 @@ public static class GoogleSyncSheetMapper
 
             Sheet("Collections", ["Id","Name","Description","Season","Style","BudgetLimitUzs","Status","CreatedAt"], marketing.Collections.Select(x => Row(x.Id,x.Name,S(x.Description),S(x.Season),S(x.Style),O(x.BudgetLimitUzs),E(x.Status),D(x.CreatedAt)))),
             Sheet("CollectionProducts", ["Id","CollectionId","ProductId","ProductName","SortOrder"], marketing.Collections.SelectMany(c => c.Products.Select(x => Row(x.Id,c.Id,O(x.ProductId),x.ProductName,x.SortOrder)))),
+            Sheet("CollectionImages", ["Id","CollectionId","FileName","ContentType","SizeBytes","Storage","StorageKey","Url","Caption","SortOrder","IsMain","CreatedAt"], marketing.Collections.SelectMany(c => c.Images.Select(x => Row(x.Id,c.Id,x.FileName,x.ContentType,x.SizeBytes,x.Storage,x.StorageKey,x.Url,S(x.Caption),x.SortOrder,x.IsMain,D(x.CreatedAt))))),
             Sheet("Outfits", ["Id","Name","Description","Occasion","Status","CreatedAt"], marketing.Outfits.Select(x => Row(x.Id,x.Name,S(x.Description),S(x.Occasion),E(x.Status),D(x.CreatedAt)))),
             Sheet("OutfitProducts", ["Id","OutfitId","ProductId","ProductName","SellingPriceUzs","SortOrder"], marketing.Outfits.SelectMany(o => o.Products.Select(x => Row(x.Id,o.Id,O(x.ProductId),x.ProductName,O(x.SellingPriceUzs),x.SortOrder)))),
+            Sheet("OutfitImages", ["Id","OutfitId","FileName","ContentType","SizeBytes","Storage","StorageKey","Url","Caption","SortOrder","IsMain","CreatedAt"], marketing.Outfits.SelectMany(o => o.Images.Select(x => Row(x.Id,o.Id,x.FileName,x.ContentType,x.SizeBytes,x.Storage,x.StorageKey,x.Url,S(x.Caption),x.SortOrder,x.IsMain,D(x.CreatedAt))))),
             Sheet("ContentPlan", ["Id","Title","Type","Status","ScheduledAt","CollectionId","CollectionName","OutfitId","OutfitName","Caption","PublicationUrl","Notes","CreatedAt"], marketing.ContentPosts.Select(x => Row(x.Id,x.Title,E(x.Type),E(x.Status),x.ScheduledAt?.ToString("O")??"",O(x.CollectionId),S(x.CollectionName),O(x.OutfitId),S(x.OutfitName),S(x.Caption),S(x.PublicationUrl),S(x.Notes),D(x.CreatedAt)))),
 
             Sheet("AppSettings", ["Key","Value"], [

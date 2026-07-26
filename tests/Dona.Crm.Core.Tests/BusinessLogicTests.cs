@@ -1049,14 +1049,23 @@ public sealed class GoogleSyncPushTests
     {
         var product = new Product { Name = "Dress", Variants = [new ProductVariant { Color = "Black", Size = "M", Quantity = 2 }] };
         var sale = new Sale { Number = "SALE-1", Payments = [new SalePayment { AmountUzs = 125_000, Status = PaymentStatus.Completed }] };
-        var snapshot = new DonaSyncSnapshot { Products = [product], Sales = [sale] };
+        var collection = new ProductCollection { Name = "Summer", Images = [new ProductImage { FileName = "collection.webp", IsMain = true }] };
+        var outfit = new Outfit { Name = "Evening", Images = [new ProductImage { FileName = "outfit.webp", IsMain = true }] };
+        var snapshot = new DonaSyncSnapshot
+        {
+            Products = [product],
+            Sales = [sale],
+            Marketing = new MarketingData { Collections = [collection], Outfits = [outfit] }
+        };
 
         var sheets = GoogleSyncSheetMapper.Map(snapshot);
 
-        Assert.Equal(25, sheets.Count);
+        Assert.Equal(27, sheets.Count);
         Assert.Equal(sheets.Count, sheets.Select(value => value.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(product.Id.ToString(), sheets.Single(value => value.Title == "ProductVariants").Rows.Single()[1]);
         Assert.Equal(sale.Id.ToString(), sheets.Single(value => value.Title == "Payments").Rows.Single()[1]);
+        Assert.Equal(collection.Id.ToString(), sheets.Single(value => value.Title == "CollectionImages").Rows.Single()[1]);
+        Assert.Equal(outfit.Id.ToString(), sheets.Single(value => value.Title == "OutfitImages").Rows.Single()[1]);
         Assert.Equal("PurchaseCurrencyCode", sheets.Single(value => value.Title == "Products").Headers[^1]);
     }
 

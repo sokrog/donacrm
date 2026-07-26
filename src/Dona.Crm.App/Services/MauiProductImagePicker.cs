@@ -23,7 +23,7 @@ public sealed class MauiProductImagePicker(
             CompressionQuality = 82,
             PreserveMetaData = false,
             RotateImage = true,
-            Title = "Выберите фотографию товара"
+            Title = "Выберите фотографию"
         });
         var result = results.FirstOrDefault();
         if (result is null) return null;

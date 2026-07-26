@@ -22,7 +22,8 @@ public static class GoogleSheetSnapshotParser
         "Suppliers", "Categories", "Purchases", "PurchaseItems", "PurchaseReceipts",
         "PurchaseReceiptItems", "Intermediaries",
         "Customers", "Sales", "SaleItems", "SaleReturns", "SaleReturnItems", "Payments",
-        "Collections", "CollectionProducts", "Outfits", "OutfitProducts", "ContentPlan",
+        "Collections", "CollectionProducts", "CollectionImages",
+        "Outfits", "OutfitProducts", "OutfitImages", "ContentPlan",
         "AppSettings", "StockMovements", "ProductCostHistory", "ExchangeRateHistory"
     ];
 
@@ -50,8 +51,10 @@ public static class GoogleSheetSnapshotParser
 
         var collections = ParseEntities<ProductCollection>(source, "Collections", issues);
         Attach(source, "CollectionProducts", "CollectionId", collections, collection => collection.Products, issues);
+        Attach(source, "CollectionImages", "CollectionId", collections, collection => collection.Images, issues);
         var outfits = ParseEntities<Outfit>(source, "Outfits", issues);
         Attach(source, "OutfitProducts", "OutfitId", outfits, outfit => outfit.Products, issues);
+        Attach(source, "OutfitImages", "OutfitId", outfits, outfit => outfit.Images, issues);
 
         var snapshot = new DonaSyncSnapshot
         {
