@@ -2,7 +2,6 @@ namespace Dona.Crm.Web.Domain;
 
 public sealed class BusinessSettings
 {
-    public bool SimpleInterfaceMode { get; set; }
     public bool AutoUpdateStockStatus { get; set; } = true;
     public int LowStockThreshold { get; set; } = 3;
     public bool CountReservedAsUnavailable { get; set; } = true;

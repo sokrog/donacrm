@@ -1,7 +1,6 @@
 @inherits LayoutComponentBase
 @inject GoogleSheetsSettingsStore StorageSettings
 @inject LoadingState Loading
-@inject InterfaceModeState Mode
 @inject CurrencyContext Currency
 @implements IDisposable
 
@@ -12,10 +11,10 @@
             <span><strong>Dona CRM</strong><small>торговля без хаоса</small></span>
         </a>
         <nav class="main-nav">
-            <div class="nav-group"><div class="nav-group-title">Главное</div><NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink>@if (!Mode.IsSimple) { <NavLink href="/analytics"><span>⌁</span> Продажи и прибыль</NavLink> }<NavLink href="/inventory-analytics"><span>▥</span> Складская аналитика</NavLink></div>
-            <div class="nav-group"><div class="nav-group-title">Каталог</div><NavLink href="/products"><span>▦</span> Товары</NavLink><NavLink href="/categories"><span>◇</span> Категории</NavLink>@if (!Mode.IsSimple) { <NavLink href="/inventory"><span>↕</span> Движения</NavLink> }</div>
-            @if (!Mode.IsSimple) { <div class="nav-group"><div class="nav-group-title">Закупки</div><NavLink href="/purchases"><span>↙</span> Закупки</NavLink><NavLink href="/purchase-history"><span>¥</span> Цены и курсы</NavLink><NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink><NavLink href="/intermediaries"><span>⇄</span> Посредники</NavLink></div> }
-            <div class="nav-group"><div class="nav-group-title">Продажи</div><NavLink href="/sales"><span>₸</span> Продажи</NavLink>@if (!Mode.IsSimple) { <NavLink href="/customers"><span>♙</span> Клиенты</NavLink> }</div>
+            <div class="nav-group"><div class="nav-group-title">Главное</div><NavLink href="/" Match="NavLinkMatch.All"><span>⌂</span> Обзор</NavLink><NavLink href="/analytics"><span>⌁</span> Продажи и прибыль</NavLink><NavLink href="/inventory-analytics"><span>▥</span> Складская аналитика</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Каталог</div><NavLink href="/products"><span>▦</span> Товары</NavLink><NavLink href="/categories"><span>◇</span> Категории</NavLink><NavLink href="/inventory"><span>↕</span> Движения</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Закупки</div><NavLink href="/purchases"><span>↙</span> Закупки</NavLink><NavLink href="/purchase-history"><span>¥</span> Цены и курсы</NavLink><NavLink href="/suppliers"><span>♙</span> Поставщики</NavLink><NavLink href="/intermediaries"><span>⇄</span> Посредники</NavLink></div>
+            <div class="nav-group"><div class="nav-group-title">Продажи</div><NavLink href="/sales"><span>₸</span> Продажи</NavLink><NavLink href="/customers"><span>♙</span> Клиенты</NavLink></div>
             <div class="nav-group"><div class="nav-group-title">Маркетинг</div><NavLink href="/collections"><span>◇</span> Коллекции</NavLink><NavLink href="/outfits"><span>◎</span> Образы</NavLink><NavLink href="/content-plan"><span>▤</span> Контент-план</NavLink></div>
             <div class="nav-group"><div class="nav-group-title">Система</div><NavLink href="/settings"><span>⚙</span> Настройки</NavLink></div>
         </nav>
@@ -26,7 +25,6 @@
             <a href="https://www.alibaba.com/" target="_blank" rel="noopener noreferrer"><span>阿</span>Alibaba <em>↗</em></a>
             <a href="https://www.pinduoduo.com/" target="_blank" rel="noopener noreferrer"><span>拼</span>Pinduoduo <em>↗</em></a>
         </nav>
-        <button class="interface-mode-switch" type="button" @onclick="ToggleModeAsync"><span>@(Mode.IsSimple ? "S" : "A")</span><div><strong>@(Mode.IsSimple ? "Простой режим" : "Расширенный режим")</strong><small>Переключить интерфейс</small></div></button>
         <div class="sidebar-note">
             <span class="status-dot"></span>
             <div><strong>@(StorageSettings.UseGoogleSheets ? "Google Sheets" : "Локальный JSON")</strong><small>активное хранилище</small></div>
@@ -56,7 +54,7 @@ else if (_showProgress)
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync() { Loading.Changed += LoadingChanged; Mode.Changed += ModeChanged; await Mode.EnsureLoadedAsync(); await Currency.EnsureLoadedAsync(); }
+    protected override async Task OnInitializedAsync() { Loading.Changed += LoadingChanged; await Currency.EnsureLoadedAsync(); }
     protected override void OnAfterRender(bool firstRender) { if (firstRender) ScheduleInitialCompletion(); }
     private bool _showInitialLoading;
     private bool _showProgress;
@@ -103,7 +101,5 @@ else if (_showProgress)
         catch (OperationCanceledException) { }
     }
     private void CancelInitialCompletion() { _initialCompletionDelay?.Cancel(); _initialCompletionDelay?.Dispose(); _initialCompletionDelay = null; }
-    private void ModeChanged() => _ = InvokeAsync(StateHasChanged);
-    private async Task ToggleModeAsync() => await Mode.ToggleAsync();
-    public void Dispose() { Loading.Changed -= LoadingChanged; Mode.Changed -= ModeChanged; CancelLoadingDelay(); CancelInitialCompletion(); }
+    public void Dispose() { Loading.Changed -= LoadingChanged; CancelLoadingDelay(); CancelInitialCompletion(); }
 }

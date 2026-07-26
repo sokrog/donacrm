@@ -1,6 +1,5 @@
 @page "/settings"
 @attribute [StreamRendering]
-@implements IDisposable
 @using Microsoft.Extensions.Options
 @inject IOptions<StorageOptions> StorageConfiguration
 @inject GoogleSheetsSettingsStore SettingsStore
@@ -10,7 +9,6 @@
 @inject IBusinessSettingsRepository BusinessSettingsRepository
 @inject ICatalogRepository Catalog
 @inject ProductStatusService ProductStatusService
-@inject InterfaceModeState InterfaceMode
 @inject ProductImageStorageService ImageStorage
 @inject GoogleDriveOAuthStore DriveOAuth
 @inject CurrencyContext Currency
@@ -21,15 +19,6 @@
 <div class="page-heading">
     <div><span class="eyebrow">Система</span><h1>Настройки</h1><p>Внешний вид, бизнес-правила, Google Sheets и личный Google Drive.</p></div>
 </div>
-
-<EditForm Model="_business" class="panel form-section appearance-settings">
-    <div class="section-title"><span>◐</span><div><h2>Внешний вид</h2><p>Видимость разделов и сложность интерфейса</p></div></div>
-    <div class="form-grid settings-form">
-        <label class="span-2 toggle-row"><InputCheckbox @bind-Value="_business.SimpleInterfaceMode" /><span><strong>Простой интерфейс</strong><small>Оставляет базовую аналитику, каталог, продажи и маркетинг; расширенные разделы можно вернуть в любой момент</small></span></label>
-    </div>
-    @if (!string.IsNullOrWhiteSpace(_appearanceMessage)) { <div class="notice @(_appearanceSuccess ? "success" : "error")">@_appearanceMessage</div> }
-    <div class="settings-actions"><button type="button" class="button primary" @onclick="SaveAppearanceSettingsAsync">Сохранить внешний вид</button></div>
-</EditForm>
 
 <EditForm Model="_business" class="panel form-section business-settings">
     <div class="section-title"><span>⚙</span><div><h2>Бизнес-правила</h2><p>Автоматические статусы и горизонты предупреждений</p></div></div>
@@ -162,8 +151,6 @@
     private BusinessSettings _business = new();
     private string? _businessMessage;
     private bool _businessSuccess;
-    private string? _appearanceMessage;
-    private bool _appearanceSuccess;
     private bool _driveBusy;
     private bool _driveSuccess;
     private string? _driveMessage;
@@ -172,18 +159,12 @@
     private bool _backupBusy;
     private string? _backupMessage;
     private bool HasSpreadsheet => !string.IsNullOrWhiteSpace(SettingsStore.SpreadsheetId);
-    protected override async Task OnInitializedAsync() { InterfaceMode.Changed += InterfaceModeChanged; _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
+    protected override async Task OnInitializedAsync() { _spreadsheetId = SettingsStore.SpreadsheetId; _useGoogleSheets = SettingsStore.UseGoogleSheets; _business = await BusinessSettingsRepository.GetAsync(); }
 
     private async Task SaveBusinessSettingsAsync()
     {
-        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); Currency.Set(_business.MainCurrencyCode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
+        try { NormalizeBusinessSettings(); await BusinessSettingsRepository.SaveAsync(_business); Currency.Set(_business.MainCurrencyCode); _businessMessage = "Бизнес-правила сохранены."; _businessSuccess = true; }
         catch (Exception exception) { _businessMessage = $"Не удалось сохранить: {exception.Message}"; _businessSuccess = false; }
-    }
-
-    private async Task SaveAppearanceSettingsAsync()
-    {
-        try { await BusinessSettingsRepository.SaveAsync(_business); InterfaceMode.Set(_business.SimpleInterfaceMode); _appearanceMessage = "Настройки внешнего вида сохранены."; _appearanceSuccess = true; }
-        catch (Exception exception) { _appearanceMessage = $"Не удалось сохранить: {exception.Message}"; _appearanceSuccess = false; }
     }
 
     private async Task RecalculateStatusesAsync()
@@ -288,6 +269,4 @@
         catch (Exception exception) { _message = $"Ошибка: {exception.Message}"; _success = false; }
         finally { _busy = false; }
     }
-    private void InterfaceModeChanged() { _business.SimpleInterfaceMode = InterfaceMode.IsSimple; _ = InvokeAsync(StateHasChanged); }
-    public void Dispose() => InterfaceMode.Changed -= InterfaceModeChanged;
 }

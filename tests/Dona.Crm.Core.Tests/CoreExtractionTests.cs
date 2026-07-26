@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Services;
 
@@ -109,5 +110,27 @@ public sealed class BackupArchiveCodecTests
         var exception = Assert.Throws<InvalidOperationException>(() => BackupArchiveCodec.Inspect(output.ToArray()));
 
         Assert.Contains("повторяющиеся пути", exception.Message);
+    }
+}
+
+public sealed class BusinessSettingsCompatibilityTests
+{
+    [Fact]
+    public void Legacy_simple_interface_property_is_ignored_when_reading_settings()
+    {
+        const string legacyJson = """
+            {
+              "SimpleInterfaceMode": true,
+              "LowStockThreshold": 7,
+              "MainCurrencyCode": "UZS"
+            }
+            """;
+
+        var settings = JsonSerializer.Deserialize<BusinessSettings>(legacyJson);
+
+        Assert.NotNull(settings);
+        Assert.Equal(7, settings.LowStockThreshold);
+        Assert.Equal("UZS", settings.MainCurrencyCode);
+        Assert.DoesNotContain("SimpleInterfaceMode", JsonSerializer.Serialize(settings));
     }
 }

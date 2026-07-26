@@ -21,7 +21,6 @@ builder.Services.AddHttpClient("google-mobile-oauth", client => client.Timeout =
 builder.Services.AddScoped<GoogleMobileSyncSnapshotService>();
 builder.Services.AddScoped<GoogleAtomicSyncPushService>();
 builder.Services.AddScoped<LoadingState>();
-builder.Services.AddScoped<InterfaceModeState>();
 builder.Services.AddScoped<CurrencyContext>();
 builder.Services.AddScoped<ProductViewPreferences>();
 builder.Services.AddScoped<BackupService>();
