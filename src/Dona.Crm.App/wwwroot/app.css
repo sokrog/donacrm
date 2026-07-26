@@ -2,6 +2,68 @@ h1:focus {
     outline: none;
 }
 
+.app-boot {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    min-height: 100vh;
+    min-height: 100dvh;
+    place-content: center;
+    justify-items: center;
+    gap: 10px;
+    padding:
+        calc(24px + env(safe-area-inset-top))
+        calc(24px + env(safe-area-inset-right))
+        calc(24px + env(safe-area-inset-bottom))
+        calc(24px + env(safe-area-inset-left));
+    background: #09070f;
+    color: #f7f1ff;
+    text-align: center;
+}
+
+.app-boot-mark {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 8px;
+    place-items: center;
+    border: 1px solid rgba(98, 220, 235, .34);
+    border-radius: 16px;
+    background: rgba(98, 220, 235, .08);
+    color: #62dceb;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+}
+
+.app-boot-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(247, 241, 255, .16);
+    border-top-color: #9f5cff;
+    border-right-color: #62dceb;
+    border-radius: 50%;
+    animation: app-boot-spin .8s linear infinite;
+}
+
+.app-boot strong {
+    margin-top: 4px;
+    font-size: 1rem;
+}
+
+.app-boot small {
+    color: #aaa0b8;
+    font-size: .78rem;
+}
+
+@keyframes app-boot-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-boot-spinner { animation: none; }
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }

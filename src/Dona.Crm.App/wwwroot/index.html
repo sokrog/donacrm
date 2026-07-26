@@ -13,7 +13,14 @@
 
 <body>
 
-    <div id="app">DONA CRM загружается...</div>
+    <div id="app">
+        <div class="app-boot" role="status" aria-live="polite" aria-label="Загрузка DONA CRM">
+            <span class="app-boot-mark" aria-hidden="true">CO</span>
+            <span class="app-boot-spinner" aria-hidden="true"></span>
+            <strong>Command Orbit</strong>
+            <small>Подготавливаем рабочее пространство…</small>
+        </div>
+    </div>
 
     <div id="blazor-error-ui" data-nosnippet>
         Произошла непредвиденная ошибка.
