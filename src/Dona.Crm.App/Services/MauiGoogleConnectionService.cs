@@ -36,7 +36,7 @@ public sealed class MauiGoogleConnectionService(HttpClient http, ISecureValueSto
     {
         cancellationToken.ThrowIfCancellationRequested();
         var normalized = Normalize(settings);
-        Preferences.Default.Set(BrokerKey, normalized.BrokerBaseUrl);
+        Preferences.Default.Remove(BrokerKey);
         Preferences.Default.Set(SpreadsheetKey, normalized.SpreadsheetId);
         if (normalized.DriveFolderId is null) Preferences.Default.Remove(DriveFolderKey);
         else Preferences.Default.Set(DriveFolderKey, normalized.DriveFolderId);
@@ -168,23 +168,23 @@ public sealed class MauiGoogleConnectionService(HttpClient http, ISecureValueSto
 
     private static GoogleConnectionSettings Normalize(GoogleConnectionSettings settings)
     {
-        var broker = GoogleResourceIds.BrokerBaseUrl(settings.BrokerBaseUrl);
-        if (string.IsNullOrWhiteSpace(broker)) throw new InvalidOperationException("Укажите HTTPS-адрес сервера DONA CRM.");
         var spreadsheet = GoogleResourceIds.Spreadsheet(settings.SpreadsheetId);
         if (string.IsNullOrWhiteSpace(spreadsheet)) throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
         var folder = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
         if (folder == string.Empty) throw new InvalidOperationException("Укажите корректную ссылку или ID папки Google Drive.");
-        return new GoogleConnectionSettings(broker, spreadsheet, folder);
+        return new GoogleConnectionSettings(string.Empty, spreadsheet, folder, settings.OAuthClientId?.Trim());
     }
 
     private static void EnsureConfigured(GoogleConnectionSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.BrokerBaseUrl) || string.IsNullOrWhiteSpace(settings.SpreadsheetId))
-            throw new InvalidOperationException("Сначала сохраните адрес сервера и Google-таблицу.");
+        if (string.IsNullOrWhiteSpace(settings.SpreadsheetId))
+            throw new InvalidOperationException("Сначала сохраните Google-таблицу.");
+        if (string.IsNullOrWhiteSpace(settings.BrokerBaseUrl))
+            throw new InvalidOperationException("Прямой вход Google через PKCE для этой платформы ещё не подключён.");
     }
 
     private static GoogleConnectionSettings ReadSettings() => new(
-        Preferences.Default.Get(BrokerKey, string.Empty),
+        string.Empty,
         Preferences.Default.Get(SpreadsheetKey, string.Empty),
         Preferences.Default.Get<string?>(DriveFolderKey, null));
 

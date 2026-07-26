@@ -50,13 +50,7 @@
                 }
                 else
                 {
-                    <details>
-                        <summary>Адрес сервера авторизации</summary>
-                        <label>Сервер DONA CRM
-                            <InputText @bind-Value="form.Broker" placeholder="https://crm.example.com" />
-                            <small>HTTPS-адрес Web-версии с настроенным Google OAuth</small>
-                        </label>
-                    </details>
+                    <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без отдельного сервера авторизации</strong><small>Адрес старой Web-версии не требуется. Прямой вход через системный браузер и PKCE будет включён для этой платформы на этапе единой Google-авторизации.</small></div></div>
                 }
 
                 @if (message is not null)
@@ -68,7 +62,7 @@
                     <button class="primary" disabled="@busy">@(busy ? "Выполняем…" : state.IsConnected ? "Сохранить и проверить" : "Сохранить")</button>
                     @if (!state.IsConnected)
                     {
-                        <button type="button" class="secondary" disabled="@busy" @onclick="ConnectAsync">Войти через Google</button>
+                        <button type="button" class="secondary" disabled="@(busy || !Platform.UsesDirectGoogleAccess)" @onclick="ConnectAsync">Войти через Google</button>
                     }
                     else
                     {
@@ -100,7 +94,7 @@
     protected override async Task OnInitializedAsync()
     {
         state = await Google.GetStateAsync();
-        form = new ConnectionForm { Broker = state.Settings.BrokerBaseUrl, OAuthClientId = state.Settings.OAuthClientId ?? string.Empty, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
+        form = new ConnectionForm { OAuthClientId = state.Settings.OAuthClientId ?? string.Empty, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
         loading = false;
     }
 
@@ -108,7 +102,11 @@
     {
         state = await Google.SaveSettingsAsync(Settings());
         if (state.IsConnected) state = await Google.CheckAsync();
-        return state.IsConnected ? "Настройки сохранены, доступ подтверждён." : "Настройки сохранены. Теперь войдите через Google.";
+        return state.IsConnected
+            ? "Настройки сохранены, доступ подтверждён."
+            : Platform.UsesDirectGoogleAccess
+                ? "Настройки сохранены. Теперь войдите через Google."
+                : "Таблица и папка сохранены локально. Прямой вход Google для этой платформы будет подключён без адреса старого Web.";
     });
 
     private async Task ConnectAsync() => await RunAsync(async () =>
@@ -132,7 +130,7 @@
         return "Google-аккаунт отключён. Локальные данные не изменены.";
     });
 
-    private GoogleConnectionSettings Settings() => new(form.Broker, form.Spreadsheet, form.DriveFolder, form.OAuthClientId);
+    private GoogleConnectionSettings Settings() => new(string.Empty, form.Spreadsheet, form.DriveFolder, form.OAuthClientId);
     private static string Initial(string? value) => string.IsNullOrWhiteSpace(value) ? "G" : value.Trim()[0].ToString().ToUpperInvariant();
 
     private async Task RunAsync(Func<Task<string>> action)
@@ -146,7 +144,6 @@
 
     private sealed class ConnectionForm
     {
-        public string Broker { get; set; } = string.Empty;
         public string OAuthClientId { get; set; } = string.Empty;
         public string Spreadsheet { get; set; } = string.Empty;
         public string? DriveFolder { get; set; }

@@ -45,7 +45,7 @@
 - **Options:** one Google OAuth account for Sheets and Drive; copy the Web service-account JSON plus separate Drive OAuth; route all access through a hosted DONA backend.
 - **Selection:** One Google OAuth account for Sheets and Drive, with the existing spreadsheet selected by URL or ID.
 - **Rationale:** The user can grant the signed-in account editor access to the existing spreadsheet without placing a service-account private key on the phone. One account also reduces setup steps.
-- **Constraints:** SQLite remains authoritative and synchronization is explicit. OAuth uses the system browser and a short-lived broker grant; refresh tokens are stored only in MAUI Secure Storage. The broker client secret stays in server configuration and never enters the app or Git. Google Drive uses the narrow `drive.file` scope.
+- **Constraints:** SQLite remains authoritative and synchronization is explicit. Browser authorization uses Google Identity Services; Android and iOS use the system browser with PKCE and an application callback; Windows uses PKCE with a loopback callback. No DONA authorization broker or user-entered server address is part of the target architecture. Tokens are stored only in platform secure storage. Google Drive uses the narrow `drive.file` scope.
 
 ## D-007 — First synchronization direction
 
