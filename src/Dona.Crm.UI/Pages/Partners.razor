@@ -23,7 +23,7 @@
     }
     else
     {
-        <label class="partner-search">Поиск<input placeholder="Название, компания или контакт" @bind="query" @bind:event="oninput" /></label>
+        <label class="partner-search orbit-search-label">Поиск<input class="orbit-search-control" placeholder="Название, компания или контакт" @bind="query" @bind:event="oninput" /></label>
         @if(mode==PartnerMode.Supplier)
         {
             @if(!FilteredSuppliers.Any()){<div class="partner-state"><strong>Поставщиков пока нет</strong><p>Добавьте магазин, чтобы выбирать его в закупках.</p></div>}else{<ul class="partner-list">@foreach(var value in FilteredSuppliers.OrderBy(item=>item.Name)){var actual=SupplierActual(value.Id);<li><button type="button" @onclick="()=>EditSupplier(value)"><InitialBadge Text="@value.Name" /><span><strong>@value.Name</strong><small>@SupplierMeta(value)</small><em>@Contact(value.Contact,value.WeChat)</em></span><b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b></button></li>}</ul>}

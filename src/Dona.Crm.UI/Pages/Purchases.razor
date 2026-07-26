@@ -7,13 +7,13 @@
 
 <PageTitle>Закупки — DONA CRM</PageTitle>
 <div class="purchases-page">
-    <header><div><p>Поставка</p><h1>Закупки</h1></div><a class="orbit-icon-button orbit-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a></header>
+    <header><div><p class="orbit-page-eyebrow">Поставка</p><h1 class="orbit-page-title">Закупки</h1></div><a class="orbit-icon-button orbit-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a></header>
     @if(loading){<div class="purchase-state">Загружаем закупки…</div>}
     else
     {
-        <section class="purchase-metrics orbit-metrics orbit-metrics--3"><article><span>В пути</span><strong>@Active.Count()</strong></article><article><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article><article class="@(OverdueCount>0?"warning":null)"><span>Просрочено</span><strong>@OverdueCount</strong></article></section>
+        <section class="purchase-metrics orbit-metrics orbit-metrics--3 orbit-kpis"><article><span>В пути</span><strong>@Active.Count()</strong><small>закупок</small></article><article><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article><article class="@(OverdueCount>0?"warning":null)"><span>Просрочено</span><strong>@OverdueCount</strong><small>закупок</small></article></section>
         @if(OverdueCount>0){<div class="purchase-alert" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>}
-        <div class="purchase-tools"><input aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" /><select aria-label="Статус закупки" @bind="status"><option value="">Все статусы</option>@foreach(var value in Enum.GetValues<PurchaseStatus>()){<option value="@value">@value.Display()</option>}</select></div>
+        <div class="purchase-tools"><input class="orbit-search-control" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" /><select aria-label="Статус закупки" @bind="status"><option value="">Все статусы</option>@foreach(var value in Enum.GetValues<PurchaseStatus>()){<option value="@value">@value.Display()</option>}</select></div>
         @if(!Filtered.Any()){<div class="purchase-state"><strong>Закупки не найдены</strong><p>Измените фильтр или создайте первую закупку.</p></div>}
         else{<div class="purchase-list">@foreach(var item in Filtered.OrderByDescending(value=>value.OrderedAt)){<a href="/purchases/@item.Id"><div class="purchase-card-title"><span><strong>@item.Number</strong><small>@(item.SupplierName??"Поставщик не указан")</small></span><em>@item.Status.Display()</em></div><div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@Money(item.TotalCostUzs) UZS</span></div><div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode)?"Без трек-кода":item.TrackingCode)</span><span>@Delivery(item)</span></div></a>}</div>}
     }

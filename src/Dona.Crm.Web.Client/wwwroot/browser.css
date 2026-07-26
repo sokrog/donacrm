@@ -8,12 +8,6 @@ html { min-width: 320px; }
     body { background-attachment:fixed; }
     :where(.orbit-home,.catalog-page,.products-page,.sales-page,.purchases-page,.partners-page,.inventory-page,.analytics-page,.marketing-page,.marketing-hub,.content-page,.customers-page,.more-page) { width:min(100%,1180px) !important; max-width:1180px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
     :where(.settings-page,.connections-page,.sync-page,.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor) { width:min(100%,960px) !important; max-width:960px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
-    .orbit-home { display:grid; grid-template-columns:minmax(320px,1.15fr) minmax(300px,1fr); align-items:start; gap:0 24px; padding:0 30px 34px; }
-    .orbit-home > :where(.home-header,.connection,.state-card,.dashboard-loading) { grid-column:1/-1; }
-    .orbit-home > .hero { margin:0; }
-    .orbit-home > .signal-strip { grid-auto-flow:row; grid-template-columns:repeat(3,minmax(0,1fr)); grid-auto-columns:auto; align-self:stretch; gap:10px; margin:0; padding:0; overflow:visible; }
-    .orbit-home > section { margin:32px 0 0; }
-    .orbit-home > section:last-of-type { grid-column:1/-1; }
     .catalog-tools { grid-template-columns:repeat(4,minmax(0,1fr)); }
     .product-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
     .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }

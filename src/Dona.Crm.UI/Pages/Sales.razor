@@ -6,10 +6,10 @@
 
 <PageTitle>Продажи — DONA CRM</PageTitle>
 <div class="sales-page" aria-busy="@loading">
-    <header><div><p>Заказы</p><h1>Продажи</h1></div><a class="orbit-icon-button orbit-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a></header>
-    <div class="sales-metrics orbit-metrics orbit-metrics--3"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
+    <header><div><p class="orbit-page-eyebrow">Заказы</p><h1 class="orbit-page-title">Продажи</h1></div><a class="orbit-icon-button orbit-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a></header>
+    <div class="sales-metrics orbit-metrics orbit-metrics--3 orbit-kpis"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
     <a class="customers-link" href="/customers"><span class="sale-icon"><OrbitIcon Name="catalog" /></span><span><strong>Клиенты</strong><small>Контакты и история заказов</small></span><b aria-hidden="true">›</b></a>
-    <label class="sales-search" for="sales-search">Поиск по номеру или клиенту<input id="sales-search" type="search" placeholder="SALE-… или имя" @bind="query" @bind:event="oninput" /></label>
+    <label class="sales-search orbit-search-label" for="sales-search">Поиск по номеру или клиенту<input class="orbit-search-control" id="sales-search" type="search" placeholder="SALE-… или имя" @bind="query" @bind:event="oninput" /></label>
     @if(loading){<div class="sales-state">Загружаем продажи…</div>}
     else if(error is not null){<div class="sales-state" role="alert">@error</div>}
     else if(Filtered.Count==0){<div class="sales-state"><strong>@(items.Count==0?"Продаж пока нет":"Ничего не найдено")</strong><p>@(items.Count==0?"Создайте первый заказ и зарезервируйте товар.":"Измените поисковый запрос.")</p></div>}
