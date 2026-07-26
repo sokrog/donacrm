@@ -13,6 +13,7 @@ public sealed class MauiGoogleConnectionService(
     private const string SpreadsheetKey = "google.spreadsheet";
     private const string DriveFolderKey = "google.drive-folder";
     private const string OAuthClientIdKey = "google.oauth-client-id";
+    private const string OAuthClientSecretKey = "google.oauth-client-secret";
     private const string AccountKey = "google.account";
     private const string ConnectedKey = "google.connected";
     private const string AccessTokenKey = "google.access-token";
@@ -40,6 +41,7 @@ public sealed class MauiGoogleConnectionService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         var normalized = Normalize(settings);
+        var previousClientId = Preferences.Default.Get<string?>(OAuthClientIdKey, null);
         Preferences.Default.Set(SpreadsheetKey, normalized.SpreadsheetId);
         if (normalized.DriveFolderId is null)
             Preferences.Default.Remove(DriveFolderKey);
@@ -49,6 +51,10 @@ public sealed class MauiGoogleConnectionService(
             Preferences.Default.Remove(OAuthClientIdKey);
         else
             Preferences.Default.Set(OAuthClientIdKey, normalized.OAuthClientId);
+        if (!string.IsNullOrWhiteSpace(normalized.OAuthClientSecret))
+            await secure.SetAsync(OAuthClientSecretKey, normalized.OAuthClientSecret);
+        else if (!string.Equals(previousClientId, normalized.OAuthClientId, StringComparison.Ordinal))
+            secure.Remove(OAuthClientSecretKey);
         ClearCheckDetails();
         return await GetStateAsync(cancellationToken);
     }
@@ -59,6 +65,7 @@ public sealed class MauiGoogleConnectionService(
         EnsureConfigured(settings);
         var token = await authorization.AuthorizeAsync(
             settings.OAuthClientId,
+            await secure.GetAsync(OAuthClientSecretKey),
             interactive: true,
             refreshToken: null,
             cancellationToken);
@@ -145,6 +152,7 @@ public sealed class MauiGoogleConnectionService(
 
         var refreshed = await authorization.AuthorizeAsync(
             settings.OAuthClientId,
+            await secure.GetAsync(OAuthClientSecretKey),
             interactive: false,
             await secure.GetAsync(RefreshTokenKey),
             cancellationToken);
@@ -207,7 +215,11 @@ public sealed class MauiGoogleConnectionService(
         var folder = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
         if (folder == string.Empty)
             throw new InvalidOperationException("Укажите корректную ссылку или ID папки Google Drive.");
-        return new GoogleConnectionSettings(spreadsheet, folder, settings.OAuthClientId?.Trim());
+        return new GoogleConnectionSettings(
+            spreadsheet,
+            folder,
+            settings.OAuthClientId?.Trim(),
+            settings.OAuthClientSecret?.Trim());
     }
 
     private void EnsureConfigured(GoogleConnectionSettings settings)

@@ -10,6 +10,7 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
 
     public async Task<GooglePlatformToken> AuthorizeAsync(
         string? clientId,
+        string? clientSecret,
         bool interactive,
         string? refreshToken,
         CancellationToken cancellationToken = default)
@@ -19,7 +20,7 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
                 throw new InvalidOperationException("Сессия Google завершена. Выполните вход ещё раз.");
-            return await GoogleOAuthPkce.RefreshAsync(http, clientId, refreshToken, cancellationToken);
+            return await GoogleOAuthPkce.RefreshAsync(http, clientId, clientSecret, refreshToken, cancellationToken);
         }
 
         var port = ReserveLoopbackPort();
@@ -61,6 +62,7 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
         return await GoogleOAuthPkce.ExchangeAsync(
             http,
             clientId,
+            clientSecret,
             redirectUri,
             code,
             verifier,

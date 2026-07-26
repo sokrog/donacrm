@@ -47,14 +47,18 @@ public static class MauiProgram
 			"Основное хранилище · доступно без интернета",
 			UsesDirectGoogleAccess: true,
 			RequiresOAuthClientId: true,
-			OAuthClientDescription: "OAuth Client ID типа iOS из Google Cloud Console"));
+			OAuthClientDescription: "OAuth Client ID типа iOS из Google Cloud Console",
+			SupportsOAuthClientSecret: true,
+			OAuthClientSecretDescription: "Client Secret из JSON iOS OAuth-клиента; сохраняется в Keychain"));
 #else
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",
 			"Основное хранилище · доступно без интернета",
 			UsesDirectGoogleAccess: true,
 			RequiresOAuthClientId: true,
-			OAuthClientDescription: "OAuth Client ID типа Desktop app из Google Cloud Console"));
+			OAuthClientDescription: "OAuth Client ID типа Desktop app из Google Cloud Console",
+			SupportsOAuthClientSecret: true,
+			OAuthClientSecretDescription: "Client Secret из JSON Desktop OAuth-клиента; сохраняется в защищённом хранилище Windows"));
 #endif
 		builder.Services.AddSingleton(new SqliteStoreOptions(
 			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));

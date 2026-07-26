@@ -11,6 +11,7 @@ public interface IGooglePlatformAuthorization
 
     Task<GooglePlatformToken> AuthorizeAsync(
         string? clientId,
+        string? clientSecret,
         bool interactive,
         string? refreshToken,
         CancellationToken cancellationToken = default);

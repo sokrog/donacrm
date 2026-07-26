@@ -5,7 +5,8 @@ namespace Dona.Crm.Web.Services;
 public sealed record GoogleConnectionSettings(
     string SpreadsheetId,
     string? DriveFolderId,
-    string? OAuthClientId = null);
+    string? OAuthClientId = null,
+    string? OAuthClientSecret = null);
 
 public sealed record GoogleConnectionState(
     GoogleConnectionSettings Settings,
@@ -23,7 +24,9 @@ public sealed record AppPlatformProfile(
     string StorageDescription,
     bool UsesDirectGoogleAccess,
     bool RequiresOAuthClientId,
-    string OAuthClientDescription);
+    string OAuthClientDescription,
+    bool SupportsOAuthClientSecret = false,
+    string? OAuthClientSecretDescription = null);
 
 public interface IGoogleConnectionService
 {

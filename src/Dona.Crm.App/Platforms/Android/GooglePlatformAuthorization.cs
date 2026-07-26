@@ -21,6 +21,7 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
 
     public async Task<GooglePlatformToken> AuthorizeAsync(
         string? clientId,
+        string? clientSecret,
         bool interactive,
         string? refreshToken,
         CancellationToken cancellationToken = default)

@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -43,21 +42,24 @@ internal static class GoogleOAuthPkce
     public static async Task<GooglePlatformToken> ExchangeAsync(
         HttpClient http,
         string clientId,
+        string? clientSecret,
         Uri redirectUri,
         string code,
         string verifier,
         CancellationToken cancellationToken)
     {
+        var parameters = new Dictionary<string, string>
+        {
+            ["client_id"] = clientId,
+            ["redirect_uri"] = redirectUri.ToString(),
+            ["code"] = code,
+            ["code_verifier"] = verifier,
+            ["grant_type"] = "authorization_code"
+        };
+        AddClientSecret(parameters, clientSecret);
         using var response = await http.PostAsync(
             TokenEndpoint,
-            new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["client_id"] = clientId,
-                ["redirect_uri"] = redirectUri.ToString(),
-                ["code"] = code,
-                ["code_verifier"] = verifier,
-                ["grant_type"] = "authorization_code"
-            }),
+            new FormUrlEncodedContent(parameters),
             cancellationToken);
         return await ReadTokenAsync(response, cancellationToken);
     }
@@ -65,17 +67,20 @@ internal static class GoogleOAuthPkce
     public static async Task<GooglePlatformToken> RefreshAsync(
         HttpClient http,
         string clientId,
+        string? clientSecret,
         string refreshToken,
         CancellationToken cancellationToken)
     {
+        var parameters = new Dictionary<string, string>
+        {
+            ["client_id"] = clientId,
+            ["refresh_token"] = refreshToken,
+            ["grant_type"] = "refresh_token"
+        };
+        AddClientSecret(parameters, clientSecret);
         using var response = await http.PostAsync(
             TokenEndpoint,
-            new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["client_id"] = clientId,
-                ["refresh_token"] = refreshToken,
-                ["grant_type"] = "refresh_token"
-            }),
+            new FormUrlEncodedContent(parameters),
             cancellationToken);
         var token = await ReadTokenAsync(response, cancellationToken);
         return token with { RefreshToken = refreshToken };
@@ -100,7 +105,12 @@ internal static class GoogleOAuthPkce
     {
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
+        {
+            if (content.Contains("client_secret is missing", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Этот OAuth-клиент Google требует Client Secret. Вставьте его из JSON OAuth-клиента в настройках подключения и повторите вход.");
             throw new InvalidOperationException($"Google OAuth вернул ошибку: {content}");
+        }
 
         using var document = JsonDocument.Parse(content);
         var root = document.RootElement;
@@ -113,4 +123,10 @@ internal static class GoogleOAuthPkce
 
     private static string Base64Url(byte[] value) =>
         Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static void AddClientSecret(IDictionary<string, string> parameters, string? clientSecret)
+    {
+        if (!string.IsNullOrWhiteSpace(clientSecret))
+            parameters["client_secret"] = clientSecret.Trim();
+    }
 }
