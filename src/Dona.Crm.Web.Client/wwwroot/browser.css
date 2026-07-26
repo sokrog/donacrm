@@ -18,7 +18,6 @@ html { min-width: 320px; }
     .product-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
     .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }
     .marketing-page .marketing-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
-    .content-page .content-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); }
     .content-page .content-tools { grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); align-items:end; }
     .content-page .content-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
     :where(.form-actions,.actions,.settings-actions) { position:static !important; bottom:auto !important; margin-top:4px; }

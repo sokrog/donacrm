@@ -8,7 +8,7 @@
 
 <PageTitle>Корректировка склада — DONA CRM</PageTitle>
 <div class="adjust-page">
-    <header><a href="/inventory" aria-label="Вернуться к движениям склада">‹</a><div><p>Склад</p><h1>Корректировка</h1></div></header>
+    <header><a class="orbit-icon-button orbit-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a><div><p>Склад</p><h1>Корректировка</h1></div></header>
     @if (isLoading) { <div class="adjust-state">Загружаем остатки…</div> }
     else if (products.Count == 0) { <div class="adjust-state"><strong>Нет товаров с вариантами</strong><p>Сначала добавьте товар и хотя бы один вариант.</p><a href="/products/new">Добавить товар</a></div> }
     else

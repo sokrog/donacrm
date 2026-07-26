@@ -7,7 +7,7 @@
 
 <PageTitle>@(IsNew?"Новая публикация":post.Title) — DONA CRM</PageTitle>
 <div class="content-editor">
-    <header><a href="/content-plan" aria-label="Вернуться к контент-плану">‹</a><div><p>@post.Status.Display()</p><h1>@(IsNew?"Новая публикация":post.Title)</h1></div></header>
+    <header><a class="orbit-icon-button orbit-back-button" href="/content-plan" aria-label="Вернуться к контент-плану"><OrbitIcon Name="back" /></a><div><p>@post.Status.Display()</p><h1>@(IsNew?"Новая публикация":post.Title)</h1></div></header>
     @if(loading){<div class="editor-state">Загружаем публикацию…</div>}
     else if(error is not null){<div class="editor-state" role="alert">@error</div>}
     else

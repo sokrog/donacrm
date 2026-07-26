@@ -14,7 +14,7 @@
 <PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
 
 <div class="editor-page" aria-busy="@isLoading">
-    <header><a href="/products" aria-label="Вернуться в каталог">‹</a><div><p>Каталог</p><h1>@(IsNew ? "Новый товар" : "Редактирование")</h1></div></header>
+    <header><a class="orbit-icon-button orbit-back-button" href="/products" aria-label="Вернуться в каталог"><OrbitIcon Name="back" /></a><div><p>Каталог</p><h1>@(IsNew ? "Новый товар" : "Редактирование")</h1></div></header>
 
     @if (isLoading) { <div class="editor-state" role="status">Загружаем товар…</div> }
     else if (errorMessage is not null) { <div class="editor-state" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a href="/products">В каталог</a></div> }
@@ -23,7 +23,7 @@
         <EditForm Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <section aria-labelledby="photos">
-                <div class="section-title"><h2 id="photos">Фотографии</h2><button type="button" disabled="@(imageBusy || model.Images.Count >= 12)" @onclick="PickImageAsync">@(imageBusy ? "Открываем…" : "＋ Выбрать")</button></div>
+                <div class="section-title"><h2 id="photos">Фотографии</h2><button type="button" disabled="@(imageBusy || model.Images.Count >= 12)" @onclick="PickImageAsync">@if(!imageBusy){<OrbitIcon Name="plus" Class="orbit-inline-icon" />}@(imageBusy ? "Открываем…" : "Выбрать")</button></div>
                 <div class="image-url-add"><label>Добавить по ссылке<InputText @bind-Value="imageUrl" inputmode="url" placeholder="https://…/photo.jpg" /></label><button type="button" disabled="@(imageBusy || model.Images.Count >= 12 || string.IsNullOrWhiteSpace(imageUrl))" @onclick="AddImageUrl">Добавить</button></div>
                 @if (model.Images.Count == 0)
                 {
@@ -61,7 +61,7 @@
                 <div class="field-row"><label>Доставка, UZS<InputNumber @bind-Value="model.DeliveryCostUzs" /></label><label>Продажа, UZS<InputNumber @bind-Value="model.SellingPriceUzs" /></label></div>
             </section>
 
-            <section aria-labelledby="variants"><div class="section-title"><h2 id="variants">Варианты и остатки</h2><button type="button" @onclick="AddVariant">＋ Добавить</button></div>
+            <section aria-labelledby="variants"><div class="section-title"><h2 id="variants">Варианты и остатки</h2><button type="button" @onclick="AddVariant"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Добавить</button></div>
                 @if (model.Variants.Count == 0) { <p class="empty-variants">Добавьте цвет, размер и количество.</p> }
                 @foreach (var variant in model.Variants)
                 {

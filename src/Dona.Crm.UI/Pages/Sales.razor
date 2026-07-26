@@ -6,8 +6,8 @@
 
 <PageTitle>Продажи — DONA CRM</PageTitle>
 <div class="sales-page" aria-busy="@loading">
-    <header><div><p>Заказы</p><h1>Продажи</h1></div><a href="/sales/new" aria-label="Создать продажу">＋</a></header>
-    <div class="sales-metrics"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
+    <header><div><p>Заказы</p><h1>Продажи</h1></div><a class="orbit-icon-button orbit-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a></header>
+    <div class="sales-metrics orbit-metrics orbit-metrics--3"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
     <a class="customers-link" href="/customers"><span class="sale-icon"><OrbitIcon Name="catalog" /></span><span><strong>Клиенты</strong><small>Контакты и история заказов</small></span><b aria-hidden="true">›</b></a>
     <label class="sales-search" for="sales-search">Поиск по номеру или клиенту<input id="sales-search" type="search" placeholder="SALE-… или имя" @bind="query" @bind:event="oninput" /></label>
     @if(loading){<div class="sales-state">Загружаем продажи…</div>}

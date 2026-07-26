@@ -10,7 +10,7 @@
 
 <PageTitle>Партнёры — DONA CRM</PageTitle>
 <div class="partners-page">
-    <header><div><a href="/more">Ещё</a><h1>Партнёры</h1></div>@if(!Editing){<button type="button" aria-label="Добавить партнёра" @onclick="NewPartner">＋</button>}</header>
+    <header><div><a href="/more">Ещё</a><h1>Партнёры</h1></div>@if(!Editing){<button class="orbit-icon-button orbit-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>}</header>
     <div class="partner-tabs" role="group" aria-label="Тип партнёра"><button type="button" class="@(mode==PartnerMode.Supplier?"active":null)" aria-pressed="@(mode==PartnerMode.Supplier)" @onclick="()=>SwitchMode(PartnerMode.Supplier)">Поставщики <span>@suppliers.Count</span></button><button type="button" class="@(mode==PartnerMode.Intermediary?"active":null)" aria-pressed="@(mode==PartnerMode.Intermediary)" @onclick="()=>SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button></div>
     @if(loading){<div class="partner-state">Загружаем партнёров…</div>}
     else if(editingSupplier is not null)

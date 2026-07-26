@@ -11,7 +11,7 @@
 
 <PageTitle>@Title — DONA CRM</PageTitle>
 <div class="marketing-editor">
-    <header><a href="@BackUrl" aria-label="Назад">‹</a><div><p>@(IsCollection ? "Коллекции" : "Образы")</p><h1>@Title</h1></div></header>
+    <header><a class="orbit-icon-button orbit-back-button" href="@BackUrl" aria-label="Назад"><OrbitIcon Name="back" /></a><div><p>@(IsCollection ? "Коллекции" : "Образы")</p><h1>@Title</h1></div></header>
     @if(isLoading){<div class="editor-state">Загружаем…</div>}
     else if(error is not null){<div class="editor-state" role="alert">@error</div>}
     else
@@ -32,7 +32,7 @@
                     <div class="field-row"><label>Повод<InputText @bind-Value="outfit.Occasion" /></label><label>Статус<InputSelect class="adjust-select" @bind-Value="outfit.Status"><option value="">Не указан</option>@foreach(var status in Enum.GetValues<MarketingStatus>()){<option value="@status">@status.Display()</option>}</InputSelect></label></div>
                 }
             </section>
-            <section><div class="section-title"><div><h2>Состав</h2><p>@(IsCollection ? "Порядок товаров в подборке" : $"Итого {Money(outfit.TotalPriceUzs)} UZS")</p></div><button type="button" @onclick="AddProduct">＋ Добавить</button></div>
+            <section><div class="section-title"><div><h2>Состав</h2><p>@(IsCollection ? "Порядок товаров в подборке" : $"Итого {Money(outfit.TotalPriceUzs)} UZS")</p></div><button type="button" @onclick="AddProduct"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Добавить</button></div>
                 @if(ItemCount==0){<p class="empty-items">Товары ещё не добавлены.</p>}
                 else if(IsCollection)
                 {

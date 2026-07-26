@@ -14,7 +14,7 @@
 
 <PageTitle>@(IsNew?"Новая продажа":sale.Number) — DONA CRM</PageTitle>
 <div class="sale-editor">
-    <header><a href="/sales" aria-label="Вернуться к продажам">‹</a><div><p>@sale.Status.Display()</p><h1>@(IsNew?"Новая продажа":sale.Number)</h1></div></header>
+    <header><a class="orbit-icon-button orbit-back-button" href="/sales" aria-label="Вернуться к продажам"><OrbitIcon Name="back" /></a><div><p>@sale.Status.Display()</p><h1>@(IsNew?"Новая продажа":sale.Number)</h1></div></header>
     @if(loading){<div class="editor-state">Загружаем заказ…</div>}
     else if(error is not null){<div class="editor-state" role="alert">@error</div>}
     else
@@ -27,7 +27,7 @@
                     <div class="field-row"><label>Доставка<select @bind="sale.DeliveryMethod"><option value="">Не выбрана</option>@foreach(var value in Enum.GetValues<DeliveryMethod>()){<option value="@value">@value.Display()</option>}</select></label><label>Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" /></label></div>
                     <label>Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
                 </section>
-                <section><div class="section-title"><div><h2>Товары</h2><p>@sale.TotalQuantity ед. · @Money(sale.TotalUzs) UZS</p></div><button type="button" @onclick="AddItem">＋ Позиция</button></div>
+                <section><div class="section-title"><div><h2>Товары</h2><p>@sale.TotalQuantity ед. · @Money(sale.TotalUzs) UZS</p></div><button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Позиция</button></div>
                     @if(sale.Items.Count==0){<p class="empty-items">Добавьте хотя бы один товар.</p>}
                     @foreach(var item in sale.Items){<article class="sale-line" @key="item.Id"><label class="product-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>ProductChanged(item,product)" /></label><label>Вариант<select value="@item.ProductVariantId" @onchange="args=>VariantChanged(item,args)"><option value="">Выберите вариант</option>@foreach(var variant in Variants(item)){<option value="@variant.Id">@VariantName(variant) · доступно @variant.AvailableQuantity</option>}</select></label><div class="line-numbers"><label>Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label><label>Цена, UZS<InputNumber @bind-Value="item.UnitPriceUzs" min="0" /></label></div><button type="button" class="remove-line" aria-label="Удалить позицию" @onclick="()=>sale.Items.Remove(item)">×</button></article>}
                 </section>
