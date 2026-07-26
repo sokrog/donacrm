@@ -1,0 +1,122 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@implements IDisposable
+@inject NavigationManager Navigation
+
+<NavigationLock OnBeforeInternalNavigation="BeforeInternalNavigation" ConfirmExternalNavigation="@isDirty" />
+
+@if (showDialog)
+{
+    <div class="unsaved-overlay" role="presentation" @onclick="Stay">
+        <section class="unsaved-dialog" role="alertdialog" aria-modal="true" aria-labelledby="@titleId" aria-describedby="@descriptionId" @onclick:stopPropagation="true">
+            <span class="unsaved-icon" aria-hidden="true">!</span>
+            <div>
+                <h2 id="@titleId">Есть несохранённые изменения</h2>
+                <p id="@descriptionId">Если выйти, внесённые данные будут потеряны.</p>
+            </div>
+            <div class="unsaved-actions">
+                <button type="button" class="stay" autofocus @onclick="Stay">Остаться</button>
+                <button type="button" class="discard" @onclick="Discard">Выйти без сохранения</button>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
+    [Parameter] public EventCallback<bool> DirtyChanged { get; set; }
+
+    private readonly string titleId = $"unsaved-title-{Guid.NewGuid():N}";
+    private readonly string descriptionId = $"unsaved-description-{Guid.NewGuid():N}";
+    private EditContext? subscribedEditContext;
+    private TaskCompletionSource<bool>? pendingDecision;
+    private string? pendingLocation;
+    private bool bypassNextNavigation;
+    private bool isDirty;
+    private bool showDialog;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(subscribedEditContext, CascadedEditContext))
+            return;
+
+        if (subscribedEditContext is not null)
+            subscribedEditContext.OnFieldChanged -= FieldChanged;
+
+        subscribedEditContext = CascadedEditContext;
+        if (subscribedEditContext is not null)
+            subscribedEditContext.OnFieldChanged += FieldChanged;
+    }
+
+    public void MarkDirty() => SetDirty(true);
+    public void MarkClean() => SetDirty(false);
+
+    public Task<bool> ConfirmDiscardAsync()
+    {
+        if (!isDirty)
+            return Task.FromResult(true);
+
+        pendingDecision?.TrySetResult(false);
+        pendingDecision = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        showDialog = true;
+        StateHasChanged();
+        return pendingDecision.Task;
+    }
+
+    private void FieldChanged(object? sender, FieldChangedEventArgs args) => SetDirty(true);
+
+    private Task BeforeInternalNavigation(LocationChangingContext context)
+    {
+        if (!isDirty || bypassNextNavigation)
+        {
+            bypassNextNavigation = false;
+            return Task.CompletedTask;
+        }
+
+        context.PreventNavigation();
+        pendingLocation = context.TargetLocation;
+        showDialog = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void Stay()
+    {
+        showDialog = false;
+        pendingLocation = null;
+        pendingDecision?.TrySetResult(false);
+        pendingDecision = null;
+    }
+
+    private void Discard()
+    {
+        var target = pendingLocation;
+        pendingLocation = null;
+        showDialog = false;
+        SetDirty(false);
+
+        pendingDecision?.TrySetResult(true);
+        pendingDecision = null;
+
+        if (target is null)
+            return;
+
+        bypassNextNavigation = true;
+        Navigation.NavigateTo(target);
+    }
+
+    private void SetDirty(bool value)
+    {
+        if (isDirty == value)
+            return;
+
+        isDirty = value;
+        _ = DirtyChanged.InvokeAsync(value);
+    }
+
+    public void Dispose()
+    {
+        if (subscribedEditContext is not null)
+            subscribedEditContext.OnFieldChanged -= FieldChanged;
+        pendingDecision?.TrySetResult(false);
+    }
+}

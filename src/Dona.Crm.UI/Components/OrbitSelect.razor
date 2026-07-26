@@ -1,0 +1,129 @@
+@typeparam TValue
+@inherits InputBase<TValue>
+@using System.Diagnostics.CodeAnalysis
+
+<button type="button"
+        class="orbit-select-trigger @(CssClass) @(SelectedOption is null ? "empty" : null)"
+        disabled="@Disabled"
+        role="combobox"
+        aria-label="@AriaLabel"
+        aria-expanded="@open"
+        aria-controls="@dialogId"
+        aria-haspopup="dialog"
+        @onclick="Open"
+        @onkeydown="TriggerKeyDown">
+    <span>@(SelectedOption?.Label ?? Placeholder)</span>
+    <OrbitIcon Name="down" />
+</button>
+
+@if (open)
+{
+    <div class="orbit-select-overlay" role="presentation" @onclick="Close">
+        <section id="@dialogId"
+                 class="orbit-select-dialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="@titleId"
+                 tabindex="-1"
+                 @onclick:stopPropagation="true"
+                 @onkeydown="DialogKeyDown">
+            <header>
+                <div><small>Выбор значения</small><h2 id="@titleId">@Title</h2></div>
+                <button type="button" class="close" aria-label="Закрыть список" @onclick="Close">×</button>
+            </header>
+            @if (Searchable || Options.Count > SearchThreshold)
+            {
+                <input class="orbit-select-search"
+                       type="search"
+                       value="@query"
+                       placeholder="Поиск"
+                       aria-label="Поиск по вариантам"
+                       autocomplete="off"
+                       autofocus
+                       @oninput="Search" />
+            }
+            <div class="orbit-select-options" role="listbox" aria-label="@Title">
+                @foreach (var option in FilteredOptions)
+                {
+                    var selected = IsSelected(option);
+                    <button type="button"
+                            role="option"
+                            aria-selected="@selected"
+                            class="@(selected ? "selected" : null)"
+                            @onclick="() => SelectAsync(option)">
+                        <span><strong>@option.Label</strong>@if (!string.IsNullOrWhiteSpace(option.Description)){<small>@option.Description</small>}</span>
+                        <i aria-hidden="true"></i>
+                    </button>
+                }
+                @if (FilteredOptions.Count == 0)
+                {
+                    <p class="orbit-select-empty">Подходящих вариантов нет.</p>
+                }
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<OrbitSelectOption<TValue>> Options { get; set; } = [];
+    [Parameter] public string Placeholder { get; set; } = "Не выбрано";
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public bool Searchable { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public int SearchThreshold { get; set; } = 8;
+
+    private readonly string dialogId = $"orbit-select-{Guid.NewGuid():N}";
+    private readonly string titleId = $"orbit-select-title-{Guid.NewGuid():N}";
+    private bool open;
+    private string query = string.Empty;
+    private string Title => Label ?? AriaLabel ?? "Выберите значение";
+    private OrbitSelectOption<TValue>? SelectedOption => Options.FirstOrDefault(IsSelected);
+    private IReadOnlyList<OrbitSelectOption<TValue>> FilteredOptions =>
+        string.IsNullOrWhiteSpace(query)
+            ? Options
+            : Options.Where(option =>
+                option.Label.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                (option.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+
+    private bool IsSelected(OrbitSelectOption<TValue> option) =>
+        EqualityComparer<TValue>.Default.Equals(option.Value, CurrentValue);
+
+    private void Open()
+    {
+        if (Disabled)
+            return;
+        query = string.Empty;
+        open = true;
+    }
+
+    private void Close() => open = false;
+
+    private async Task SelectAsync(OrbitSelectOption<TValue> option)
+    {
+        CurrentValue = option.Value;
+        open = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Search(ChangeEventArgs args) => query = args.Value?.ToString() ?? string.Empty;
+
+    private void TriggerKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " " or "ArrowDown")
+            Open();
+    }
+
+    private void DialogKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            Close();
+    }
+
+    protected override bool TryParseValueFromString(string? value, out TValue result, [NotNullWhen(false)] out string? validationErrorMessage)
+    {
+        result = default!;
+        validationErrorMessage = null;
+        return true;
+    }
+}

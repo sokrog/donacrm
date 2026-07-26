@@ -5,7 +5,7 @@
 
 <PageTitle>Подключения — DONA CRM</PageTitle>
 <div class="connections-page">
-    <header><div><a href="/more">Ещё</a><h1>Подключения</h1><p>Локальные данные остаются основными. Обмен запускается только вами.</p></div></header>
+    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><small>Ещё</small><h1>Подключения</h1><p>Локальные данные остаются основными. Обмен запускается только вами.</p></div></div></header>
 
     @if (loading)
     {
@@ -32,6 +32,7 @@
             }
 
             <EditForm Model="form" OnValidSubmit="SaveAsync">
+                <UnsavedChangesGuard @ref="unsavedGuard" />
                 <label>Существующая Google-таблица
                     <InputText @bind-Value="form.Spreadsheet" placeholder="Ссылка или ID таблицы" />
                     <small>@(state.SpreadsheetName is null ? "Аккаунту Google потребуется доступ редактора" : $"Проверено: {state.SpreadsheetName}")</small>
@@ -95,6 +96,7 @@
 @code {
     private GoogleConnectionState state = new(new GoogleConnectionSettings(string.Empty, null), false);
     private ConnectionForm form = new();
+    private UnsavedChangesGuard? unsavedGuard;
     private bool loading = true;
     private bool busy;
     private bool success;
@@ -146,7 +148,7 @@
     {
         if (busy) return;
         busy = true; message = null;
-        try { message = await action(); success = true; }
+        try { message = await action(); unsavedGuard?.MarkClean(); success = true; }
         catch (Exception exception) { message = exception.Message; success = false; }
         finally { busy = false; }
     }

@@ -1,12 +1,15 @@
 .orbit-shell {
     min-height: 100dvh;
+    --orbit-navigation-offset: 76px;
 }
+
+.orbit-shell.is-focused-route { --orbit-navigation-offset: 0px; }
 
 .orbit-sidebar { display: none; }
 
 .orbit-main {
     min-height: 100dvh;
-    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--orbit-navigation-offset) + 10px + env(safe-area-inset-bottom));
 }
 
 .orbit-tabs {

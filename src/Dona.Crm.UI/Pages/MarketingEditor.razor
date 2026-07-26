@@ -16,32 +16,32 @@
     else if(error is not null){<div class="editor-state" role="alert">@error</div>}
     else
     {
-        <EditForm Model="FormModel" OnValidSubmit="SaveAsync"><DataAnnotationsValidator />
+        <EditForm Model="FormModel" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" />
             <section><h2>Основное</h2>
                 @if(IsCollection)
                 {
                     <label>Название<InputText @bind-Value="collection.Name" /><ValidationMessage For="()=>collection.Name" /></label>
                     <label>Описание<InputTextArea @bind-Value="collection.Description" /></label>
                     <div class="field-row"><label>Сезон<InputText @bind-Value="collection.Season" /></label><label>Стиль<InputText @bind-Value="collection.Style" /></label></div>
-                    <div class="field-row"><label>Бюджет, UZS<InputNumber @bind-Value="collection.BudgetLimitUzs" /></label><label>Статус<InputSelect class="adjust-select" @bind-Value="collection.Status"><option value="">Не указан</option>@foreach(var status in Enum.GetValues<MarketingStatus>()){<option value="@status">@status.Display()</option>}</InputSelect></label></div>
+                    <div class="field-row"><label>Бюджет, UZS<InputNumber @bind-Value="collection.BudgetLimitUzs" /></label><label>Статус<OrbitSelect TValue="MarketingStatus?" @bind-Value="collection.Status" Options="@MarketingStatusOptions" Label="Статус коллекции" /></label></div>
                 }
                 else
                 {
                     <label>Название<InputText @bind-Value="outfit.Name" /><ValidationMessage For="()=>outfit.Name" /></label>
                     <label>Описание<InputTextArea @bind-Value="outfit.Description" /></label>
-                    <div class="field-row"><label>Повод<InputText @bind-Value="outfit.Occasion" /></label><label>Статус<InputSelect class="adjust-select" @bind-Value="outfit.Status"><option value="">Не указан</option>@foreach(var status in Enum.GetValues<MarketingStatus>()){<option value="@status">@status.Display()</option>}</InputSelect></label></div>
+                    <div class="field-row"><label>Повод<InputText @bind-Value="outfit.Occasion" /></label><label>Статус<OrbitSelect TValue="MarketingStatus?" @bind-Value="outfit.Status" Options="@MarketingStatusOptions" Label="Статус образа" /></label></div>
                 }
             </section>
-            <EntityImageEditor @ref="imageEditor" Images="@CurrentImages" OwnerId="@CurrentId" EntityLabel="@(IsCollection ? "коллекции" : "образа")" />
+            <EntityImageEditor @ref="imageEditor" Images="@CurrentImages" OwnerId="@CurrentId" EntityLabel="@(IsCollection ? "коллекции" : "образа")" ImagesChanged="MarkDirty" />
             <section><div class="section-title"><div><h2>Состав</h2><p>@(IsCollection ? "Порядок товаров в подборке" : $"Итого {Money(outfit.TotalPriceUzs)} UZS")</p></div><button type="button" @onclick="AddProduct"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Добавить</button></div>
                 @if(ItemCount==0){<p class="empty-items">Товары ещё не добавлены.</p>}
                 else if(IsCollection)
                 {
-                    @foreach(var item in collection.Products){<div class="product-row" @key="item.Id"><label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>CollectionProductChanged(item,product)" /></label><button type="button" aria-label="Убрать товар" @onclick="()=>collection.Products.Remove(item)">×</button></div>}
+                    @foreach(var item in collection.Products){<div class="product-row" @key="item.Id"><label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>CollectionProductChanged(item,product)" /></label><button type="button" aria-label="Убрать товар" @onclick="()=>RemoveCollectionProduct(item)">×</button></div>}
                 }
                 else
                 {
-                    @foreach(var item in outfit.Products){<div class="outfit-row" @key="item.Id"><label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>OutfitProductChanged(item,product)" /></label><label>Цена, UZS<InputNumber @bind-Value="item.SellingPriceUzs" /></label><button type="button" aria-label="Убрать товар" @onclick="()=>outfit.Products.Remove(item)">×</button></div>}
+                    @foreach(var item in outfit.Products){<div class="outfit-row" @key="item.Id"><label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>OutfitProductChanged(item,product)" /></label><label>Цена, UZS<InputNumber @bind-Value="item.SellingPriceUzs" /></label><button type="button" aria-label="Убрать товар" @onclick="()=>RemoveOutfitProduct(item)">×</button></div>}
                 }
             </section>
             <ValidationSummary />@if(saveError is not null){<p class="save-error" role="alert">@saveError</p>}
@@ -52,13 +52,15 @@
     }
 </div>
 @code{
-    [Parameter]public Guid? Id{get;set;}private ProductCollection collection=new(){Status=MarketingStatus.Draft};private Outfit outfit=new(){Status=MarketingStatus.Draft};private IReadOnlyList<Product> products=[];private EntityImageEditor? imageEditor;private bool isLoading=true;private bool saving;private bool confirmDelete;private string? error;private string? saveError;
+    [Parameter]public Guid? Id{get;set;}private ProductCollection collection=new(){Status=MarketingStatus.Draft};private Outfit outfit=new(){Status=MarketingStatus.Draft};private IReadOnlyList<Product> products=[];private EntityImageEditor? imageEditor;private UnsavedChangesGuard? unsavedGuard;private bool isLoading=true;private bool saving;private bool confirmDelete;private string? error;private string? saveError;
     private bool IsCollection=>new Uri(Navigation.Uri).AbsolutePath.StartsWith("/collections",StringComparison.Ordinal);private bool IsNew=>Id is null;private string BackUrl=>IsCollection?"/collections":"/outfits";private string Title=>IsNew?(IsCollection?"Новая коллекция":"Новый образ"):(IsCollection?"Редактирование коллекции":"Редактирование образа");private object FormModel=>IsCollection?collection:outfit;private int ItemCount=>IsCollection?collection.Products.Count:outfit.Products.Count;private List<ProductImage> CurrentImages=>IsCollection?collection.Images:outfit.Images;private Guid CurrentId=>IsCollection?collection.Id:outfit.Id;
+    private static readonly IReadOnlyList<OrbitSelectOption<MarketingStatus?>> MarketingStatusOptions=OrbitSelectOptions.Optional(Enum.GetValues<MarketingStatus>(),"Не указан",value=>value.Display());
     protected override async Task OnParametersSetAsync(){isLoading=true;error=null;try{products=(await Catalog.GetProductsAsync()).Where(value=>value.Status!=ProductStatus.Archived).ToList();if(Id is not null){if(IsCollection)collection=(await Marketing.GetCollectionsAsync()).FirstOrDefault(value=>value.Id==Id)??throw new InvalidOperationException("Коллекция не найдена.");else outfit=(await Marketing.GetOutfitsAsync()).FirstOrDefault(value=>value.Id==Id)??throw new InvalidOperationException("Образ не найден.");}}catch(Exception ex){error=ex.Message;}finally{isLoading=false;}}
-    private void AddProduct(){if(IsCollection)collection.Products.Add(new CollectionProduct{SortOrder=collection.Products.Count});else outfit.Products.Add(new OutfitProduct{SortOrder=outfit.Products.Count});}
-    private static void CollectionProductChanged(CollectionProduct item,Product? product){item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;}
-    private static void OutfitProductChanged(OutfitProduct item,Product? product){item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;if(product is not null)item.SellingPriceUzs=product.SellingPriceUzs;}
-    private async Task SaveAsync(){saving=true;saveError=null;try{if(IsCollection){for(var i=0;i<collection.Products.Count;i++)collection.Products[i].SortOrder=i;await Marketing.UpsertCollectionAsync(collection);}else{for(var i=0;i<outfit.Products.Count;i++)outfit.Products[i].SortOrder=i;await Marketing.UpsertOutfitAsync(outfit);}if(imageEditor is not null)await imageEditor.CommitAsync();Navigation.NavigateTo(BackUrl);}catch(Exception ex){saveError=ex.Message;}finally{saving=false;}}
-    private async Task DeleteAsync(){if(IsCollection)await Marketing.DeleteCollectionAsync(collection.Id);else await Marketing.DeleteOutfitAsync(outfit.Id);if(imageEditor is not null)await imageEditor.DeleteAllAsync();Navigation.NavigateTo(BackUrl);}
+    private void AddProduct(){if(IsCollection)collection.Products.Add(new CollectionProduct{SortOrder=collection.Products.Count});else outfit.Products.Add(new OutfitProduct{SortOrder=outfit.Products.Count});unsavedGuard?.MarkDirty();}
+    private void CollectionProductChanged(CollectionProduct item,Product? product){item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;MarkDirty();}
+    private void OutfitProductChanged(OutfitProduct item,Product? product){item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;if(product is not null)item.SellingPriceUzs=product.SellingPriceUzs;MarkDirty();}
+    private void RemoveCollectionProduct(CollectionProduct item){collection.Products.Remove(item);MarkDirty();}private void RemoveOutfitProduct(OutfitProduct item){outfit.Products.Remove(item);MarkDirty();}private void MarkDirty()=>unsavedGuard?.MarkDirty();
+    private async Task SaveAsync(){saving=true;saveError=null;try{if(IsCollection){for(var i=0;i<collection.Products.Count;i++)collection.Products[i].SortOrder=i;await Marketing.UpsertCollectionAsync(collection);}else{for(var i=0;i<outfit.Products.Count;i++)outfit.Products[i].SortOrder=i;await Marketing.UpsertOutfitAsync(outfit);}if(imageEditor is not null)await imageEditor.CommitAsync();unsavedGuard?.MarkClean();Navigation.NavigateTo(BackUrl);}catch(Exception ex){saveError=ex.Message;}finally{saving=false;}}
+    private async Task DeleteAsync(){if(IsCollection)await Marketing.DeleteCollectionAsync(collection.Id);else await Marketing.DeleteOutfitAsync(outfit.Id);if(imageEditor is not null)await imageEditor.DeleteAllAsync();unsavedGuard?.MarkClean();Navigation.NavigateTo(BackUrl);}
     private static string Money(decimal value)=>value.ToString("N0",CultureInfo.GetCultureInfo("ru-RU"));
 }

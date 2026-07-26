@@ -13,27 +13,30 @@
     else if (products.Count == 0) { <div class="adjust-state"><strong>Нет товаров с вариантами</strong><p>Сначала добавьте товар и хотя бы один вариант.</p><a href="/products/new">Добавить товар</a></div> }
     else
     {
-        <EditForm Model="model" OnValidSubmit="SaveAsync"><DataAnnotationsValidator />
+        <EditForm Model="model" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" />
             <section><h2>Фактический остаток</h2>
-                <label>Товар<select @bind="model.ProductId" @bind:after="ProductChanged"><option value="">Выберите товар</option>@foreach(var product in products){<option value="@product.Id">@product.Name · @product.Sku</option>}</select></label>
-                <label>Вариант<select @bind="model.ProductVariantId" @bind:after="VariantChanged" disabled="@(SelectedProduct is null)"><option value="">Выберите вариант</option>@foreach(var variant in SelectedProduct?.Variants ?? []){<option value="@variant.Id">@VariantName(variant) · остаток @(variant.Quantity ?? 0)</option>}</select></label>
+                <label>Товар<OrbitSelect TValue="Guid?" @bind-Value="model.ProductId" @bind-Value:after="ProductChanged" Options="@ProductOptions" Label="Товар" Searchable="true" /></label>
+                <label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="model.ProductVariantId" @bind-Value:after="VariantChanged" Options="@VariantOptions" Label="Вариант" Disabled="@(SelectedProduct is null)" /></label>
                 <div class="quantity-grid"><div><span>Сейчас</span><strong>@(SelectedVariant?.Quantity ?? 0) ед.</strong><small>резерв @(SelectedVariant?.ReservedQuantity ?? 0)</small></div><label>Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label></div>
                 @if (SelectedVariant is not null && model.NewQuantity is not null) { <div class="preview"><span>Изменение</span><strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@DeltaText ед.</strong></div> }
             </section>
-            <section><h2>Причина</h2><label>Тип корректировки<InputSelect class="adjust-select" @bind-Value="model.Reason"><option value="">Выберите причину</option>@foreach(var reason in Enum.GetValues<StockAdjustmentReason>()){<option value="@reason">@reason.Display()</option>}</InputSelect></label><label>Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label></section>
+            <section><h2>Причина</h2><label>Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label><label>Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label></section>
             <ValidationSummary />@if(error is not null){<p class="adjust-error" role="alert">@error</p>}
             <div class="actions"><a href="/inventory">Отмена</a><button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button></div>
         </EditForm>
     }
 </div>
 @code {
-    private StockAdjustmentRequest model = new(); private IReadOnlyList<Product> products=[]; private bool isLoading=true; private bool saving; private string? error;
+    private StockAdjustmentRequest model = new(); private IReadOnlyList<Product> products=[]; private UnsavedChangesGuard? unsavedGuard; private bool isLoading=true; private bool saving; private string? error;
     private Product? SelectedProduct => model.ProductId is null ? null : products.FirstOrDefault(item=>item.Id==model.ProductId);
     private ProductVariant? SelectedVariant => model.ProductVariantId is null ? null : SelectedProduct?.Variants.FirstOrDefault(item=>item.Id==model.ProductVariantId);
+    private IReadOnlyList<OrbitSelectOption<Guid?>> ProductOptions=>[new(null,"Выберите товар"),..products.Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{value.Name} · {value.Sku}"))];
+    private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions=>[new(null,"Выберите вариант"),..(SelectedProduct?.Variants??[]).Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{VariantName(value)} · остаток {value.Quantity??0}"))];
+    private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
     private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0); private string DeltaText => Delta>0?$"+{Delta}":Delta.ToString();
     protected override async Task OnInitializedAsync(){products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();isLoading=false;}
     private void ProductChanged(){model.ProductVariantId=null;model.NewQuantity=null;}
     private void VariantChanged()=>model.NewQuantity=SelectedVariant?.Quantity;
-    private async Task SaveAsync(){saving=true;error=null;try{await Service.AdjustAsync(model);Navigation.NavigateTo("/inventory");}catch(Exception exception){error=exception.Message;}finally{saving=false;}}
+    private async Task SaveAsync(){saving=true;error=null;try{await Service.AdjustAsync(model);unsavedGuard?.MarkClean();Navigation.NavigateTo("/inventory");}catch(Exception exception){error=exception.Message;}finally{saving=false;}}
     private static string VariantName(ProductVariant variant)=>string.Join(" · ",new[]{variant.Color,variant.Size}.Where(value=>!string.IsNullOrWhiteSpace(value))) is {Length:>0} value?value:"Без названия";
 }

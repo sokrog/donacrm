@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
 
-<div class="orbit-shell">
+<div class="orbit-shell @(isFocusedRoute ? "is-focused-route" : null)">
     <aside class="orbit-sidebar">
         <a class="orbit-brand" href="/" aria-label="Command Orbit — главная">
             <span aria-hidden="true">CO</span><strong>Command Orbit</strong>
@@ -25,26 +27,63 @@
         @Body
     </main>
 
-    <nav class="orbit-tabs" aria-label="Основная навигация">
-        <NavLink class="orbit-tab" ActiveClass="is-active" href="/" Match="NavLinkMatch.All">
-            <OrbitIcon Name="home" />
-            <span>Главная</span>
-        </NavLink>
-        <NavLink class="orbit-tab" ActiveClass="is-active" href="/products">
-            <OrbitIcon Name="catalog" />
-            <span>Каталог</span>
-        </NavLink>
-        <NavLink class="orbit-tab" ActiveClass="is-active" href="/sales">
-            <OrbitIcon Name="sales" />
-            <span>Продажи</span>
-        </NavLink>
-        <NavLink class="orbit-tab" ActiveClass="is-active" href="/purchases">
-            <OrbitIcon Name="truck" />
-            <span>Закупки</span>
-        </NavLink>
-        <NavLink class="orbit-tab" ActiveClass="is-active" href="/more">
-            <OrbitIcon Name="more" />
-            <span>Ещё</span>
-        </NavLink>
-    </nav>
+    @if (!isFocusedRoute)
+    {
+        <nav class="orbit-tabs" aria-label="Основная навигация">
+            <NavLink class="orbit-tab" ActiveClass="is-active" href="/" Match="NavLinkMatch.All">
+                <OrbitIcon Name="home" />
+                <span>Главная</span>
+            </NavLink>
+            <NavLink class="orbit-tab" ActiveClass="is-active" href="/products">
+                <OrbitIcon Name="catalog" />
+                <span>Каталог</span>
+            </NavLink>
+            <NavLink class="orbit-tab" ActiveClass="is-active" href="/sales">
+                <OrbitIcon Name="sales" />
+                <span>Продажи</span>
+            </NavLink>
+            <NavLink class="orbit-tab" ActiveClass="is-active" href="/purchases">
+                <OrbitIcon Name="truck" />
+                <span>Закупки</span>
+            </NavLink>
+            <NavLink class="orbit-tab" ActiveClass="is-active" href="/more">
+                <OrbitIcon Name="more" />
+                <span>Ещё</span>
+            </NavLink>
+        </nav>
+    }
 </div>
+
+@code {
+    private static readonly HashSet<string> PrimaryRoutes =
+    [
+        "/",
+        "/products",
+        "/sales",
+        "/purchases",
+        "/more"
+    ];
+
+    private bool isFocusedRoute;
+
+    protected override void OnInitialized()
+    {
+        UpdateRouteMode();
+        Navigation.LocationChanged += LocationChanged;
+    }
+
+    private void LocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        UpdateRouteMode();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateRouteMode()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var path = "/" + relative.Split('?', '#')[0].Trim('/');
+        isFocusedRoute = !PrimaryRoutes.Contains(path);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= LocationChanged;
+}

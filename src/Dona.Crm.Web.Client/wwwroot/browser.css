@@ -24,5 +24,5 @@ html { min-width: 320px; }
 }
 
 @media (max-width: 899px) {
-    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(132px + env(safe-area-inset-bottom)) !important; }
+    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom)) !important; }
 }

@@ -2,6 +2,7 @@
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using AndroidX.Core.View;
 
 namespace Dona.Crm.App;
 
@@ -9,6 +10,33 @@ namespace Dona.Crm.App;
 public class MainActivity : MauiAppCompatActivity
 {
     internal static event Action<int, Result, Intent?>? ActivityResultReceived;
+
+    protected override void OnCreate(Bundle? savedInstanceState)
+    {
+        base.OnCreate(savedInstanceState);
+        ApplySystemBarAppearance();
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+        ApplySystemBarAppearance();
+    }
+
+    private void ApplySystemBarAppearance()
+    {
+        var window = Window;
+        var decorView = window?.DecorView;
+        if (window is null || decorView is null)
+            return;
+
+        var controller = WindowCompat.GetInsetsController(window, decorView);
+        if (controller is null)
+            return;
+
+        controller.AppearanceLightStatusBars = false;
+        controller.AppearanceLightNavigationBars = false;
+    }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {

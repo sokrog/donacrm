@@ -20,12 +20,13 @@
     {
         <EditForm Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
             <div class="product-editor-workspace">
                 <div class="product-editor-primary">
                     <section aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
                         <label>Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
-                        <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<select @bind="model.Category"><option value="">Не выбрана</option>@foreach(var category in categories){<option value="@category">@category</option>}</select></label></div>
-                        <div class="field-row"><label>Пол<select @bind="model.Gender"><option value="">Не указан</option>@foreach(var value in genders){<option>@value</option>}</select></label><label>Сезон<select @bind="model.Season"><option value="">Не указан</option>@foreach(var value in seasons){<option>@value</option>}</select></label></div>
+                        <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<OrbitSelect TValue="string" @bind-Value="model.Category" Options="@CategoryOptions" Label="Категория" /></label></div>
+                        <div class="field-row"><label>Пол<OrbitSelect TValue="string" @bind-Value="model.Gender" Options="@GenderOptions" Label="Пол" /></label><label>Сезон<OrbitSelect TValue="string" @bind-Value="model.Season" Options="@SeasonOptions" Label="Сезон" /></label></div>
                         <label>Описание и заметки<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
                     </section>
                 </div>
@@ -85,7 +86,11 @@
     private IReadOnlyList<string> categories = [];
     private static readonly string[] genders = ["Женский", "Мужской", "Унисекс"];
     private static readonly string[] seasons = ["Весна", "Лето", "Осень", "Зима", "Всесезон"];
+    private IReadOnlyList<OrbitSelectOption<string>> CategoryOptions => OrbitSelectOptions.OptionalStrings(categories, "Не выбрана");
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> GenderOptions = OrbitSelectOptions.OptionalStrings(genders, "Не указан");
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> SeasonOptions = OrbitSelectOptions.OptionalStrings(seasons, "Не указан");
     private EntityImageEditor? imageEditor;
+    private UnsavedChangesGuard? unsavedGuard;
     private bool IsNew => Id is null;
 
     protected override async Task OnParametersSetAsync()
@@ -101,10 +106,13 @@
         finally { isLoading = false; }
     }
 
-    private void AddVariant() => model.Variants.Add(new ProductVariant());
-    private void RemoveVariant(ProductVariant variant) => model.Variants.Remove(variant);
-    private void UpdatePrimaryImage() =>
+    private void AddVariant() { model.Variants.Add(new ProductVariant()); unsavedGuard?.MarkDirty(); }
+    private void RemoveVariant(ProductVariant variant) { model.Variants.Remove(variant); unsavedGuard?.MarkDirty(); }
+    private void UpdatePrimaryImage()
+    {
         model.ImageUrl = model.Images.OrderByDescending(item => item.IsMain).ThenBy(item => item.SortOrder).FirstOrDefault()?.Url;
+        unsavedGuard?.MarkDirty();
+    }
 
     private async Task SaveAsync()
     {
@@ -115,6 +123,7 @@
             UpdatePrimaryImage();
             await Catalog.UpsertProductAsync(model);
             if (imageEditor is not null) await imageEditor.CommitAsync();
+            unsavedGuard?.MarkClean();
             Navigation.NavigateTo("/products");
         }
         catch (Exception exception) { saveError = exception.Message; }
@@ -124,7 +133,7 @@
     private async Task ArchiveAsync()
     {
         isSaving = true; saveError = null;
-        try { model.Status = ProductStatus.Archived; UpdatePrimaryImage(); await Catalog.UpsertProductAsync(model); if (imageEditor is not null) await imageEditor.CommitAsync(); Navigation.NavigateTo("/products"); }
+        try { model.Status = ProductStatus.Archived; UpdatePrimaryImage(); await Catalog.UpsertProductAsync(model); if (imageEditor is not null) await imageEditor.CommitAsync(); unsavedGuard?.MarkClean(); Navigation.NavigateTo("/products"); }
         catch (Exception exception) { saveError = exception.Message; }
         finally { isSaving = false; }
     }

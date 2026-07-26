@@ -1,0 +1,158 @@
+.orbit-select-trigger {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: var(--dona-control-height);
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 12px;
+    padding: 0 12px;
+    background: #120d1b;
+    color: var(--dona-text);
+    font: inherit;
+    font-size: var(--dona-type-body-sm);
+    text-align: left;
+}
+
+.orbit-select-trigger.empty { color: #8f839f; }
+.orbit-select-trigger:disabled { cursor: not-allowed; opacity: .55; }
+.orbit-select-trigger:focus-visible { outline: 3px solid rgba(98, 220, 235, .28); border-color: var(--dona-cyan); }
+.orbit-select-trigger ::deep svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--dona-muted); }
+
+.orbit-select-overlay {
+    position: fixed;
+    z-index: 600;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(5, 3, 8, .76);
+    backdrop-filter: blur(10px);
+}
+
+.orbit-select-dialog {
+    display: grid;
+    width: min(100%, 430px);
+    max-height: min(78dvh, 680px);
+    gap: 13px;
+    overflow: hidden;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 22px;
+    padding: 16px;
+    background: #171020;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, .62);
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+header small {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--dona-cyan);
+    font-size: var(--dona-type-micro);
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+h2 { margin: 0; font-size: var(--dona-type-subtitle); }
+
+.close {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--dona-line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-title-sm);
+}
+
+.orbit-select-search {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 12px;
+    padding: 0 12px;
+    background: #120d1b;
+    color: var(--dona-text);
+    font: inherit;
+    font-size: var(--dona-type-body-sm);
+}
+
+.orbit-select-options {
+    display: grid;
+    gap: 5px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.orbit-select-options > button {
+    display: grid;
+    min-height: 54px;
+    grid-template-columns: minmax(0, 1fr) 22px;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 8px 10px 8px 12px;
+    background: transparent;
+    color: var(--dona-text);
+    text-align: left;
+}
+
+.orbit-select-options > button:hover,
+.orbit-select-options > button:focus-visible {
+    background: rgba(255, 255, 255, .045);
+}
+
+.orbit-select-options > button.selected {
+    border-color: rgba(98, 220, 235, .24);
+    background: rgba(98, 220, 235, .08);
+}
+
+.orbit-select-options span,
+.orbit-select-options strong,
+.orbit-select-options small { display: block; min-width: 0; }
+.orbit-select-options strong { font-size: var(--dona-type-body-sm); }
+.orbit-select-options small { margin-top: 3px; color: var(--dona-muted); font-size: var(--dona-type-caption); }
+
+.orbit-select-options i {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--dona-muted);
+    border-radius: 50%;
+}
+
+.orbit-select-options button.selected i {
+    border: 5px solid var(--dona-cyan);
+}
+
+.orbit-select-empty {
+    margin: 0;
+    padding: 18px 10px;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-body-sm);
+    text-align: center;
+}
+
+@media (max-width: 430px) {
+    .orbit-select-overlay {
+        align-items: end;
+        padding: 10px;
+    }
+
+    .orbit-select-dialog {
+        width: 100%;
+        max-height: 76dvh;
+        border-radius: 22px 22px 14px 14px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+}

@@ -181,6 +181,26 @@ select.adjust-select {
     color: var(--dona-text) !important;
 }
 
+.orbit-secondary-heading {
+    display: flex !important;
+    min-width: 0;
+    align-items: center;
+    gap: 13px;
+}
+
+.orbit-secondary-heading > div {
+    min-width: 0;
+}
+
+.orbit-secondary-heading > div > :first-child {
+    margin: 0 0 3px;
+    color: var(--dona-cyan);
+    font-size: var(--dona-type-small);
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
 .orbit-inline-icon {
     display: inline-block;
     width: 1.15em;
@@ -400,5 +420,5 @@ select.adjust-select {
 }
 
 @media (max-width: 899px) {
-    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(132px + env(safe-area-inset-bottom)) !important; }
+    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom)) !important; }
 }

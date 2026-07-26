@@ -5,7 +5,7 @@
 
 <PageTitle>Движения склада — DONA CRM</PageTitle>
 <div class="inventory-page">
-    <header><div><p>Каталог и склад</p><h1>Движения</h1></div><a href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Корректировка</a></header>
+    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><p>Склад</p><h1>Движения</h1></div></div><a href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Корректировка</a></header>
     @if (isLoading) { <div class="inventory-state">Загружаем журнал…</div> }
     else if (error is not null) { <div class="inventory-state" role="alert">@error</div> }
     else if (items.Count == 0) { <div class="inventory-state"><strong>Движений пока нет</strong><p>Они появятся после корректировки, продажи или приёмки закупки.</p></div> }
