@@ -29,6 +29,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<MauiGoogleConnectionService>();
 		builder.Services.AddSingleton<IGoogleConnectionService>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
+		builder.Services.AddSingleton<GoogleSheetsSnapshotClient>();
 		builder.Services.AddSingleton<IGoogleSyncService, MauiGoogleSyncService>();
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",

@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Services;
@@ -170,6 +172,60 @@ public sealed class GoogleSyncContractTests
 
         Assert.True(result.IsValid);
         Assert.Equal(6, result.Snapshot.BusinessSettings.LowStockThreshold);
+    }
+
+    [Fact]
+    public async Task Sheets_client_reads_portable_hidden_snapshot()
+    {
+        var snapshot = new DonaSyncSnapshot
+        {
+            Products = [new Product { Sku = "TS-1", Name = "T-shirt" }]
+        };
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(snapshot)));
+        var handler = new StubHttpHandler(_ => JsonResponse(
+            $$"""{"values":[["CommandOrbitSyncV1","version-1","2026-07-26T10:00:00+05:00"],["1","{{encoded}}"]]}"""));
+        var client = new GoogleSheetsSnapshotClient(new HttpClient(handler));
+
+        var envelope = await client.ReadAsync("spreadsheet-id", "access-token");
+
+        Assert.Equal("version-1", envelope.Version);
+        Assert.Equal("TS-1", Assert.Single(envelope.Snapshot.Products).Sku);
+        Assert.Equal("Bearer access-token", Assert.Single(handler.Requests).Headers.Authorization?.ToString());
+    }
+
+    [Fact]
+    public async Task Sheets_client_falls_back_to_existing_visible_sheets()
+    {
+        var productId = Guid.NewGuid();
+        var responses = new Queue<HttpResponseMessage>(
+        [
+            new(HttpStatusCode.BadRequest),
+            JsonResponse("""{"sheets":[{"properties":{"title":"Products"}}]}"""),
+            JsonResponse($$"""{"valueRanges":[{"values":[["Id","Sku","Name"],["{{productId}}","TS-2","Existing"]]}]}""")
+        ]);
+        var client = new GoogleSheetsSnapshotClient(new HttpClient(new StubHttpHandler(_ => responses.Dequeue())));
+
+        var envelope = await client.ReadAsync("spreadsheet-id", "access-token");
+
+        var product = Assert.Single(envelope.Snapshot.Products);
+        Assert.Equal(productId, product.Id);
+        Assert.Equal("Existing", product.Name);
+    }
+
+    private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+    };
+
+    private sealed class StubHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(response(request));
+        }
     }
 }
 

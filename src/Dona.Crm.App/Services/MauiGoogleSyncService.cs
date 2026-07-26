@@ -1,13 +1,10 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Dona.Crm.Storage.Sqlite;
 using Dona.Crm.Web.Services;
 
 namespace Dona.Crm.App.Services;
 
 public sealed class MauiGoogleSyncService(
-    HttpClient http,
+    GoogleSheetsSnapshotClient remote,
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
     SqliteSyncStore local,
@@ -61,16 +58,33 @@ public sealed class MauiGoogleSyncService(
         var state = await connection.GetStateAsync(cancellationToken);
         if (!state.IsConnected || !state.IsConfigured) throw new InvalidOperationException("Сначала подключите и проверьте Google в разделе «Подключения».");
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
-        var payload = new GoogleSyncPushRequest(state.Settings.SpreadsheetId, operation.Id, operation.ExpectedGoogleVersion, operation.LocalVersion, operation.CreatedAt, operation.Snapshot);
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, $"{state.Settings.BrokerBaseUrl}/api/mobile/sync/push");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Content = JsonContent.Create(payload);
-            using var response = await http.SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode) throw new InvalidOperationException(await ReadProblemAsync(response, cancellationToken));
-            var result = await response.Content.ReadFromJsonAsync<GoogleSyncPushResult>(cancellationToken: cancellationToken)
-                ?? throw new InvalidOperationException("Сервер вернул пустой результат отправки.");
+            var current = await remote.ReadAsync(state.Settings.SpreadsheetId, token, cancellationToken);
+            if (string.Equals(current.Version, operation.LocalVersion, StringComparison.Ordinal))
+            {
+                var alreadyApplied = new GoogleSyncPushResult(
+                    operation.Id,
+                    operation.LocalVersion,
+                    current.CapturedAt == DateTimeOffset.MinValue ? DateTimeOffset.UtcNow : current.CapturedAt,
+                    true);
+                operation.Status = GoogleSyncOperationStatus.Applied;
+                operation.AppliedAt = alreadyApplied.AppliedAt;
+                operation.Error = null;
+                await operations.SaveAsync(operation, cancellationToken);
+                return alreadyApplied;
+            }
+
+            if (!string.Equals(current.Version, operation.ExpectedGoogleVersion, StringComparison.Ordinal))
+                throw new InvalidOperationException("Google-таблица изменилась после сравнения. Обновите сравнение и проверьте данные ещё раз.");
+
+            var appliedAt = DateTimeOffset.UtcNow;
+            await remote.WriteAsync(
+                state.Settings.SpreadsheetId,
+                token,
+                new GoogleSyncEnvelope(operation.LocalVersion, appliedAt, operation.Snapshot),
+                cancellationToken);
+            var result = new GoogleSyncPushResult(operation.Id, operation.LocalVersion, appliedAt, false);
             operation.Status = GoogleSyncOperationStatus.Applied;
             operation.AppliedAt = result.AppliedAt;
             operation.Error = null;
@@ -91,35 +105,7 @@ public sealed class MauiGoogleSyncService(
         var state = await connection.GetStateAsync(cancellationToken);
         if (!state.IsConnected || !state.IsConfigured) throw new InvalidOperationException("Сначала подключите и проверьте Google в разделе «Подключения».");
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Get,
-            $"{state.Settings.BrokerBaseUrl}/api/mobile/sync/snapshot?spreadsheetId={Uri.EscapeDataString(state.Settings.SpreadsheetId)}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var response = await http.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-            try
-            {
-                using var json = JsonDocument.Parse(detail);
-                detail = json.RootElement.TryGetProperty("detail", out var value) ? value.GetString() ?? detail : detail;
-            }
-            catch (JsonException) { }
-            throw new InvalidOperationException($"Не удалось получить снимок Google Sheets: {detail}");
-        }
-        return await response.Content.ReadFromJsonAsync<GoogleSyncEnvelope>(cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("Сервер вернул пустой снимок Google Sheets.");
-    }
-
-    private static async Task<string> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-        try
-        {
-            using var json = JsonDocument.Parse(detail);
-            detail = json.RootElement.TryGetProperty("detail", out var value) ? value.GetString() ?? detail : detail;
-        }
-        catch (JsonException) { }
-        return $"Не удалось отправить снимок в Google Sheets: {detail}";
+        return await remote.ReadAsync(state.Settings.SpreadsheetId, token, cancellationToken);
     }
 
     private static GoogleSyncPreview Preview(DonaSyncSnapshot localSnapshot, GoogleSyncEnvelope remote) => new(

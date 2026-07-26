@@ -18,6 +18,7 @@ builder.Services.AddScoped<IStockMovementRepository>(services => services.GetReq
 builder.Services.AddScoped<IPurchaseHistoryRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 
 builder.Services.AddScoped<BrowserGoogleConnectionService>();
+builder.Services.AddScoped<GoogleSheetsSnapshotClient>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleSyncService, BrowserGoogleSyncService>();
