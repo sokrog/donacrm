@@ -204,6 +204,11 @@ public sealed class MauiGoogleConnectionService(
         catch (JsonException)
         {
         }
+        if (detail?.Contains("insufficient authentication scopes", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            throw new InvalidOperationException(
+                $"{prefix}: аккаунт не выдал разрешение Google Таблицы. Повторите вход и отметьте разрешения для Google Таблиц и Google Drive.");
+        }
         throw new InvalidOperationException($"{prefix}: {detail ?? response.ReasonPhrase}");
     }
 

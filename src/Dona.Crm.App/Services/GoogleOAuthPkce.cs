@@ -10,6 +10,11 @@ internal static class GoogleOAuthPkce
     internal const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     internal const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
     internal const string Scopes = "openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
+    private static readonly string[] RequiredDataScopes =
+    [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file"
+    ];
 
     public static string CreateVerifier() => Base64Url(RandomNumberGenerator.GetBytes(64));
 
@@ -118,6 +123,8 @@ internal static class GoogleOAuthPkce
             ?? throw new InvalidOperationException("Google OAuth не вернул access token.");
         var expiresIn = root.TryGetProperty("expires_in", out var expires) ? expires.GetInt32() : 3600;
         var refreshToken = root.TryGetProperty("refresh_token", out var refresh) ? refresh.GetString() : null;
+        if (root.TryGetProperty("scope", out var scopeElement))
+            EnsureRequiredScopes(scopeElement.GetString());
         return new(accessToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn), refreshToken);
     }
 
@@ -128,5 +135,23 @@ internal static class GoogleOAuthPkce
     {
         if (!string.IsNullOrWhiteSpace(clientSecret))
             parameters["client_secret"] = clientSecret.Trim();
+    }
+
+    private static void EnsureRequiredScopes(string? grantedScopes)
+    {
+        var granted = (grantedScopes ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .ToHashSet(StringComparer.Ordinal);
+        var missing = RequiredDataScopes.Where(scope => !granted.Contains(scope)).ToArray();
+        if (missing.Length == 0)
+            return;
+
+        var permissions = new List<string>();
+        if (missing.Contains("https://www.googleapis.com/auth/spreadsheets", StringComparer.Ordinal))
+            permissions.Add("Google Таблицы");
+        if (missing.Contains("https://www.googleapis.com/auth/drive.file", StringComparer.Ordinal))
+            permissions.Add("Google Drive");
+        throw new InvalidOperationException(
+            $"Google не выдал обязательные разрешения: {string.Join(" и ", permissions)}. Повторите вход и отметьте оба разрешения на экране Google.");
     }
 }

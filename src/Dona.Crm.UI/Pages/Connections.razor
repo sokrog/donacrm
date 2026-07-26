@@ -60,6 +60,8 @@
                     <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Нативная авторизация Google</strong><small>@Platform.OAuthClientDescription.</small></div></div>
                 }
 
+                <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Разрешите оба доступа</strong><small>На экране Google отметьте Google Таблицы и Google Drive. Без одного из этих разрешений подключение не будет сохранено.</small></div></div>
+
                 @if (message is not null)
                 {
                     <p class="connection-message @(success ? "success" : null)" role="status">@message</p>
