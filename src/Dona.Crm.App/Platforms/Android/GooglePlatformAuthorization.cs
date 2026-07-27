@@ -99,11 +99,7 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
             }
             catch (ApiException exception)
             {
-                throw new InvalidOperationException(
-                    $"Android не завершил авторизацию Google (код {exception.StatusCode}). " +
-                    "Проверьте Android OAuth client в Google Cloud: package name должен быть " +
-                    "com.tnadevelopment.donacrm, а SHA-1 — соответствовать подписи этого APK.",
-                    exception);
+                throw new InvalidOperationException(BuildAuthorizationError(exception.StatusCode), exception);
             }
         }
         finally
@@ -113,4 +109,13 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
     }
 
     private sealed record ActivityResult(Result ResultCode, Intent? Data);
+
+    private static string BuildAuthorizationError(int statusCode) => statusCode switch
+    {
+        8 => "Google Play Services не смог подключиться к Google (код 8). Проверьте, что для DONA CRM " +
+             "не ограничен доступ к сети/DNS, затем обновите Google Play Services и повторите вход.",
+        10 => "Android OAuth client настроен неверно (код 10). В Google Cloud package name должен быть " +
+              "com.tnadevelopment.donacrm, а SHA-1 — соответствовать подписи установленного APK.",
+        _ => $"Android не завершил авторизацию Google (код {statusCode}). Повторите попытку после проверки сети и Google Play Services."
+    };
 }
