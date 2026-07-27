@@ -14,6 +14,9 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
 
     public string DatabasePath => options.DatabasePath;
 
+    /// <summary>Raised after a user-data collection has been committed locally.</summary>
+    public event EventHandler? BusinessDataChanged;
+
     public async Task<IReadOnlyList<T>> ReadCollectionAsync<T>(string collection, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(collection);
@@ -46,6 +49,7 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
             UpdatedAtUtcTicks = DateTimeOffset.UtcNow.UtcTicks
         }).ToList();
 
+        var changedBusinessData = IsBusinessCollection(collection);
         await writeGate.WaitAsync(cancellationToken);
         try
         {
@@ -60,6 +64,9 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
         {
             writeGate.Release();
         }
+
+        if (changedBusinessData)
+            BusinessDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default)
@@ -168,6 +175,9 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
     }
 
     private static string CreateKey(string collection, Guid id) => $"{collection}:{id:N}";
+
+    private static bool IsBusinessCollection(string collection) =>
+        !collection.StartsWith("sync.", StringComparison.Ordinal);
 
     private static List<AggregateRecord> Rows<T>(string collection, IEnumerable<T> values, Func<T, Guid> id) =>
         values.Select((value, index) => new AggregateRecord

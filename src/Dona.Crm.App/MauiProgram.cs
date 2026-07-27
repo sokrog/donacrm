@@ -33,14 +33,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<GoogleSheetsSnapshotClient>();
 		builder.Services.AddSingleton<GoogleDriveFileClient>();
 		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
-		builder.Services.AddSingleton<IGoogleSyncService, MauiGoogleSyncService>();
+		builder.Services.AddSingleton<MauiGoogleSyncService>();
+		builder.Services.AddSingleton<IGoogleSyncService>(services => services.GetRequiredService<MauiGoogleSyncService>());
+		builder.Services.AddSingleton<GoogleSyncCoordinator>();
 #if ANDROID
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",
 			"Основное хранилище · доступно без интернета",
 			UsesDirectGoogleAccess: true,
 			RequiresOAuthClientId: false,
-			OAuthClientDescription: "Android OAuth-клиент определяется пакетом приложения и подписью"));
+			OAuthClientDescription: "OAuth-клиент Android должен совпадать с package com.tnadevelopment.donacrm и SHA-1 подписи APK"));
 #elif IOS
 		builder.Services.AddSingleton(new AppPlatformProfile(
 			"SQLite на устройстве",

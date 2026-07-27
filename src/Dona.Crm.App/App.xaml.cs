@@ -1,17 +1,24 @@
-﻿namespace Dona.Crm.App;
+using Dona.Crm.App.Services;
+
+namespace Dona.Crm.App;
 
 public partial class App : Application
 {
-	private readonly IServiceProvider services;
+    private readonly IServiceProvider services;
+    private readonly GoogleSyncCoordinator syncCoordinator;
 
-	public App(IServiceProvider services)
-	{
-		this.services = services;
-		InitializeComponent();
-	}
+    public App(IServiceProvider services, GoogleSyncCoordinator syncCoordinator)
+    {
+        this.services = services;
+        this.syncCoordinator = syncCoordinator;
+        InitializeComponent();
+        syncCoordinator.Start();
+    }
 
-	protected override Window CreateWindow(IActivationState? activationState)
-	{
-		return new Window(services.GetRequiredService<MainPage>()) { Title = "DONA CRM" };
-	}
+    protected override Window CreateWindow(IActivationState? activationState)
+    {
+        var window = new Window(services.GetRequiredService<MainPage>()) { Title = "DONA CRM" };
+        window.Activated += (_, _) => syncCoordinator.RequestFlush();
+        return window;
+    }
 }

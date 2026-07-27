@@ -11,6 +11,45 @@ public sealed class MauiGoogleSyncService(
     SqliteSyncOperationStore operations,
     IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService
 {
+    private readonly SemaphoreSlim sendGate = new(1, 1);
+
+    /// <summary>Stores the latest local snapshot as one coalesced offline operation.</summary>
+    public async Task QueueLocalChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var state = await connection.GetStateAsync(cancellationToken);
+        if (!state.IsConnected || !state.IsConfigured)
+            return;
+
+        var snapshot = await local.ReadAsync(cancellationToken);
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken);
+        await operations.EnqueueAsync(
+            new GoogleSyncOperation
+            {
+                ExpectedGoogleVersion = checkpoint?.GoogleVersion ?? string.Empty,
+                LocalVersion = DonaSyncFingerprint.Create(snapshot),
+                Snapshot = snapshot
+            },
+            replaceExpectedGoogleVersion: false,
+            cancellationToken);
+        await SavePendingAsync(checkpoint?.GoogleVersion ?? string.Empty, cancellationToken);
+    }
+
+    /// <summary>Uploads the queued local snapshot when a previously compared Google version is available.</summary>
+    public async Task<bool> SyncQueuedAsync(CancellationToken cancellationToken = default)
+    {
+        var checkpoint = await checkpointStore.ReadAsync(cancellationToken);
+        if (checkpoint?.HasConflict == true)
+            return false;
+
+        var operation = (await operations.GetAsync(cancellationToken))
+            .FirstOrDefault(value => value.Status != GoogleSyncOperationStatus.Applied);
+        if (operation is null || string.IsNullOrWhiteSpace(operation.ExpectedGoogleVersion))
+            return false;
+
+        await SendExclusiveAsync(operation, cancellationToken);
+        return true;
+    }
+
     public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         var connectionState = await connection.GetStateAsync(cancellationToken);
@@ -51,6 +90,7 @@ public sealed class MauiGoogleSyncService(
             if (!string.Equals(remote.Version, expectedGoogleVersion, StringComparison.Ordinal))
                 throw new GoogleSyncConflictException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
             await local.ReplaceAsync(remote.Snapshot, cancellationToken);
+            await operations.ClearPendingAsync(cancellationToken);
             var applied = await local.ReadAsync(cancellationToken);
             var preview = Preview(applied, remote);
             await SaveSuccessAsync(preview.LocalVersion, remote.Version, DateTimeOffset.UtcNow, cancellationToken);
@@ -73,8 +113,8 @@ public sealed class MauiGoogleSyncService(
             LocalVersion = DonaSyncFingerprint.Create(snapshot),
             Snapshot = snapshot
         };
-        await operations.SaveAsync(operation, cancellationToken);
-        return await SendAsync(operation, cancellationToken);
+        operation = await operations.EnqueueAsync(operation, replaceExpectedGoogleVersion: true, cancellationToken);
+        return await SendExclusiveAsync(operation, cancellationToken);
     }
 
     public async Task<GoogleSyncPushResult> RetryPushAsync(Guid operationId, CancellationToken cancellationToken = default)
@@ -83,7 +123,7 @@ public sealed class MauiGoogleSyncService(
             ?? throw new InvalidOperationException("Операция синхронизации не найдена.");
         if (operation.Status == GoogleSyncOperationStatus.Applied)
             return new(operation.Id, operation.LocalVersion, operation.AppliedAt ?? operation.CreatedAt, true);
-        return await SendAsync(operation, cancellationToken);
+        return await SendExclusiveAsync(operation, cancellationToken);
     }
 
     public Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default) => operations.GetAsync(cancellationToken);
@@ -135,6 +175,19 @@ public sealed class MauiGoogleSyncService(
             await operations.SaveAsync(operation, cancellationToken);
             await SaveFailureAsync(operation.LocalVersion, exception, cancellationToken);
             throw;
+        }
+    }
+
+    private async Task<GoogleSyncPushResult> SendExclusiveAsync(GoogleSyncOperation operation, CancellationToken cancellationToken)
+    {
+        await sendGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await SendAsync(operation, cancellationToken);
+        }
+        finally
+        {
+            sendGate.Release();
         }
     }
 

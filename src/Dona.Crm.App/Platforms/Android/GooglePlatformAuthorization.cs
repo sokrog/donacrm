@@ -65,16 +65,13 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
     {
         var pendingIntent = initial.PendingIntent
             ?? throw new InvalidOperationException("Google Play Services не вернул окно подтверждения.");
-        var completion = new TaskCompletionSource<Intent?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<ActivityResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnResult(int requestCode, Result resultCode, Intent? data)
         {
             if (requestCode != AuthorizationRequestCode)
                 return;
-            if (resultCode == Result.Ok)
-                completion.TrySetResult(data);
-            else
-                completion.TrySetException(new InvalidOperationException("Подключение Google отменено."));
+            completion.TrySetResult(new ActivityResult(resultCode, data));
         }
 
         MainActivity.ActivityResultReceived += OnResult;
@@ -88,13 +85,32 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
                     (ActivityFlags)0,
                     (ActivityFlags)0,
                     0));
-            var data = await completion.Task.WaitAsync(cancellationToken)
-                ?? throw new InvalidOperationException("Google Play Services вернул пустой результат.");
-            return client.GetAuthorizationResultFromIntent(data);
+            var result = await completion.Task.WaitAsync(cancellationToken);
+            if (result.Data is null)
+            {
+                if (result.ResultCode == Result.Canceled)
+                    throw new OperationCanceledException("Вход в Google отменён пользователем или Google Play Services не передал результат.");
+                throw new InvalidOperationException("Google Play Services вернул пустой результат авторизации.");
+            }
+
+            try
+            {
+                return client.GetAuthorizationResultFromIntent(result.Data);
+            }
+            catch (ApiException exception)
+            {
+                throw new InvalidOperationException(
+                    $"Android не завершил авторизацию Google (код {exception.StatusCode}). " +
+                    "Проверьте Android OAuth client в Google Cloud: package name должен быть " +
+                    "com.tnadevelopment.donacrm, а SHA-1 — соответствовать подписи этого APK.",
+                    exception);
+            }
         }
         finally
         {
             MainActivity.ActivityResultReceived -= OnResult;
         }
     }
+
+    private sealed record ActivityResult(Result ResultCode, Intent? Data);
 }
