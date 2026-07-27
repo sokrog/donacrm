@@ -60,6 +60,15 @@ body {
     text-rendering: optimizeLegibility;
 }
 
+body.orbit-modal-open {
+    position: fixed;
+    right: 0;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 body::before {
     content: "";
     position: fixed;

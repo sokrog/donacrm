@@ -1,0 +1,38 @@
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@ChildContent
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
+
+    private bool acquired;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        acquired = true;
+        await JS.InvokeVoidAsync("orbitModal.acquire");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!acquired)
+            return;
+
+        acquired = false;
+        try
+        {
+            await JS.InvokeVoidAsync("orbitModal.release");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+}

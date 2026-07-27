@@ -18,50 +18,52 @@
 
 @if (open)
 {
-    <div class="orbit-select-overlay" role="presentation" @onclick="Close">
-        <section id="@dialogId"
-                 class="orbit-select-dialog"
-                 role="dialog"
-                 aria-modal="true"
-                 aria-labelledby="@titleId"
-                 tabindex="-1"
-                 @onclick:stopPropagation="true"
-                 @onkeydown="DialogKeyDown">
-            <header>
-                <div><small>Выбор значения</small><h2 id="@titleId">@Title</h2></div>
-                <button type="button" class="close" aria-label="Закрыть список" @onclick="Close">×</button>
-            </header>
-            @if (Searchable || Options.Count > SearchThreshold)
-            {
-                <input class="orbit-select-search"
-                       type="search"
-                       value="@query"
-                       placeholder="Поиск"
-                       aria-label="Поиск по вариантам"
-                       autocomplete="off"
-                       autofocus
-                       @oninput="Search" />
-            }
-            <div class="orbit-select-options" role="listbox" aria-label="@Title">
-                @foreach (var option in FilteredOptions)
+    <OrbitModalLock>
+        <div class="orbit-select-overlay" role="presentation" @onclick="Close">
+            <section id="@dialogId"
+                     class="orbit-select-dialog"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="@titleId"
+                     tabindex="-1"
+                     @onclick:stopPropagation="true"
+                     @onkeydown="DialogKeyDown">
+                <header>
+                    <div><small>Выбор значения</small><h2 id="@titleId">@Title</h2></div>
+                    <button type="button" class="close" aria-label="Закрыть список" @onclick="Close">×</button>
+                </header>
+                @if (Searchable || Options.Count > SearchThreshold)
                 {
-                    var selected = IsSelected(option);
-                    <button type="button"
-                            role="option"
-                            aria-selected="@selected"
-                            class="@(selected ? "selected" : null)"
-                            @onclick="() => SelectAsync(option)">
-                        <span><strong>@option.Label</strong>@if (!string.IsNullOrWhiteSpace(option.Description)){<small>@option.Description</small>}</span>
-                        <i aria-hidden="true"></i>
-                    </button>
+                    <input class="orbit-select-search"
+                           type="search"
+                           value="@query"
+                           placeholder="Поиск"
+                           aria-label="Поиск по вариантам"
+                           autocomplete="off"
+                           autofocus
+                           @oninput="Search" />
                 }
-                @if (FilteredOptions.Count == 0)
-                {
-                    <p class="orbit-select-empty">Подходящих вариантов нет.</p>
-                }
-            </div>
-        </section>
-    </div>
+                <div class="orbit-select-options" role="listbox" aria-label="@Title">
+                    @foreach (var option in FilteredOptions)
+                    {
+                        var selected = IsSelected(option);
+                        <button type="button"
+                                role="option"
+                                aria-selected="@selected"
+                                class="@(selected ? "selected" : null)"
+                                @onclick="() => SelectAsync(option)">
+                            <span><strong>@option.Label</strong>@if (!string.IsNullOrWhiteSpace(option.Description)){<small>@option.Description</small>}</span>
+                            <i aria-hidden="true"></i>
+                        </button>
+                    }
+                    @if (FilteredOptions.Count == 0)
+                    {
+                        <p class="orbit-select-empty">Подходящих вариантов нет.</p>
+                    }
+                </div>
+            </section>
+        </div>
+    </OrbitModalLock>
 }
 
 @code {

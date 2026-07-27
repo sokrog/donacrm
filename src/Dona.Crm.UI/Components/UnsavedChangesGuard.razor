@@ -7,19 +7,21 @@
 
 @if (showDialog)
 {
-    <div class="unsaved-overlay" role="presentation" @onclick="Stay">
-        <section class="unsaved-dialog" role="alertdialog" aria-modal="true" aria-labelledby="@titleId" aria-describedby="@descriptionId" @onclick:stopPropagation="true">
-            <span class="unsaved-icon" aria-hidden="true">!</span>
-            <div>
-                <h2 id="@titleId">Есть несохранённые изменения</h2>
-                <p id="@descriptionId">Если выйти, внесённые данные будут потеряны.</p>
-            </div>
-            <div class="unsaved-actions">
-                <button type="button" class="stay" autofocus @onclick="Stay">Остаться</button>
-                <button type="button" class="discard" @onclick="Discard">Выйти без сохранения</button>
-            </div>
-        </section>
-    </div>
+    <OrbitModalLock>
+        <div class="unsaved-overlay" role="presentation" @onclick="Stay">
+            <section class="unsaved-dialog" role="alertdialog" aria-modal="true" aria-labelledby="@titleId" aria-describedby="@descriptionId" @onclick:stopPropagation="true">
+                <span class="unsaved-icon" aria-hidden="true">!</span>
+                <div>
+                    <h2 id="@titleId">Есть несохранённые изменения</h2>
+                    <p id="@descriptionId">Если выйти, внесённые данные будут потеряны.</p>
+                </div>
+                <div class="unsaved-actions">
+                    <button type="button" class="stay" autofocus @onclick="Stay">Остаться</button>
+                    <button type="button" class="discard" @onclick="Discard">Выйти без сохранения</button>
+                </div>
+            </section>
+        </div>
+    </OrbitModalLock>
 }
 
 @code {

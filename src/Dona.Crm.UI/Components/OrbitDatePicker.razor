@@ -6,19 +6,21 @@
 
 @if (open)
 {
-    <div class="date-overlay" role="presentation" @onclick="Close">
-        <section class="date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
-            <header><button class="orbit-icon-button" type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth"><OrbitIcon Name="back" /></button><strong>@MonthTitle</strong><button class="orbit-icon-button" type="button" aria-label="Следующий месяц" @onclick="NextMonth"><OrbitIcon Name="forward" /></button></header>
-            <div class="weekdays" aria-hidden="true">@foreach(var day in weekdays){<span>@day</span>}</div>
-            <div class="days">
-                @foreach (var day in CalendarDays)
-                {
-                    <button type="button" class="@DayClass(day)" disabled="@(day is null)" @onclick="() => SelectAsync(day)">@(day?.Day)</button>
-                }
-            </div>
-            <footer><button type="button" class="clear" @onclick="ClearAsync">Очистить</button><button type="button" @onclick="SelectTodayAsync">Сегодня</button><button type="button" class="close" @onclick="Close">Готово</button></footer>
-        </section>
-    </div>
+    <OrbitModalLock>
+        <div class="date-overlay" role="presentation" @onclick="Close">
+            <section class="date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+                <header><button class="orbit-icon-button" type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth"><OrbitIcon Name="back" /></button><strong>@MonthTitle</strong><button class="orbit-icon-button" type="button" aria-label="Следующий месяц" @onclick="NextMonth"><OrbitIcon Name="forward" /></button></header>
+                <div class="weekdays" aria-hidden="true">@foreach(var day in weekdays){<span>@day</span>}</div>
+                <div class="days">
+                    @foreach (var day in CalendarDays)
+                    {
+                        <button type="button" class="@DayClass(day)" disabled="@(day is null)" @onclick="() => SelectAsync(day)">@(day?.Day)</button>
+                    }
+                </div>
+                <footer><button type="button" class="clear" @onclick="ClearAsync">Очистить</button><button type="button" @onclick="SelectTodayAsync">Сегодня</button><button type="button" class="close" @onclick="Close">Готово</button></footer>
+            </section>
+        </div>
+    </OrbitModalLock>
 }
 
 @code {

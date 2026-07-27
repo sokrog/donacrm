@@ -4,9 +4,12 @@
              xmlns:local="clr-namespace:Dona.Crm.App"
              xmlns:ui="clr-namespace:Dona.Crm.UI.Components;assembly=Dona.Crm.UI"
              x:Class="Dona.Crm.App.MainPage"
+             BackgroundColor="#09070F"
              SafeAreaEdges="None">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+    <BlazorWebView x:Name="blazorWebView"
+                   HostPage="wwwroot/index.html"
+                   BackgroundColor="#09070F">
         <BlazorWebView.RootComponents>
             <RootComponent Selector="#app" ComponentType="{x:Type ui:Routes}" />
         </BlazorWebView.RootComponents>
