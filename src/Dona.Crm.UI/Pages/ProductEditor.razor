@@ -25,7 +25,7 @@
                 <div class="product-editor-primary">
                     <section aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
                         <label>Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
-                        <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<div class="category-select"><OrbitSelect TValue="string" @bind-Value="model.Category" Options="@CategoryOptions" Label="Категория" /><button type="button" aria-label="Добавить категорию" title="Добавить категорию" @onclick="() => addingCategory = !addingCategory"><OrbitIcon Name="plus" /></button></div>@if(addingCategory){<div class="quick-category"><InputText @bind-Value="newCategoryName" placeholder="Название категории" autocomplete="off" /><button type="button" disabled="@isSaving" @onclick="AddCategoryAsync">Добавить</button></div>}</label></div>
+                        <div class="field-row"><label>SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label><label>Категория<OrbitSelect @ref="categoryPicker" TValue="string" @bind-Value="model.Category" Options="@CategoryOptions" Label="Категория"><Footer><div class="category-picker-add"><InputText @bind-Value="newCategoryName" placeholder="Новая категория" autocomplete="off" /><button type="button" disabled="@isSaving" @onclick="AddCategoryAsync"><OrbitIcon Name="plus" />Добавить</button></div></Footer></OrbitSelect></label></div>
                         <div class="field-row"><label>Пол<OrbitSelect TValue="string" @bind-Value="model.Gender" Options="@GenderOptions" Label="Пол" /></label><label>Сезон<OrbitSelect TValue="string" @bind-Value="model.Season" Options="@SeasonOptions" Label="Сезон" /></label></div>
                         <label>Описание и заметки<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
                     </section>
@@ -81,7 +81,6 @@
     private bool isLoading = true;
     private bool isSaving;
     private bool confirmArchive;
-    private bool addingCategory;
     private string newCategoryName = string.Empty;
     private string? errorMessage;
     private string? saveError;
@@ -92,6 +91,7 @@
     private static readonly IReadOnlyList<OrbitSelectOption<string>> GenderOptions = OrbitSelectOptions.OptionalStrings(genders, "Не указан");
     private static readonly IReadOnlyList<OrbitSelectOption<string>> SeasonOptions = OrbitSelectOptions.OptionalStrings(seasons, "Не указан");
     private EntityImageEditor? imageEditor;
+    private OrbitSelect<string>? categoryPicker;
     private UnsavedChangesGuard? unsavedGuard;
     private bool IsNew => Id is null;
 
@@ -113,7 +113,7 @@
     {
         var name = newCategoryName.Trim();
         if (string.IsNullOrWhiteSpace(name)) { saveError = "Введите название категории."; return; }
-        if (categories.Any(value => string.Equals(value, name, StringComparison.OrdinalIgnoreCase))) { model.Category = categories.First(value => string.Equals(value, name, StringComparison.OrdinalIgnoreCase)); addingCategory = false; newCategoryName = string.Empty; return; }
+        if (categories.Any(value => string.Equals(value, name, StringComparison.OrdinalIgnoreCase))) { model.Category = categories.First(value => string.Equals(value, name, StringComparison.OrdinalIgnoreCase)); newCategoryName = string.Empty; categoryPicker?.CloseDialog(); return; }
         isSaving = true; saveError = null;
         try
         {
@@ -121,7 +121,7 @@
             categories = categories.Append(name).OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase).ToList();
             model.Category = name;
             newCategoryName = string.Empty;
-            addingCategory = false;
+            categoryPicker?.CloseDialog();
             unsavedGuard?.MarkDirty();
         }
         catch (Exception exception) { saveError = exception.Message; }
