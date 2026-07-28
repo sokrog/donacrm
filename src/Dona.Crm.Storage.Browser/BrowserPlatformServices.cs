@@ -7,25 +7,39 @@ using Microsoft.JSInterop;
 
 namespace Dona.Crm.Storage.Browser;
 
+public sealed class BrowserBackupArchiveFileService(IJSRuntime javascript) : IBackupArchiveFileService
+{
+    public Task<byte[]?> PickAsync(CancellationToken cancellationToken = default) =>
+        javascript.InvokeAsync<byte[]?>("donaBrowser.pickBackup", cancellationToken).AsTask();
+
+    public Task SaveAutomaticBackupAsync(BackupDownload backup, CancellationToken cancellationToken = default) =>
+        javascript.InvokeVoidAsync("donaBrowser.download", cancellationToken, backup.FileName, backup.Content).AsTask();
+}
+
 public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpClient http) : IGoogleConnectionService, IGoogleAccessTokenProvider
 {
     private const string StateKey = "dona.crm.google.connection.v1";
     private const string TokenKey = "dona.crm.google.access-token";
+    private const string DefaultWebClientId = "440684132138-br3o9siah11u1m3n9lbbd7sea0use33d.apps.googleusercontent.com";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<GoogleConnectionState> GetStateAsync(CancellationToken cancellationToken = default)
     {
         var stored = await ReadStateAsync(cancellationToken);
         var token = await javascript.InvokeAsync<string?>("sessionStorage.getItem", cancellationToken, TokenKey);
-        return stored with { IsConnected = !string.IsNullOrWhiteSpace(token) };
+        var settings = string.IsNullOrWhiteSpace(stored.Settings.OAuthClientId)
+            ? stored.Settings with { OAuthClientId = DefaultWebClientId }
+            : stored.Settings;
+        return stored with { Settings = settings, IsConnected = !string.IsNullOrWhiteSpace(token) };
     }
 
     public async Task<GoogleConnectionState> SaveSettingsAsync(GoogleConnectionSettings settings, CancellationToken cancellationToken = default)
     {
-        var spreadsheetId = GoogleResourceIds.Spreadsheet(settings.SpreadsheetId);
+        var rawSpreadsheet = settings.SpreadsheetId?.Trim() ?? string.Empty;
+        var spreadsheetId = string.IsNullOrWhiteSpace(rawSpreadsheet) ? string.Empty : GoogleResourceIds.Spreadsheet(rawSpreadsheet);
         var driveFolderId = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
         var clientId = settings.OAuthClientId?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(spreadsheetId)) throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
+        if (!string.IsNullOrWhiteSpace(rawSpreadsheet) && string.IsNullOrWhiteSpace(spreadsheetId)) throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
         if (driveFolderId == string.Empty) throw new InvalidOperationException("Укажите корректную ссылку или ID папки Google Drive.");
         if (!clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Укажите Web Client ID из Google Cloud Console.");
 
@@ -38,7 +52,7 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
     public async Task<GoogleConnectionState> ConnectAsync(CancellationToken cancellationToken = default)
     {
         var state = await GetStateAsync(cancellationToken);
-        if (!state.IsConfigured) throw new InvalidOperationException("Сначала сохраните ID таблицы и Google OAuth Client ID.");
+        if (string.IsNullOrWhiteSpace(state.Settings.OAuthClientId)) throw new InvalidOperationException("Сначала сохраните Google OAuth Client ID.");
         var token = await javascript.InvokeAsync<string>("donaGoogle.authorize", cancellationToken, state.Settings.OAuthClientId);
         await javascript.InvokeVoidAsync("sessionStorage.setItem", cancellationToken, TokenKey, token);
         return await CheckAsync(cancellationToken);
@@ -48,21 +62,14 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
     {
         var state = await GetStateAsync(cancellationToken);
         var token = await GetAccessTokenAsync(cancellationToken);
-        var spreadsheet = await GetJsonAsync($"https://sheets.googleapis.com/v4/spreadsheets/{Uri.EscapeDataString(state.Settings.SpreadsheetId)}?fields=properties.title", token, cancellationToken);
-        var spreadsheetName = spreadsheet.GetProperty("properties").GetProperty("title").GetString();
-        string? driveFolderName = null;
-        if (!string.IsNullOrWhiteSpace(state.Settings.DriveFolderId))
-        {
-            var folder = await GetJsonAsync($"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(state.Settings.DriveFolderId)}?fields=id,name,mimeType&supportsAllDrives=true", token, cancellationToken);
-            driveFolderName = folder.GetProperty("name").GetString();
-        }
         var user = await GetJsonAsync("https://www.googleapis.com/oauth2/v3/userinfo", token, cancellationToken);
         var updated = state with
         {
             IsConnected = true,
             AccountEmail = user.TryGetProperty("email", out var email) ? email.GetString() : null,
-            SpreadsheetName = spreadsheetName,
-            DriveFolderName = driveFolderName,
+            AccountName = user.TryGetProperty("name", out var name) ? name.GetString() : null,
+            SpreadsheetName = null,
+            DriveFolderName = null,
             LastCheckedAt = DateTimeOffset.UtcNow
         };
         await WriteStateAsync(updated, cancellationToken);
@@ -75,7 +82,7 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
         if (!string.IsNullOrWhiteSpace(token)) await javascript.InvokeVoidAsync("donaGoogle.revoke", cancellationToken, token);
         await javascript.InvokeVoidAsync("sessionStorage.removeItem", cancellationToken, TokenKey);
         var state = await ReadStateAsync(cancellationToken);
-        await WriteStateAsync(state with { IsConnected = false, AccountEmail = null }, cancellationToken);
+        await WriteStateAsync(state with { IsConnected = false, AccountEmail = null, AccountName = null }, cancellationToken);
     }
 
     public async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken = default) =>
@@ -100,9 +107,9 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
     {
         var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StateKey);
         return string.IsNullOrWhiteSpace(json)
-            ? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, string.Empty), false)
+            ? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, DefaultWebClientId), false)
             : JsonSerializer.Deserialize<GoogleConnectionState>(json, JsonOptions)
-                ?? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, string.Empty), false);
+                ?? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, DefaultWebClientId), false);
     }
 
     private Task WriteStateAsync(GoogleConnectionState state, CancellationToken cancellationToken) =>
@@ -111,7 +118,6 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
 
 public sealed class BrowserProductImagePicker(
     IJSRuntime javascript,
-    IBusinessSettingsRepository businessSettings,
     IGoogleConnectionService google,
     IGoogleAccessTokenProvider tokens,
     GoogleDriveFileClient drive) : IProductImagePicker
@@ -122,19 +128,15 @@ public sealed class BrowserProductImagePicker(
         if (picked is null)
             return null;
 
-        var settings = await businessSettings.GetAsync(cancellationToken);
-        if (settings.UseGoogleDriveImages)
+        var state = await google.GetStateAsync(cancellationToken);
+        if (state.IsConnected)
         {
-            var state = await google.GetStateAsync(cancellationToken);
-            if (!state.IsConnected)
-                throw new InvalidOperationException("Сначала подключите Google в разделе «Подключения».");
             var separator = picked.DataUrl.IndexOf(',');
             if (separator < 0)
                 throw new InvalidDataException("Браузер вернул повреждённое изображение.");
             var bytes = Convert.FromBase64String(picked.DataUrl[(separator + 1)..]);
-            var uploaded = await drive.UploadAsync(
-                state.Settings.DriveFolderId,
-                picked.Name,
+            var uploaded = await drive.UploadAppDataAsync(
+                $"dona-crm-image-{productId:N}-{Guid.NewGuid():N}{Path.GetExtension(picked.Name)}",
                 picked.ContentType,
                 bytes,
                 await tokens.GetAccessTokenAsync(cancellationToken),

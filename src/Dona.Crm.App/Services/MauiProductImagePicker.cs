@@ -5,7 +5,6 @@ using Dona.Crm.Web.Storage;
 namespace Dona.Crm.App.Services;
 
 public sealed class MauiProductImagePicker(
-    IBusinessSettingsRepository businessSettings,
     IGoogleConnectionService google,
     IGoogleAccessTokenProvider tokens,
     GoogleDriveFileClient drive) : IProductImagePicker
@@ -43,15 +42,11 @@ public sealed class MauiProductImagePicker(
         var contentType = NormalizeContentType(result.ContentType, result.FileName);
         var extension = ExtensionFor(contentType);
         var bytes = buffer.ToArray();
-        var settings = await businessSettings.GetAsync(cancellationToken);
-        if (settings.UseGoogleDriveImages)
+        var state = await google.GetStateAsync(cancellationToken);
+        if (state.IsConnected)
         {
-            var state = await google.GetStateAsync(cancellationToken);
-            if (!state.IsConnected)
-                throw new InvalidOperationException("Сначала подключите Google в разделе «Подключения».");
-            var uploaded = await drive.UploadAsync(
-                state.Settings.DriveFolderId,
-                $"{productId:N}-{Guid.NewGuid():N}{extension}",
+            var uploaded = await drive.UploadAppDataAsync(
+                $"dona-crm-image-{productId:N}-{Guid.NewGuid():N}{extension}",
                 contentType,
                 bytes,
                 await tokens.GetAccessTokenAsync(cancellationToken),

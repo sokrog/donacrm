@@ -6,6 +6,8 @@ h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; 
 .search-box label { display: block; margin: 0 0 8px; color: var(--dona-muted); font-size: var(--dona-type-small); }
 .search-box input { width: 100%; min-height: 50px; border: 1px solid var(--dona-line-strong); border-radius: 15px; padding: 0 15px; background: rgba(24,17,34,.82); color: var(--dona-text); font: inherit; }
 .search-box input:focus { outline: 3px solid rgba(98,220,235,.35); border-color: var(--dona-cyan); }
+.catalog-filters{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding:2px 0;scrollbar-width:none}.catalog-filters button{flex:0 0 auto;min-height:44px;border:1px solid var(--dona-line);border-radius:999px;padding:0 13px;background:rgba(24,17,34,.7);color:var(--dona-muted);font:inherit;font-size:var(--dona-type-small);font-weight:700}.catalog-filters button.active{border-color:rgba(98,220,235,.35);background:rgba(98,220,235,.1);color:var(--dona-cyan)}
+.catalog-filters .reset{margin-left:auto}.catalog-sort{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;color:var(--dona-muted);font-size:var(--dona-type-small)}.catalog-sort select{min-height:44px;border:1px solid var(--dona-line);border-radius:12px;padding:0 10px;background:#181122;color:var(--dona-text);font:inherit}
 .catalog-tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:12px; }
 .catalog-tools a { display:flex; min-height:58px; align-items:center; gap:9px; border:1px solid var(--dona-line); border-radius:15px; padding:9px 11px; background:rgba(24,17,34,.7); color:var(--dona-text); text-decoration:none; }
 .catalog-tools ::deep svg { flex:0 0 auto; width:20px; color:#c598ff; }
@@ -21,6 +23,7 @@ h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; 
 .product-info strong, .product-info small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-info strong { font-size: var(--dona-type-body); }
 .product-info small { margin: 4px 0 7px; color: var(--dona-muted); font-size: var(--dona-type-label); }
+.product-info .product-issues{margin:6px 0 0;color:var(--dona-amber);font-size:var(--dona-type-caption)}
 .status { display: inline-block; border-radius: 20px; padding: 3px 7px; background: rgba(159,92,255,.12); color: #c9a5ff; font-size: var(--dona-type-caption); }
 .status.ok { color: var(--dona-cyan); background: rgba(98,220,235,.09); }
 .status.warning { color: var(--dona-amber); background: rgba(244,189,111,.09); }

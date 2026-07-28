@@ -13,7 +13,8 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     IMarketingRepository,
     IBusinessSettingsRepository,
     IStockMovementRepository,
-    IPurchaseHistoryRepository
+    IPurchaseHistoryRepository,
+    IBackupSnapshotStore
 {
     private const string StorageKey = "dona.crm.browser.snapshot.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);

@@ -119,6 +119,11 @@
         isSaving = true; saveError = null;
         try
         {
+            model.Sku = model.Sku.Trim();
+            var duplicate = (await Catalog.GetProductsAsync()).FirstOrDefault(product =>
+                product.Id != model.Id && string.Equals(product.Sku.Trim(), model.Sku, StringComparison.OrdinalIgnoreCase));
+            if (duplicate is not null)
+                throw new InvalidOperationException($"SKU «{model.Sku}» уже используется товаром «{duplicate.Name}».");
             model.Status = StatusService.Calculate(model, await Settings.GetAsync());
             UpdatePrimaryImage();
             await Catalog.UpsertProductAsync(model);

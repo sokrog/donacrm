@@ -9,6 +9,9 @@ builder.RootComponents.Add<Routes>("#app");
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress), Timeout = TimeSpan.FromSeconds(45) });
 
 builder.Services.AddScoped<BrowserCrmRepository>();
+builder.Services.AddScoped<IBackupSnapshotStore>(services => services.GetRequiredService<BrowserCrmRepository>());
+builder.Services.AddScoped<BackupRestoreService>();
+builder.Services.AddScoped<IBackupArchiveFileService, BrowserBackupArchiveFileService>();
 builder.Services.AddScoped<ICatalogRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<ICommerceRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<ISalesRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
@@ -20,6 +23,7 @@ builder.Services.AddScoped<IPurchaseHistoryRepository>(services => services.GetR
 builder.Services.AddScoped<BrowserGoogleConnectionService>();
 builder.Services.AddScoped<GoogleSheetsSnapshotClient>();
 builder.Services.AddScoped<GoogleDriveFileClient>();
+builder.Services.AddScoped<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
 builder.Services.AddScoped<IProductImageResolver, GoogleDriveProductImageResolver>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());

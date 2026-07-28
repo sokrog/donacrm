@@ -7,7 +7,7 @@ window.donaGoogle = {
             }
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: clientId,
-                scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive',
+                scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata',
                 callback: response => response?.access_token ? resolve(response.access_token) : reject(new Error(response?.error_description || response?.error || 'Google не вернул токен доступа.')),
                 error_callback: error => reject(new Error(error?.message || error?.type || 'Окно авторизации Google было закрыто.'))
             });
@@ -20,6 +20,22 @@ window.donaGoogle = {
 };
 
 window.donaBrowser = {
+    pickBackup() {
+        return new Promise(resolve => {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = '.zip,application/zip';
+            input.onchange = async () => {
+                const file = input.files?.[0];
+                resolve(file ? new Uint8Array(await file.arrayBuffer()) : null);
+            };
+            input.click();
+        });
+    },
+    download(name, bytes) {
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }));
+        const link = document.createElement('a'); link.href = url; link.download = name; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
     pickImage(maxBytes) {
         return new Promise((resolve, reject) => {
             const input = document.createElement('input');

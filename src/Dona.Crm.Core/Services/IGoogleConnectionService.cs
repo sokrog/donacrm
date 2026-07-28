@@ -12,6 +12,7 @@ public sealed record GoogleConnectionState(
     GoogleConnectionSettings Settings,
     bool IsConnected,
     string? AccountEmail = null,
+    string? AccountName = null,
     string? SpreadsheetName = null,
     string? DriveFolderName = null,
     DateTimeOffset? LastCheckedAt = null)

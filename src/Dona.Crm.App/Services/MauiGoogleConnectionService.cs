@@ -15,6 +15,7 @@ public sealed class MauiGoogleConnectionService(
     private const string OAuthClientIdKey = "google.oauth-client-id";
     private const string OAuthClientSecretKey = "google.oauth-client-secret";
     private const string AccountKey = "google.account";
+    private const string AccountNameKey = "google.account-name";
     private const string ConnectedKey = "google.connected";
     private const string AccessTokenKey = "google.access-token";
     private const string RefreshTokenKey = "google.refresh-token";
@@ -30,6 +31,7 @@ public sealed class MauiGoogleConnectionService(
             ReadSettings(),
             string.Equals(await secure.GetAsync(ConnectedKey), "true", StringComparison.Ordinal),
             await secure.GetAsync(AccountKey),
+            await secure.GetAsync(AccountNameKey),
             Preferences.Default.Get<string?>(SpreadsheetNameKey, null),
             Preferences.Default.Get<string?>(DriveFolderNameKey, null),
             ReadDate(LastCheckedKey));
@@ -79,28 +81,8 @@ public sealed class MauiGoogleConnectionService(
         var settings = ReadSettings();
         EnsureConfigured(settings);
         var token = await GetAccessTokenAsync(settings, cancellationToken);
-        var sheet = await GetGoogleAsync<SheetResponse>(
-            $"https://sheets.googleapis.com/v4/spreadsheets/{Uri.EscapeDataString(settings.SpreadsheetId)}?fields=spreadsheetId,properties.title",
-            token,
-            "Не удалось открыть Google-таблицу",
-            cancellationToken);
-        Preferences.Default.Set(SpreadsheetNameKey, sheet.Properties?.Title ?? settings.SpreadsheetId);
-
-        if (settings.DriveFolderId is not null)
-        {
-            var folder = await GetGoogleAsync<DriveFileResponse>(
-                $"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(settings.DriveFolderId)}?fields=id,name,mimeType&supportsAllDrives=true",
-                token,
-                "Не удалось открыть папку Google Drive",
-                cancellationToken);
-            if (!string.Equals(folder.MimeType, "application/vnd.google-apps.folder", StringComparison.Ordinal))
-                throw new InvalidOperationException("Указанный объект Google Drive не является папкой.");
-            Preferences.Default.Set(DriveFolderNameKey, folder.Name ?? settings.DriveFolderId);
-        }
-        else
-        {
-            Preferences.Default.Remove(DriveFolderNameKey);
-        }
+        Preferences.Default.Remove(SpreadsheetNameKey);
+        Preferences.Default.Remove(DriveFolderNameKey);
 
         var user = await GetGoogleAsync<UserInfoResponse>(
             "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -109,6 +91,8 @@ public sealed class MauiGoogleConnectionService(
             cancellationToken);
         if (!string.IsNullOrWhiteSpace(user.Email))
             await secure.SetAsync(AccountKey, user.Email);
+        if (!string.IsNullOrWhiteSpace(user.Name))
+            await secure.SetAsync(AccountNameKey, user.Name);
         await secure.SetAsync(ConnectedKey, "true");
         Preferences.Default.Set(LastCheckedKey, DateTimeOffset.UtcNow.ToString("O"));
         return await GetStateAsync(cancellationToken);
@@ -129,6 +113,7 @@ public sealed class MauiGoogleConnectionService(
         secure.Remove(AccessTokenKey);
         secure.Remove(RefreshTokenKey);
         secure.Remove(AccountKey);
+        secure.Remove(AccountNameKey);
         secure.Remove(ConnectedKey);
         secure.Remove(ExpiresAtKey);
         ClearCheckDetails();
@@ -214,8 +199,9 @@ public sealed class MauiGoogleConnectionService(
 
     private static GoogleConnectionSettings Normalize(GoogleConnectionSettings settings)
     {
-        var spreadsheet = GoogleResourceIds.Spreadsheet(settings.SpreadsheetId);
-        if (string.IsNullOrWhiteSpace(spreadsheet))
+        var rawSpreadsheet = settings.SpreadsheetId?.Trim() ?? string.Empty;
+        var spreadsheet = string.IsNullOrWhiteSpace(rawSpreadsheet) ? string.Empty : GoogleResourceIds.Spreadsheet(rawSpreadsheet);
+        if (!string.IsNullOrWhiteSpace(rawSpreadsheet) && string.IsNullOrWhiteSpace(spreadsheet))
             throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
         var folder = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
         if (folder == string.Empty)
@@ -229,8 +215,6 @@ public sealed class MauiGoogleConnectionService(
 
     private void EnsureConfigured(GoogleConnectionSettings settings)
     {
-        if (string.IsNullOrWhiteSpace(settings.SpreadsheetId))
-            throw new InvalidOperationException("Сначала сохраните Google-таблицу.");
         if (authorization.RequiresClientId &&
             (string.IsNullOrWhiteSpace(settings.OAuthClientId) ||
              !settings.OAuthClientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)))
@@ -254,8 +238,5 @@ public sealed class MauiGoogleConnectionService(
         Preferences.Default.Remove(LastCheckedKey);
     }
 
-    private sealed record SheetResponse(SheetProperties? Properties);
-    private sealed record SheetProperties(string? Title);
-    private sealed record DriveFileResponse(string? Name, string? MimeType);
-    private sealed record UserInfoResponse(string? Email);
+    private sealed record UserInfoResponse(string? Email, string? Name);
 }

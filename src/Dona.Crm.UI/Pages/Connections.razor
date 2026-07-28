@@ -5,11 +5,11 @@
 
 <PageTitle>Подключения — DONA CRM</PageTitle>
 <div class="connections-page">
-    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><small>Ещё</small><h1>Подключения</h1><p>Локальные данные остаются основными. Обмен запускается только вами.</p></div></div></header>
+    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><small>Ещё</small><h1>Подключения</h1><p>Данные работают локально и сохраняются в личном аккаунте только после входа.</p></div></div></header>
 
     @if (loading)
     {
-        <div class="connection-state">Проверяем локальные подключения…</div>
+        <div class="connection-state">Проверяем подключения…</div>
     }
     else
     {
@@ -22,72 +22,32 @@
         <section class="google-card">
             <div class="provider-heading">
                 <span class="provider-icon google">G</span>
-                <div><h2>Google</h2><p>Один аккаунт для Sheets и Drive</p></div>
-                <span class="status @(state.IsConnected ? "connected" : null)">@(state.IsConnected ? "Подключено" : "Не подключено")</span>
+                <div><h2>Google</h2><p>Резервные копии и фотографии</p></div>
+                <span class="status @((state.IsConnected && !requiresSignIn) ? "connected" : null)">@(requiresSignIn ? "Нужно войти" : state.IsConnected ? "Подключено" : "Не подключено")</span>
             </div>
 
             @if (state.IsConnected)
             {
-                <div class="account-row"><InitialBadge Text="@state.AccountEmail" Compact="true" /><div><strong>@state.AccountEmail</strong><small>Токен защищён хранилищем устройства</small></div></div>
+                <div class="account-row"><InitialBadge Text="@(state.AccountName ?? state.AccountEmail)" Compact="true" /><div><strong>@(state.AccountName ?? state.AccountEmail)</strong>@if (!string.IsNullOrWhiteSpace(state.AccountName) && !string.IsNullOrWhiteSpace(state.AccountEmail)){<small>@state.AccountEmail</small>}</div></div>
             }
 
-            <EditForm Model="form" OnValidSubmit="SaveAsync">
-                <UnsavedChangesGuard @ref="unsavedGuard" />
-                <label>Существующая Google-таблица
-                    <InputText @bind-Value="form.Spreadsheet" placeholder="Ссылка или ID таблицы" />
-                    <small>@(state.SpreadsheetName is null ? "Аккаунту Google потребуется доступ редактора" : $"Проверено: {state.SpreadsheetName}")</small>
-                </label>
-                <label>Папка Google Drive <em>необязательно</em>
-                    <InputText @bind-Value="form.DriveFolder" placeholder="Ссылка или ID папки" />
-                    <small>@(state.DriveFolderName is null ? "Для новых фотографий; пустое поле — без папки" : $"Проверено: {state.DriveFolderName}")</small>
-                </label>
+            <p class="cloud-description">Копии базы и новые фотографии сохраняются в закрытом хранилище текущего Google-аккаунта.</p>
 
-                @if (Platform.RequiresOAuthClientId)
-                {
-                    <label>Google OAuth Client ID
-                        <InputText @bind-Value="form.OAuthClientId" placeholder="…apps.googleusercontent.com" />
-                        <small>@Platform.OAuthClientDescription</small>
-                    </label>
-                    @if (Platform.SupportsOAuthClientSecret)
-                    {
-                        <label>Google OAuth Client Secret
-                            <InputText type="password" autocomplete="off" @bind-Value="form.OAuthClientSecret" placeholder="Вставьте из JSON OAuth-клиента" />
-                            <small>@Platform.OAuthClientSecretDescription. После сохранения поле очищается; пустое поле не заменяет ранее сохранённое значение.</small>
-                        </label>
-                    }
-                }
-                else
-                {
-                    <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Нативная авторизация Google</strong><small>@Platform.OAuthClientDescription.</small></div></div>
-                }
-
-                <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Разрешите оба доступа</strong><small>На экране Google отметьте Google Таблицы и Google Drive. Без одного из этих разрешений подключение не будет сохранено.</small></div></div>
-
-                @if (message is not null)
-                {
-                    <p class="connection-message @(success ? "success" : null)" role="status">@message</p>
-                }
-
-                <div class="connection-actions">
-                    <button class="primary" disabled="@busy">@(busy ? "Выполняем…" : state.IsConnected ? "Сохранить и проверить" : "Сохранить")</button>
-                    @if (!state.IsConnected)
-                    {
-                        <button type="button" class="secondary" disabled="@(busy || !Platform.UsesDirectGoogleAccess)" @onclick="ConnectAsync">Войти через Google</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="secondary" disabled="@busy" @onclick="CheckAsync">Проверить доступ</button>
-                        <button type="button" class="disconnect" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
-                    }
-                </div>
-            </EditForm>
-
-            <div class="sync-note"><OrbitIcon Name="cloud" /><div><strong>Без скрытой синхронизации</strong><small>Сравнение и обмен запускаются только вручную; направление и замена данных требуют подтверждения.</small></div></div>
-            @if (Platform.UsesDirectGoogleAccess)
+            @if (message is not null)
             {
-                <div class="sync-note"><OrbitIcon Name="table" /><div><strong>В той же Google-таблице</strong><small>Command Orbit создаст скрытый служебный лист для версий и разрешения конфликтов. Остальные листы останутся без изменений.</small></div></div>
+                <p class="connection-message @(success ? "success" : null)" role="status">@message</p>
             }
-            @if (state.IsConnected) { <a class="sync-action" href="/sync">Сравнить локальные данные и Google Sheets <span aria-hidden="true">›</span></a> }
+
+            <div class="connection-actions">
+                @if (!state.IsConnected || requiresSignIn)
+                {
+                    <button type="button" class="primary" disabled="@busy" @onclick="ConnectAsync">@(busy ? "Выполняем…" : requiresSignIn ? "Войти снова" : "Войти через Google")</button>
+                }
+                @if (state.IsConnected)
+                {
+                    <button type="button" class="disconnect" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
+                }
+            </div>
             @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
         </section>
     }
@@ -95,69 +55,52 @@
 
 @code {
     private GoogleConnectionState state = new(new GoogleConnectionSettings(string.Empty, null), false);
-    private ConnectionForm form = new();
-    private UnsavedChangesGuard? unsavedGuard;
     private bool loading = true;
     private bool busy;
+    private bool requiresSignIn;
     private bool success;
     private string? message;
 
     protected override async Task OnInitializedAsync()
     {
         state = await Google.GetStateAsync();
-        form = new ConnectionForm { OAuthClientId = state.Settings.OAuthClientId ?? string.Empty, Spreadsheet = state.Settings.SpreadsheetId, DriveFolder = state.Settings.DriveFolderId };
+        if (state.IsConnected)
+        {
+            try
+            {
+                state = await Google.CheckAsync();
+            }
+            catch (Exception)
+            {
+                requiresSignIn = true;
+                message = "Сессия Google завершена. Войдите снова, чтобы продолжить сохранять копии и фотографии в аккаунте.";
+                success = false;
+            }
+        }
         loading = false;
     }
 
-    private async Task SaveAsync() => await RunAsync(async () =>
-    {
-        state = await Google.SaveSettingsAsync(Settings());
-        form.OAuthClientSecret = string.Empty;
-        if (state.IsConnected) state = await Google.CheckAsync();
-        return state.IsConnected
-            ? "Настройки сохранены, доступ подтверждён."
-            : "Настройки сохранены. Теперь войдите через Google.";
-    });
-
     private async Task ConnectAsync() => await RunAsync(async () =>
     {
-        state = await Google.SaveSettingsAsync(Settings());
-        form.OAuthClientSecret = string.Empty;
         state = await Google.ConnectAsync();
+        requiresSignIn = false;
         return $"Подключён аккаунт {state.AccountEmail}.";
-    });
-
-    private async Task CheckAsync() => await RunAsync(async () =>
-    {
-        state = await Google.SaveSettingsAsync(Settings());
-        form.OAuthClientSecret = string.Empty;
-        state = await Google.CheckAsync();
-        return "Google Sheets и Drive доступны.";
     });
 
     private async Task DisconnectAsync() => await RunAsync(async () =>
     {
         await Google.DisconnectAsync();
         state = await Google.GetStateAsync();
+        requiresSignIn = false;
         return "Google-аккаунт отключён. Локальные данные не изменены.";
     });
-
-    private GoogleConnectionSettings Settings() => new(form.Spreadsheet, form.DriveFolder, form.OAuthClientId, form.OAuthClientSecret);
 
     private async Task RunAsync(Func<Task<string>> action)
     {
         if (busy) return;
         busy = true; message = null;
-        try { message = await action(); unsavedGuard?.MarkClean(); success = true; }
+        try { message = await action(); success = true; }
         catch (Exception exception) { message = exception.Message; success = false; }
         finally { busy = false; }
-    }
-
-    private sealed class ConnectionForm
-    {
-        public string OAuthClientId { get; set; } = string.Empty;
-        public string OAuthClientSecret { get; set; } = string.Empty;
-        public string Spreadsheet { get; set; } = string.Empty;
-        public string? DriveFolder { get; set; }
     }
 }

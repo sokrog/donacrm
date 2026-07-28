@@ -9,7 +9,7 @@ internal static class GoogleOAuthPkce
     internal const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     internal const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     internal const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
-    internal const string Scopes = "openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive";
+    internal const string Scopes = "openid email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata";
     private static readonly string[] RequiredDataScopes =
     [
         "https://www.googleapis.com/auth/spreadsheets",

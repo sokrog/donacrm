@@ -8,6 +8,19 @@ namespace Dona.Crm.Web.Services;
 public sealed record BackupDownload(byte[] Content, string FileName);
 public sealed record BackupArchiveInspection(BackupSnapshot Snapshot, int LocalImageCount, long LocalImageBytes);
 public sealed record BackupPreview(DateTimeOffset CreatedAt, int SchemaVersion, int Products, int Purchases, int Sales, int Customers, int Suppliers, int Intermediaries, int Categories, int Collections, int Outfits, int ContentItems, int StockMovements, int LocalImages, long LocalImageBytes, int NewProducts, int UpdatedProducts, int NewPurchases, int UpdatedPurchases, int NewSales, int UpdatedSales);
+public sealed record BackupRestoreResult(BackupDownload AutomaticBackup, BackupPreview Preview);
+
+public interface IBackupSnapshotStore
+{
+    Task<DonaSyncSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default);
+    Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default);
+}
+
+public interface IBackupArchiveFileService
+{
+    Task<byte[]?> PickAsync(CancellationToken cancellationToken = default);
+    Task SaveAutomaticBackupAsync(BackupDownload backup, CancellationToken cancellationToken = default);
+}
 
 public sealed class BackupSnapshot
 {
@@ -20,6 +33,81 @@ public sealed class BackupSnapshot
     public PurchaseHistoryData PurchaseHistory { get; init; } = new();
     public IReadOnlyList<StockMovement> StockMovements { get; init; } = [];
     public BusinessSettings BusinessSettings { get; init; } = new();
+}
+
+public static class BackupSnapshotMapper
+{
+    public static BackupSnapshot FromSyncSnapshot(DonaSyncSnapshot snapshot) => new()
+    {
+        Products = snapshot.Products,
+        Commerce = new CommerceData
+        {
+            Suppliers = snapshot.Suppliers,
+            Intermediaries = snapshot.Intermediaries,
+            Categories = snapshot.Categories,
+            Purchases = snapshot.Purchases
+        },
+        Sales = new SalesData { Customers = snapshot.Customers, Sales = snapshot.Sales },
+        Marketing = snapshot.Marketing,
+        PurchaseHistory = snapshot.PurchaseHistory,
+        StockMovements = snapshot.StockMovements,
+        BusinessSettings = snapshot.BusinessSettings
+    };
+
+    public static DonaSyncSnapshot ToSyncSnapshot(BackupSnapshot snapshot) => new()
+    {
+        Products = snapshot.Products.ToList(),
+        Suppliers = snapshot.Commerce.Suppliers.ToList(),
+        Intermediaries = snapshot.Commerce.Intermediaries.ToList(),
+        Categories = snapshot.Commerce.Categories.ToList(),
+        Purchases = snapshot.Commerce.Purchases.ToList(),
+        Customers = snapshot.Sales.Customers.ToList(),
+        Sales = snapshot.Sales.Sales.ToList(),
+        Marketing = snapshot.Marketing,
+        PurchaseHistory = snapshot.PurchaseHistory,
+        StockMovements = snapshot.StockMovements.ToList(),
+        BusinessSettings = snapshot.BusinessSettings
+    };
+}
+
+public sealed class BackupRestoreService(IBackupSnapshotStore store)
+{
+    public async Task<BackupPreview> PreviewAsync(byte[] content, CancellationToken cancellationToken = default)
+    {
+        var inspection = BackupArchiveCodec.Inspect(content);
+        var current = await store.ReadSnapshotAsync(cancellationToken);
+        var incoming = BackupSnapshotMapper.ToSyncSnapshot(inspection.Snapshot);
+        return CreatePreview(inspection, current, incoming);
+    }
+
+    public async Task<BackupRestoreResult> RestoreAsync(byte[] content, CancellationToken cancellationToken = default)
+    {
+        var inspection = BackupArchiveCodec.Inspect(content);
+        var current = await store.ReadSnapshotAsync(cancellationToken);
+        var incoming = BackupSnapshotMapper.ToSyncSnapshot(inspection.Snapshot);
+        var preview = CreatePreview(inspection, current, incoming);
+        var automaticBackup = new BackupDownload(
+            BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(current)),
+            $"dona-crm-before-restore-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.zip");
+        await store.ReplaceSnapshotAsync(incoming, cancellationToken);
+        return new BackupRestoreResult(automaticBackup, preview);
+    }
+
+    private static BackupPreview CreatePreview(BackupArchiveInspection inspection, DonaSyncSnapshot current, DonaSyncSnapshot incoming) => new(
+        inspection.Snapshot.CreatedAt, inspection.Snapshot.SchemaVersion, incoming.Products.Count, incoming.Purchases.Count, incoming.Sales.Count,
+        incoming.Customers.Count, incoming.Suppliers.Count, incoming.Intermediaries.Count, incoming.Categories.Count,
+        incoming.Marketing.Collections.Count, incoming.Marketing.Outfits.Count, incoming.Marketing.ContentPosts.Count,
+        incoming.StockMovements.Count, inspection.LocalImageCount, inspection.LocalImageBytes,
+        NewCount(current.Products, incoming.Products), UpdatedCount(current.Products, incoming.Products),
+        NewCount(current.Purchases, incoming.Purchases), UpdatedCount(current.Purchases, incoming.Purchases),
+        NewCount(current.Sales, incoming.Sales), UpdatedCount(current.Sales, incoming.Sales));
+
+    private static int NewCount<T>(IEnumerable<T> current, IEnumerable<T> incoming) where T : class =>
+        incoming.Count(item => !Ids(current).Contains(Id(item)));
+    private static int UpdatedCount<T>(IEnumerable<T> current, IEnumerable<T> incoming) where T : class =>
+        incoming.Count(item => Ids(current).Contains(Id(item)));
+    private static HashSet<Guid> Ids<T>(IEnumerable<T> values) where T : class => values.Select(Id).ToHashSet();
+    private static Guid Id<T>(T value) where T : class => (Guid)(value.GetType().GetProperty("Id")?.GetValue(value) ?? Guid.Empty);
 }
 
 public static class BackupArchiveCodec

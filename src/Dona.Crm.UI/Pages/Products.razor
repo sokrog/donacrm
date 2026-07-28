@@ -17,6 +17,15 @@
         <label for="product-search">Поиск по названию или SKU</label>
         <input class="orbit-search-control" id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" @bind="query" @bind:event="oninput" />
     </div>
+    <div class="catalog-filters" role="group" aria-label="Быстрые фильтры каталога">
+        <button type="button" class="@(filter is null ? "active" : null)" @onclick="() => filter = null">Все</button>
+        <button type="button" class="@PhotoFilterClass" @onclick="ShowWithoutPhoto">Без фото</button>
+        <button type="button" class="@PriceFilterClass" @onclick="ShowWithoutPrice">Без цены</button>
+        <button type="button" class="@VariantsFilterClass" @onclick="ShowWithoutVariants">Без вариантов</button>
+        <button type="button" class="@LowFilterClass" @onclick="ShowLowStock">Заканчивается</button>
+        <button type="button" class="reset" disabled="@(filter is null && string.IsNullOrWhiteSpace(query) && sort == "created")" @onclick="ResetFilters">Сбросить</button>
+    </div>
+    <label class="catalog-sort">Сортировка<select @bind="sort"><option value="created">Сначала новые</option><option value="price">Цена: выше</option><option value="stock">Остаток: меньше</option><option value="margin">Наценка: выше</option></select></label>
 
     <nav class="catalog-tools" aria-label="Инструменты каталога"><a href="/collections"><OrbitIcon Name="catalog" /><span><strong>Коллекции</strong><small>Подборки товаров</small></span></a><a href="/outfits"><OrbitIcon Name="image" /><span><strong>Образы</strong><small>Готовые сочетания</small></span></a></nav>
 
@@ -46,7 +55,7 @@
                                 @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <ProductImageView Image="@product.PrimaryImage" FallbackUrl="@product.PrimaryImageUrl" Alt="" /> }
                                 else { <OrbitIcon Name="catalog" /> }
                             </span>
-                            <span class="product-info"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small><span class="status @StatusClass(product.Status)">@product.Status.Display()</span></span>
+                            <span class="product-info"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small><span class="status @StatusClass(product.Status)">@product.Status.Display()</span>@if (Issues(product).Count > 0) { <small class="product-issues">@string.Join(" · ", Issues(product))</small> }</span>
                             <span class="product-numbers"><strong>@Money(product.SellingPriceUzs ?? 0)</strong><small>UZS</small><span>@product.Quantity ед.</span></span>
                         </a>
                     </li>
@@ -59,10 +68,10 @@
 @code {
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
     private List<Product> products = [];
-    private string query = string.Empty;
+    private string query = string.Empty; private string? filter; private string sort = "created";
     private bool isLoading = true;
     private string? errorMessage;
-    private IReadOnlyList<Product> FilteredProducts => ProductSearch.Filter(products, query, Math.Max(8, products.Count));
+    private IReadOnlyList<Product> FilteredProducts => Sort(ProductSearch.Filter(products.Where(MatchesFilter), query, Math.Max(8, products.Count))).ToList();
 
     protected override Task OnInitializedAsync() => LoadAsync();
     private async Task LoadAsync()
@@ -76,4 +85,10 @@
     private static string Money(decimal value) => value.ToString("N0", RussianCulture);
     private static string ProductWord(int count) => count == 1 ? "товар" : count is >= 2 and <= 4 ? "товара" : "товаров";
     private static string StatusClass(ProductStatus? status) => status switch { ProductStatus.InStock => "ok", ProductStatus.LowStock => "warning", ProductStatus.OutOfStock => "danger", _ => string.Empty };
+    private bool MatchesFilter(Product product) => filter switch { "photo" => string.IsNullOrWhiteSpace(product.PrimaryImageUrl), "price" => product.SellingPriceUzs is null or <= 0, "variants" => product.Variants.Count == 0, "low" => product.Status is ProductStatus.LowStock or ProductStatus.OutOfStock, _ => true };
+    private string PhotoFilterClass => filter == "photo" ? "active" : string.Empty; private string PriceFilterClass => filter == "price" ? "active" : string.Empty; private string VariantsFilterClass => filter == "variants" ? "active" : string.Empty; private string LowFilterClass => filter == "low" ? "active" : string.Empty;
+    private void ShowWithoutPhoto() => filter = "photo"; private void ShowWithoutPrice() => filter = "price"; private void ShowWithoutVariants() => filter = "variants"; private void ShowLowStock() => filter = "low";
+    private void ResetFilters(){filter=null;query=string.Empty;sort="created";}
+    private IEnumerable<Product> Sort(IEnumerable<Product> values) => sort switch { "price" => values.OrderByDescending(value => value.SellingPriceUzs ?? 0), "stock" => values.OrderBy(value => value.Quantity), "margin" => values.OrderByDescending(value => value.MarkupPercent), _ => values.OrderByDescending(value => value.CreatedAt) };
+    private static List<string> Issues(Product product) => new[] { string.IsNullOrWhiteSpace(product.PrimaryImageUrl) ? "Нет фото" : null, product.SellingPriceUzs is null or <= 0 ? "Нет цены" : null, string.IsNullOrWhiteSpace(product.Category) ? "Нет категории" : null, product.Variants.Count == 0 ? "Нет вариантов" : null }.OfType<string>().ToList();
 }

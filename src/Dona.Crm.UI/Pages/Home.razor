@@ -4,6 +4,7 @@
 @using Dona.Crm.Web.Services
 @inject HomeDashboardService Dashboard
 @inject IGoogleSyncService Sync
+@inject IGoogleConnectionService Google
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
@@ -20,8 +21,8 @@
 
     <div class="connection-row">
         <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
-        <a class="sync-shortcut" href="/sync" aria-label="Открыть синхронизацию" title="Синхронизация">
-            <OrbitIcon Name="sync" />
+        <a class="sync-shortcut" href="/connections" aria-label="Открыть подключения Google" title="Подключения Google">
+            <OrbitIcon Name="cloud" />
         </a>
     </div>
 
@@ -125,16 +126,26 @@
     private List<AttentionItem> attentionItems = [];
     private List<ActivityItem> activityItems = [];
     private GoogleSyncStatus syncStatus = new(GoogleSyncState.LocalOnly);
+    private bool googleConnected;
+    private string? accountName;
 
     private string DateLabel => DateTime.Now.ToString("dddd, d MMMM", RussianCulture);
-    private string Greeting => DateTime.Now.Hour switch { < 6 => "Доброй ночи", < 12 => "Доброе утро", < 18 => "Добрый день", _ => "Добрый вечер" };
+    private string Greeting
+    {
+        get
+        {
+            var greeting = DateTime.Now.Hour switch { < 6 => "Доброй ночи", < 12 => "Доброе утро", < 18 => "Добрый день", _ => "Добрый вечер" };
+            return string.IsNullOrWhiteSpace(accountName) ? greeting : $"{greeting}, {accountName}";
+        }
+    }
     private string ConnectionLabel => errorMessage is not null
         ? "Локальное хранилище недоступно"
         : isLoading
             ? "Читаем локальные данные"
             : syncStatus.State switch
             {
-                GoogleSyncState.LocalOnly => "Локальные данные загружены",
+                GoogleSyncState.LocalOnly when !googleConnected => "Работа только локально",
+                GoogleSyncState.LocalOnly => "Google подключён · данные на устройстве",
                 GoogleSyncState.Pending => "Есть изменения для синхронизации",
                 GoogleSyncState.Synced when syncStatus.LastSuccessfulAt is not null =>
                     $"Синхронизировано · {syncStatus.LastSuccessfulAt.Value.ToLocalTime():dd.MM HH:mm}",
@@ -160,6 +171,9 @@
         try
         {
             BuildDashboard(await Dashboard.LoadAsync(DateTimeOffset.Now));
+            var googleState = await Google.GetStateAsync();
+            googleConnected = googleState.IsConnected;
+            accountName = googleState.AccountName;
             try
             {
                 syncStatus = await Sync.GetStatusAsync();

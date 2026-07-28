@@ -32,6 +32,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<GoogleSheetsSnapshotClient>();
 		builder.Services.AddSingleton<GoogleDriveFileClient>();
+		builder.Services.AddSingleton<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
 		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
 		builder.Services.AddSingleton<MauiGoogleSyncService>();
 		builder.Services.AddSingleton<IGoogleSyncService>(services => services.GetRequiredService<MauiGoogleSyncService>());
@@ -78,6 +79,9 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SqlitePurchaseHistoryRepository>();
 		builder.Services.AddSingleton<IPurchaseHistoryRepository>(services => services.GetRequiredService<SqlitePurchaseHistoryRepository>());
 		builder.Services.AddSingleton<SqliteSyncStore>();
+		builder.Services.AddSingleton<IBackupSnapshotStore>(services => services.GetRequiredService<SqliteSyncStore>());
+		builder.Services.AddSingleton<BackupRestoreService>();
+		builder.Services.AddSingleton<IBackupArchiveFileService, MauiBackupArchiveFileService>();
 		builder.Services.AddSingleton<SqliteSyncOperationStore>();
 		builder.Services.AddSingleton<SqliteSyncCheckpointStore>();
 		builder.Services.AddSingleton<IGoogleSyncCheckpointStore>(services => services.GetRequiredService<SqliteSyncCheckpointStore>());

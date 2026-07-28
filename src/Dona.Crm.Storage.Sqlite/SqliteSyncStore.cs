@@ -10,7 +10,7 @@ public sealed class SqliteSyncStore(
     SqliteMarketingRepository marketing,
     SqliteBusinessSettingsRepository settings,
     SqliteStockMovementRepository movements,
-    SqlitePurchaseHistoryRepository history)
+    SqlitePurchaseHistoryRepository history) : IBackupSnapshotStore
 {
     public async Task<DonaSyncSnapshot> ReadAsync(CancellationToken cancellationToken = default) => new()
     {
@@ -29,4 +29,7 @@ public sealed class SqliteSyncStore(
 
     public Task ReplaceAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default) =>
         store.ReplaceSnapshotAsync(snapshot, cancellationToken);
+
+    Task<DonaSyncSnapshot> IBackupSnapshotStore.ReadSnapshotAsync(CancellationToken cancellationToken) => ReadAsync(cancellationToken);
+    Task IBackupSnapshotStore.ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken) => ReplaceAsync(snapshot, cancellationToken);
 }
