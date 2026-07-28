@@ -14,9 +14,10 @@
             <p class="eyebrow">@DateLabel</p>
             <h1>@Greeting</h1>
         </div>
-        <button class="icon-button" type="button" aria-label="Открыть уведомления">
+        <a class="icon-button attention-shortcut" href="/attention" aria-label="Открыть раздел «Внимание»">
             <OrbitIcon Name="bell" />
-        </button>
+            @if (!isLoading && attentionItems.Count > 0) { <span class="attention-badge" aria-label="@attentionItems.Count сигналов">@attentionItems.Count</span> }
+        </a>
     </header>
 
     <div class="connection-row">

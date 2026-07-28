@@ -1,0 +1,110 @@
+@page "/attention"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject HomeDashboardService Dashboard
+@inject IMarketingRepository Marketing
+@inject IBusinessSettingsRepository SettingsRepository
+@inject IGoogleSyncService Sync
+@inject IGoogleConnectionService Google
+
+<PageTitle>Внимание — DONA CRM</PageTitle>
+
+<div class="attention-page" aria-busy="@loading">
+    <header>
+        <div class="orbit-secondary-heading">
+            <a class="orbit-icon-button orbit-back-button" href="/" aria-label="Вернуться на главную"><OrbitIcon Name="back" /></a>
+            <div><p>Главная</p><h1>Внимание</h1><small>Актуальные задачи на этом устройстве</small></div>
+        </div>
+    </header>
+
+    @if (loading)
+    {
+        <div class="attention-state">Проверяем данные…</div>
+    }
+    else if (error is not null)
+    {
+        <div class="attention-state error" role="alert"><strong>Не удалось собрать сигналы</strong><p>@error</p><button type="button" @onclick="LoadAsync">Повторить</button></div>
+    }
+    else if (items.Count == 0)
+    {
+        <div class="attention-state calm"><span><OrbitIcon Name="check" /></span><strong>Всё спокойно</strong><p>Срочных задач и предупреждений сейчас нет.</p></div>
+    }
+    else
+    {
+        <p class="summary" role="status">@items.Count @SignalWord(items.Count) требуют внимания.</p>
+        <ul class="attention-list">
+            @foreach (var item in items)
+            {
+                <li><a href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span><strong>@item.Title</strong><small>@item.Detail</small></span><span class="chevron" aria-hidden="true">›</span></a></li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private bool loading = true;
+    private string? error;
+    private List<AttentionEntry> items = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            var dashboardTask = Dashboard.LoadAsync(DateTimeOffset.Now);
+            var marketingTask = Marketing.GetContentPostsAsync();
+            var settingsTask = SettingsRepository.GetAsync();
+            await Task.WhenAll(dashboardTask, marketingTask, settingsTask);
+
+            var snapshot = await dashboardTask;
+            var settings = await settingsTask;
+            items = BuildItems(snapshot, await marketingTask, settings).ToList();
+
+            try
+            {
+                var connection = await Google.GetStateAsync();
+                var sync = await Sync.GetStatusAsync();
+                if (sync.State is GoogleSyncState.Conflict or GoogleSyncState.Error)
+                    items.Insert(0, new("cloud", "magenta", "Проверьте подключение Google", sync.Error ?? "Синхронизация требует действия", "/connections"));
+                else if (connection.IsConnected && sync.State == GoogleSyncState.Pending)
+                    items.Add(new("sync", "cyan", "Есть локальные изменения", "Они будут доступны для следующей синхронизации", "/connections"));
+            }
+            catch (Exception exception)
+            {
+                items.Insert(0, new("cloud", "magenta", "Не удалось проверить Google", exception.Message, "/connections"));
+            }
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static IEnumerable<AttentionEntry> BuildItems(HomeDashboardSnapshot snapshot, IReadOnlyList<ContentPost> posts, BusinessSettings settings)
+    {
+        foreach (var product in snapshot.LowStockProducts)
+            yield return new("catalog", "", product.Name, $"Осталось {product.Quantity} ед. на складе", "/products");
+        foreach (var sale in snapshot.SalesWithDebt)
+            yield return new("clock", "amber", sale.Number, $"{sale.CustomerName ?? "Клиент"} · долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
+        foreach (var purchase in snapshot.DuePurchases)
+            yield return new("truck", "cyan", purchase.Number, $"Ожидается поставка · осталось {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
+        foreach (var post in posts.Where(post => post.Status is not ContentStatus.Published and not ContentStatus.Cancelled && post.ScheduledAt?.Date < DateTime.Today))
+            yield return new("calendar", "magenta", post.Title, $"Публикация просрочена с {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
+        foreach (var post in posts.Where(post => post.Status is not ContentStatus.Published and not ContentStatus.Cancelled && post.ScheduledAt?.Date >= DateTime.Today && post.ScheduledAt?.Date <= DateTime.Today.AddDays(settings.ContentPlanningHorizonDays)))
+            yield return new("calendar", "cyan", post.Title, $"Публикация запланирована на {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
+        foreach (var product in snapshot.ProductsWithoutImages)
+            yield return new("image", "magenta", product.Name, "Добавьте фотографию товара", "/products");
+    }
+
+    private static string Money(decimal value) => value.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+    private static string SignalWord(int count) => count == 1 ? "сигнал" : count is >= 2 and <= 4 ? "сигнала" : "сигналов";
+    private sealed record AttentionEntry(string Icon, string Tone, string Title, string Detail, string Href);
+}

@@ -55,6 +55,9 @@ h1 {
     height: 22px;
 }
 
+.attention-shortcut { position: relative; text-decoration: none; }
+.attention-badge { position: absolute; top: -3px; right: -3px; display: grid; min-width: 19px; height: 19px; place-items: center; border: 2px solid var(--dona-bg); border-radius: 999px; padding: 0 4px; background: var(--dona-danger); color: #fff; font-size: 10px; font-weight: 800; line-height: 1; }
+
 .connection-row {
     display: flex;
     align-items: center;
