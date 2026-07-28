@@ -27,13 +27,24 @@
             @foreach (var image in Images.OrderBy(item => item.SortOrder))
             {
                 <article class="entity-images__item" @key="image.Id">
-                    <ProductImageView Image="@image" FallbackUrl="@image.Url" Class="entity-image-preview" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {image.SortOrder + 1}")" />
+                    <button type="button" class="entity-image-preview-button" aria-label="Открыть фотографию на весь экран" @onclick="() => OpenPreview(image)">
+                        <ProductImageView Image="@image" FallbackUrl="@image.Url" Class="entity-image-preview" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {image.SortOrder + 1}")" />
+                    </button>
                     <div>
                         <button type="button" class="@(image.IsMain ? "selected" : null)" @onclick="() => SetMainAsync(image)">@(image.IsMain ? "Главное" : "Сделать главным")</button>
                         <button type="button" class="delete" aria-label="Удалить фотографию" @onclick="() => RemoveAsync(image)">×</button>
                     </div>
                 </article>
             }
+        </div>
+    }
+    @if (preview is not null)
+    {
+        <div class="entity-image-lightbox" role="presentation" @onclick="ClosePreview">
+            <section role="dialog" aria-modal="true" aria-label="Полноэкранный просмотр фотографии" @onclick:stopPropagation="true" @onkeydown="PreviewKeyDown" tabindex="-1">
+                <button type="button" class="entity-image-lightbox__close" aria-label="Закрыть просмотр" @onclick="ClosePreview"><OrbitIcon Name="close" /></button>
+                <ProductImageView Image="@preview" FallbackUrl="@preview.Url" Class="entity-image-lightbox__image" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {preview.SortOrder + 1}")" />
+            </section>
         </div>
     }
     @if (message is not null)
@@ -56,6 +67,7 @@
     private string? message;
     private bool busy;
     private bool hasError;
+    private ProductImage? preview;
 
     public async Task CommitAsync()
     {
@@ -151,6 +163,15 @@
             removed.Add(image);
         Normalize();
         await ImagesChanged.InvokeAsync();
+    }
+
+    private void OpenPreview(ProductImage image) => preview = image;
+
+    private void ClosePreview() => preview = null;
+
+    private void PreviewKeyDown(KeyboardEventArgs eventArgs)
+    {
+        if (eventArgs.Key == "Escape") ClosePreview();
     }
 
     private void Normalize()

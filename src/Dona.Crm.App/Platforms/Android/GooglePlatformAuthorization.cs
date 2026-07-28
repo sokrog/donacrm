@@ -9,6 +9,10 @@ namespace Dona.Crm.App.Services;
 public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
 {
     private const int AuthorizationRequestCode = 40721;
+    private const int NetworkErrorStatusCode = 7;
+    private const int InternalErrorStatusCode = 8;
+    private const int DeveloperErrorStatusCode = 10;
+    private const int CanceledStatusCode = 16;
     private static readonly string[] ScopeNames =
     [
         "openid",
@@ -33,12 +37,24 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
         using var request = AuthorizationRequest.InvokeBuilder()
             .SetRequestedScopes(scopes)
             .Build();
-        var result = await client.Authorize(request).AsAsync<AuthorizationResult>();
-        if (result.HasResolution)
+
+        AuthorizationResult result;
+        try
         {
-            if (!interactive)
-                throw new InvalidOperationException("Сессия Google завершена. Выполните вход ещё раз.");
-            result = await ResolveAsync(activity, client, result, cancellationToken);
+            result = await AuthorizeWithRetryAsync(
+                activity,
+                client,
+                request,
+                interactive,
+                cancellationToken);
+        }
+        catch (ApiException exception) when (exception.StatusCode == CanceledStatusCode)
+        {
+            throw new OperationCanceledException("Вход в Google отменён.", exception, cancellationToken);
+        }
+        catch (ApiException exception)
+        {
+            throw new InvalidOperationException(BuildAuthorizationError(exception.StatusCode), exception);
         }
 
         if (string.IsNullOrWhiteSpace(result.AccessToken))
@@ -55,6 +71,34 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
         var client = Identity.GetAuthorizationClient(activity);
         using var request = ClearTokenRequest.InvokeBuilder().SetToken(accessToken).Build();
         await client.ClearToken(request).AsAsync();
+    }
+
+    private static async Task<AuthorizationResult> AuthorizeWithRetryAsync(
+        MainActivity activity,
+        IAuthorizationClient client,
+        AuthorizationRequest request,
+        bool interactive,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                var result = await client.Authorize(request).AsAsync<AuthorizationResult>();
+                if (!result.HasResolution)
+                    return result;
+                if (!interactive)
+                    throw new InvalidOperationException("Сессия Google завершена. Выполните вход ещё раз.");
+                return await ResolveAsync(activity, client, result, cancellationToken);
+            }
+            catch (ApiException exception) when (
+                exception.StatusCode == InternalErrorStatusCode &&
+                attempt == 0)
+            {
+                // Google defines status 8 as a transient internal error and recommends retrying.
+                await Task.Delay(TimeSpan.FromMilliseconds(350), cancellationToken);
+            }
+        }
     }
 
     private static async Task<AuthorizationResult> ResolveAsync(
@@ -93,14 +137,7 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
                 throw new InvalidOperationException("Google Play Services вернул пустой результат авторизации.");
             }
 
-            try
-            {
-                return client.GetAuthorizationResultFromIntent(result.Data);
-            }
-            catch (ApiException exception)
-            {
-                throw new InvalidOperationException(BuildAuthorizationError(exception.StatusCode), exception);
-            }
+            return client.GetAuthorizationResultFromIntent(result.Data);
         }
         finally
         {
@@ -112,10 +149,12 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
 
     private static string BuildAuthorizationError(int statusCode) => statusCode switch
     {
-        8 => "Google Play Services не смог подключиться к Google (код 8). Проверьте, что для DONA CRM " +
-             "не ограничен доступ к сети/DNS, затем обновите Google Play Services и повторите вход.",
-        10 => "Android OAuth client настроен неверно (код 10). В Google Cloud package name должен быть " +
-              "com.tnadevelopment.donacrm, а SHA-1 — соответствовать подписи установленного APK.",
+        NetworkErrorStatusCode => "Google Play Services не смог подключиться к Google (код 7). " +
+                                  "Проверьте доступ DONA CRM к сети и повторите вход.",
+        InternalErrorStatusCode => "Google Play Services повторно вернул внутреннюю ошибку (код 8). " +
+                                   "Повторите вход; если ошибка сохранится, перезапустите устройство.",
+        DeveloperErrorStatusCode => "Android OAuth client настроен неверно (код 10). В Google Cloud package name должен быть " +
+                                    "com.tnadevelopment.donacrm, а SHA-1 — соответствовать подписи установленного APK.",
         _ => $"Android не завершил авторизацию Google (код {statusCode}). Повторите попытку после проверки сети и Google Play Services."
     };
 }

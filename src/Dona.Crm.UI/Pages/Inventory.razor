@@ -14,7 +14,7 @@
         <ol class="movement-list">
             @foreach (var item in items.OrderByDescending(value => value.CreatedAt))
             {
-                <li><span class="movement-icon"><OrbitIcon Name="adjust" /></span><div><strong>@item.ProductName</strong><small>@Variant(item) · @item.SourceNumber</small><p>@item.Note</p></div><span class="delta @(item.QuantityDelta > 0 ? "plus" : "minus")">@Delta(item.QuantityDelta)</span><time datetime="@item.CreatedAt.ToString("O")">@item.CreatedAt.ToLocalTime().ToString("dd.MM · HH:mm")</time></li>
+                <li><span class="movement-icon"><OrbitIcon Name="adjust" /></span><div><strong>@item.ProductName</strong><small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small><p>@item.Note</p></div><span class="delta @(item.QuantityDelta > 0 ? "plus" : item.QuantityDelta < 0 ? "minus" : "reserve")"><strong>@QuantityDelta(item.QuantityDelta)</strong>@if (item.ReservedDelta != 0) { <small>Резерв @Signed(item.ReservedDelta)</small> }</span><time datetime="@item.CreatedAt.ToString("O")">@item.CreatedAt.ToLocalTime().ToString("dd.MM · HH:mm")</time></li>
             }
         </ol>
     }
@@ -25,5 +25,6 @@
     private string? error;
     protected override async Task OnInitializedAsync() { try { items = await Movements.GetAsync(); } catch (Exception exception) { error = exception.Message; } finally { isLoading = false; } }
     private static string Variant(StockMovement item) => string.Join(" · ", new[] { item.Color, item.Size }.Where(value => !string.IsNullOrWhiteSpace(value))) is { Length: > 0 } value ? value : item.Sku;
-    private static string Delta(int value) => value > 0 ? $"+{value}" : value.ToString();
+    private static string QuantityDelta(int value) => value == 0 ? "Остаток без изменений" : Signed(value);
+    private static string Signed(int value) => value > 0 ? $"+{value}" : value.ToString();
 }
