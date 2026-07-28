@@ -124,7 +124,10 @@ public sealed class SqliteStockMovementRepository(SqliteAggregateStore store) : 
         try
         {
             var values = (await store.ReadCollectionAsync<StockMovement>(Movements, cancellationToken)).ToList();
-            values.AddRange(additions);
+            // Stock movements are immutable facts. Replaying a sync batch must not
+            // turn one sale or receipt into two movements with the same identity.
+            var knownIds = values.Select(item => item.Id).ToHashSet();
+            values.AddRange(additions.Where(item => knownIds.Add(item.Id)));
             await store.ReplaceCollectionAsync(Movements, values.Select(item => (item.Id, item)), cancellationToken);
         }
         finally { gate.Release(); }

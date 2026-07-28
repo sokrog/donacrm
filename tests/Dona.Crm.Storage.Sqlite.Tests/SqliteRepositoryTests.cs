@@ -184,6 +184,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var stock = new SqliteStockMovementRepository(store!);
         var movement = new StockMovement { ProductName = "Test", QuantityDelta = 3 };
         await stock.AddRangeAsync([movement]);
+        await stock.AddRangeAsync([movement]);
 
         var history = new SqlitePurchaseHistoryRepository(store!);
         var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPriceCny = 15 };
