@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed record GoogleDriveFile(string Id, string Name, string MimeType, long Size, DateTimeOffset? ModifiedAt = null);
+public sealed record GoogleDriveFile(string Id, string Name, string MimeType, long Size, DateTimeOffset? ModifiedAt = null, string? ETag = null);
 public sealed record GoogleDriveDownload(byte[] Content, string ContentType);
 
 public sealed class GoogleDriveFileClient(HttpClient http)
@@ -41,7 +41,7 @@ public sealed class GoogleDriveFileClient(HttpClient http)
             cancellationToken);
         await EnsureSuccessAsync(response, "Не удалось загрузить фотографию в Google Drive", cancellationToken);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        return ParseFile(document.RootElement);
+        return ParseFile(document.RootElement, response.Headers.ETag?.Tag);
     }
 
     /// <summary>Stores a private app archive in the signed-in user's hidden Drive appData folder.</summary>
@@ -67,7 +67,7 @@ public sealed class GoogleDriveFileClient(HttpClient http)
         await EnsureSuccessAsync(response, "Не удалось получить список личных копий Google Drive", cancellationToken);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         return document.RootElement.TryGetProperty("files", out var files)
-            ? files.EnumerateArray().Select(ParseFile).ToList()
+            ? files.EnumerateArray().Select(value => ParseFile(value)).ToList()
             : [];
     }
 
@@ -79,13 +79,34 @@ public sealed class GoogleDriveFileClient(HttpClient http)
         ValidateId(fileId);
         using var response = await SendAsync(
             HttpMethod.Get,
-            $"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(fileId)}?fields=id,name,mimeType,size&supportsAllDrives=true",
+            $"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(fileId)}?fields=id,name,mimeType,size,modifiedTime&supportsAllDrives=true",
             accessToken,
             null,
             cancellationToken);
         await EnsureSuccessAsync(response, "Не удалось открыть объект Google Drive", cancellationToken);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        return ParseFile(document.RootElement);
+        return ParseFile(document.RootElement, response.Headers.ETag?.Tag);
+    }
+
+    public async Task<GoogleDriveFile> UpdateAppDataAsync(string fileId, string fileName, string contentType, byte[] content, string accessToken, string expectedETag, CancellationToken cancellationToken = default)
+    {
+        ValidateId(fileId);
+        if (string.IsNullOrWhiteSpace(expectedETag)) throw new ArgumentException("Не указана версия файла Google Drive.", nameof(expectedETag));
+        var boundary = $"dona_{Guid.NewGuid():N}";
+        using var multipart = new MultipartContent("related", boundary);
+        multipart.Add(new StringContent(JsonSerializer.Serialize(new { name = Path.GetFileName(fileName) }), Encoding.UTF8, "application/json"));
+        var fileContent = new ByteArrayContent(content);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        multipart.Add(fileContent);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"https://www.googleapis.com/upload/drive/v3/files/{Uri.EscapeDataString(fileId)}?uploadType=multipart&fields=id,name,mimeType,size,modifiedTime") { Content = multipart };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.TryAddWithoutValidation("If-Match", expectedETag);
+        using var response = await http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.PreconditionFailed)
+            throw new GoogleSyncConflictException("Облачные данные изменились на другом устройстве. Обновите сравнение и выберите направление синхронизации.");
+        await EnsureSuccessAsync(response, "Не удалось обновить снимок синхронизации Google Drive", cancellationToken);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        return ParseFile(document.RootElement, response.Headers.ETag?.Tag);
     }
 
     public async Task<GoogleDriveDownload> DownloadAsync(
@@ -185,14 +206,15 @@ public sealed class GoogleDriveFileClient(HttpClient http)
         throw new InvalidOperationException($"{message}: {detail}");
     }
 
-    private static GoogleDriveFile ParseFile(JsonElement value) => new(
+    private static GoogleDriveFile ParseFile(JsonElement value, string? etag = null) => new(
         value.GetProperty("id").GetString() ?? throw new InvalidOperationException("Google Drive не вернул ID файла."),
         value.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty,
         value.TryGetProperty("mimeType", out var mimeType) ? mimeType.GetString() ?? string.Empty : string.Empty,
         value.TryGetProperty("size", out var size) && long.TryParse(size.ToString(), out var parsedSize) ? parsedSize : 0,
         value.TryGetProperty("modifiedTime", out var modifiedTime) && DateTimeOffset.TryParse(modifiedTime.GetString(), out var parsedModifiedAt)
             ? parsedModifiedAt
-            : null);
+            : null,
+        etag);
 
     private static void ValidateId(string fileId)
     {

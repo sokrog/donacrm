@@ -180,7 +180,7 @@ public sealed class BrowserProductImagePicker(
 }
 
 public sealed class BrowserGoogleSyncService(
-    GoogleSheetsSnapshotClient remote,
+    GoogleDriveSyncSnapshotClient remote,
     IJSRuntime javascript,
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
@@ -193,7 +193,7 @@ public sealed class BrowserGoogleSyncService(
     public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         var connectionState = await connection.GetStateAsync(cancellationToken);
-        if (!connectionState.IsConnected || !connectionState.IsConfigured)
+        if (!connectionState.IsConnected)
             return new(GoogleSyncState.LocalOnly);
         var localVersion = DonaSyncFingerprint.Create(await local.ReadSnapshotAsync(cancellationToken));
         return GoogleSyncStatusEvaluator.Evaluate(true, localVersion, await checkpointStore.ReadAsync(cancellationToken));
@@ -278,7 +278,7 @@ public sealed class BrowserGoogleSyncService(
             var current = await ReadRemoteAsync(cancellationToken);
             EnsureUnchanged(current.Version, operation.ExpectedGoogleVersion);
             var capturedAt = DateTimeOffset.UtcNow;
-            await WriteRemoteAsync(new GoogleSyncEnvelope(operation.LocalVersion, capturedAt, operation.Snapshot), cancellationToken);
+            await WriteRemoteAsync(current with { Version = operation.LocalVersion, CapturedAt = capturedAt, Snapshot = operation.Snapshot }, cancellationToken);
             operation.Status = GoogleSyncOperationStatus.Applied;
             operation.AppliedAt = capturedAt;
             operation.Error = null;
@@ -311,8 +311,8 @@ public sealed class BrowserGoogleSyncService(
     private async Task<(string SpreadsheetId, string Token)> GetContextAsync(CancellationToken cancellationToken)
     {
         var state = await connection.GetStateAsync(cancellationToken);
-        if (!state.IsConnected || !state.IsConfigured)
-            throw new InvalidOperationException("Сначала подключите и проверьте Google в разделе «Подключения».");
+        if (!state.IsConnected)
+            throw new InvalidOperationException("Сначала войдите в Google в разделе «Подключения».");
         return (state.Settings.SpreadsheetId, await tokens.GetAccessTokenAsync(cancellationToken));
     }
 

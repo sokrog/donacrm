@@ -32,6 +32,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<GoogleSheetsSnapshotClient>();
 		builder.Services.AddSingleton<GoogleDriveFileClient>();
+		builder.Services.AddSingleton<GoogleDriveSyncSnapshotClient>();
 		builder.Services.AddSingleton<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
 		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
 		builder.Services.AddSingleton<MauiGoogleSyncService>();

@@ -18,7 +18,7 @@
     }
     else
     {
-        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>@Platform.StorageTitle ↔ Google Sheets</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
+        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>@Platform.StorageTitle ↔ личное облако Google</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
 
         @if (preview is null)
         {
@@ -35,7 +35,7 @@
                     <div><span><strong>@syncSection.Title</strong><small>Локально @syncSection.LocalCount · Google @syncSection.GoogleCount</small></span><b class="@(syncSection.LocalCount == syncSection.GoogleCount ? "same" : null)">@(syncSection.LocalCount == syncSection.GoogleCount ? "Совпадает" : "Отличается")</b></div>
                 }
             </section>
-            <p class="captured">@(HasGoogleSnapshot ? $"Снимок Google: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : "Снимок Command Orbit в этой таблице ещё не создан. Первая отправка создаст его; загрузка из Google пока недоступна.")</p>
+            <p class="captured">@(HasGoogleSnapshot ? $"Снимок личного облака: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : "Снимок личного облака ещё не создан. Первая отправка создаст его; загрузка пока недоступна.")</p>
 
             @if (!confirmPull && !confirmPush)
             {
@@ -48,7 +48,7 @@
             }
             else
             {
-                <section class="confirm-card push"><strong>Заменить данные в Google Sheets?</strong><p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию таблицы@(Platform.UsesDirectGoogleAccess ? "." : ", а связанные листы обновятся атомарным пакетом.")</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
+                <section class="confirm-card push"><strong>Заменить данные в личном облаке Google?</strong><p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию снимка, чтобы не перезаписать изменения с другого устройства.</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
             }
         }
 
@@ -102,7 +102,7 @@
     {
         preview = await Sync.PullAsync(preview!.GoogleVersion);
         confirmPull = false;
-        return $"Данные Google Sheets загружены в {Platform.StorageTitle.ToLowerInvariant()}.";
+        return $"Данные личного облака Google загружены в {Platform.StorageTitle.ToLowerInvariant()}.";
     });
 
     private async Task PushAsync() => await RunAsync(async () =>
@@ -111,7 +111,7 @@
         confirmPush = false;
         await RefreshOperationsAsync();
         preview = await Sync.PreviewAsync();
-        return result.AlreadyApplied ? "Этот снимок уже находится в Google Sheets." : "Локальный снимок отправлен в Google Sheets.";
+        return result.AlreadyApplied ? "Этот снимок уже находится в личном облаке Google." : "Локальный снимок отправлен в личное облако Google.";
     });
 
     private async Task RetryAsync() => await RunAsync(async () =>
@@ -119,7 +119,7 @@
         var result = await Sync.RetryPushAsync(retryOperation!.Id);
         await RefreshOperationsAsync();
         preview = await Sync.PreviewAsync();
-        return result.AlreadyApplied ? "Google подтвердил ранее отправленный снимок." : "Сохранённый снимок успешно отправлен в Google Sheets.";
+        return result.AlreadyApplied ? "Google подтвердил ранее отправленный снимок." : "Сохранённый снимок успешно отправлен в личное облако Google.";
     });
 
     private async Task RefreshOperationsAsync() => retryOperation = (await Sync.GetOperationsAsync())

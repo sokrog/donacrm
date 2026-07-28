@@ -23,6 +23,7 @@ builder.Services.AddScoped<IPurchaseHistoryRepository>(services => services.GetR
 builder.Services.AddScoped<BrowserGoogleConnectionService>();
 builder.Services.AddScoped<GoogleSheetsSnapshotClient>();
 builder.Services.AddScoped<GoogleDriveFileClient>();
+builder.Services.AddScoped<GoogleDriveSyncSnapshotClient>();
 builder.Services.AddScoped<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
 builder.Services.AddScoped<IProductImageResolver, GoogleDriveProductImageResolver>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());

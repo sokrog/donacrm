@@ -4,7 +4,7 @@ using Dona.Crm.Web.Services;
 namespace Dona.Crm.App.Services;
 
 public sealed class MauiGoogleSyncService(
-    GoogleSheetsSnapshotClient remote,
+    GoogleDriveSyncSnapshotClient remote,
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
     SqliteSyncStore local,
@@ -17,7 +17,7 @@ public sealed class MauiGoogleSyncService(
     public async Task QueueLocalChangesAsync(CancellationToken cancellationToken = default)
     {
         var state = await connection.GetStateAsync(cancellationToken);
-        if (!state.IsConnected || !state.IsConfigured)
+        if (!state.IsConnected)
             return;
 
         var snapshot = await local.ReadAsync(cancellationToken);
@@ -53,7 +53,7 @@ public sealed class MauiGoogleSyncService(
     public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         var connectionState = await connection.GetStateAsync(cancellationToken);
-        if (!connectionState.IsConnected || !connectionState.IsConfigured)
+        if (!connectionState.IsConnected)
             return new(GoogleSyncState.LocalOnly);
         var localVersion = DonaSyncFingerprint.Create(await local.ReadAsync(cancellationToken));
         return GoogleSyncStatusEvaluator.Evaluate(true, localVersion, await checkpointStore.ReadAsync(cancellationToken));
@@ -131,7 +131,7 @@ public sealed class MauiGoogleSyncService(
     private async Task<GoogleSyncPushResult> SendAsync(GoogleSyncOperation operation, CancellationToken cancellationToken)
     {
         var state = await connection.GetStateAsync(cancellationToken);
-        if (!state.IsConnected || !state.IsConfigured) throw new InvalidOperationException("Сначала подключите и проверьте Google в разделе «Подключения».");
+        if (!state.IsConnected) throw new InvalidOperationException("Сначала войдите в Google в разделе «Подключения».");
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
         try
         {
@@ -158,7 +158,7 @@ public sealed class MauiGoogleSyncService(
             await remote.WriteAsync(
                 state.Settings.SpreadsheetId,
                 token,
-                new GoogleSyncEnvelope(operation.LocalVersion, appliedAt, operation.Snapshot),
+                current with { Version = operation.LocalVersion, CapturedAt = appliedAt, Snapshot = operation.Snapshot },
                 cancellationToken);
             var result = new GoogleSyncPushResult(operation.Id, operation.LocalVersion, appliedAt, false);
             operation.Status = GoogleSyncOperationStatus.Applied;
@@ -194,7 +194,7 @@ public sealed class MauiGoogleSyncService(
     private async Task<GoogleSyncEnvelope> GetRemoteAsync(CancellationToken cancellationToken)
     {
         var state = await connection.GetStateAsync(cancellationToken);
-        if (!state.IsConnected || !state.IsConfigured) throw new InvalidOperationException("Сначала подключите и проверьте Google в разделе «Подключения».");
+        if (!state.IsConnected) throw new InvalidOperationException("Сначала войдите в Google в разделе «Подключения».");
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
         return await remote.ReadAsync(state.Settings.SpreadsheetId, token, cancellationToken);
     }

@@ -21,7 +21,7 @@ public sealed class DonaSyncSnapshot
     public PurchaseHistoryData PurchaseHistory { get; set; } = new();
 }
 
-public sealed record GoogleSyncEnvelope(string Version, DateTimeOffset CapturedAt, DonaSyncSnapshot Snapshot);
+public sealed record GoogleSyncEnvelope(string Version, DateTimeOffset CapturedAt, DonaSyncSnapshot Snapshot, string? RemoteId = null, string? RemoteETag = null);
 public sealed record GoogleSyncSection(string Key, string Title, int LocalCount, int GoogleCount);
 public sealed record GoogleSyncPreview(string LocalVersion, string GoogleVersion, DateTimeOffset CapturedAt, IReadOnlyList<GoogleSyncSection> Sections)
 {
