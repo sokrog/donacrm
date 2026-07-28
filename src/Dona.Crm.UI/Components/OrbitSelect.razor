@@ -30,7 +30,7 @@
                      @onkeydown="DialogKeyDown">
                 <header>
                     <div><small>Выбор значения</small><h2 id="@titleId">@Title</h2></div>
-                    <button type="button" class="close" aria-label="Закрыть список" @onclick="Close">×</button>
+                    <button type="button" class="close" aria-label="Закрыть список" @onclick="Close"><OrbitIcon Name="close" /></button>
                 </header>
                 @if (Searchable || Options.Count > SearchThreshold)
                 {
