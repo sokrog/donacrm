@@ -25,6 +25,7 @@ public interface IPersonalCloudBackupService
     Task<PersonalBackupInfo> CreateAsync(CancellationToken cancellationToken = default);
     Task<PersonalBackupInfo> SaveAutomaticAsync(BackupDownload backup, CancellationToken cancellationToken = default);
     Task<BackupRestoreResult> RestoreAsync(string backupId, CancellationToken cancellationToken = default);
+    Task<BackupDownload> DownloadAsync(string backupId, CancellationToken cancellationToken = default);
     Task DeleteAsync(string backupId, CancellationToken cancellationToken = default);
 }
 
@@ -72,12 +73,18 @@ public sealed class GoogleDrivePersonalBackupService(
 
     public async Task<BackupRestoreResult> RestoreAsync(string backupId, CancellationToken cancellationToken = default)
     {
+        var archive = await DownloadAsync(backupId, cancellationToken);
+        return await restore.RestoreAsync(archive.Content, cancellationToken);
+    }
+
+    public async Task<BackupDownload> DownloadAsync(string backupId, CancellationToken cancellationToken = default)
+    {
         await EnsureConnectedAsync(cancellationToken);
-        await EnsurePersonalBackupAsync(backupId, cancellationToken);
+        var backup = await EnsurePersonalBackupAsync(backupId, cancellationToken);
         var archive = await drive.DownloadAppDataAsync(backupId, await tokens.GetAccessTokenAsync(cancellationToken), cancellationToken);
         if (!string.Equals(archive.ContentType, "application/zip", StringComparison.OrdinalIgnoreCase) && archive.Content.Length == 0)
             throw new InvalidDataException("Google Drive вернул пустую резервную копию.");
-        return await restore.RestoreAsync(archive.Content, cancellationToken);
+        return new BackupDownload(archive.Content, backup.FileName);
     }
 
     public async Task DeleteAsync(string backupId, CancellationToken cancellationToken = default)
@@ -115,11 +122,12 @@ public sealed class GoogleDrivePersonalBackupService(
             await drive.DeleteAsync(backup.Id, accessToken!, cancellationToken);
     }
 
-    private async Task EnsurePersonalBackupAsync(string backupId, CancellationToken cancellationToken)
+    private async Task<PersonalBackupInfo> EnsurePersonalBackupAsync(string backupId, CancellationToken cancellationToken)
     {
         var backup = (await ListAsync(cancellationToken)).FirstOrDefault(item => item.Id == backupId);
         if (backup is null)
             throw new InvalidOperationException("Личная копия не найдена или недоступна текущему Google-аккаунту.");
+        return backup;
     }
 
     private static PersonalBackupInfo ToPersonalBackup(GoogleDriveFile file) => new(

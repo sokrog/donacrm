@@ -36,4 +36,17 @@ public sealed class MauiBackupArchiveFileService : IBackupArchiveFileService
                      .Skip(AutomaticBackupLimit))
             File.Delete(obsolete);
     }
+
+    public async Task ExportAsync(BackupDownload backup, CancellationToken cancellationToken = default)
+    {
+        var directory = Path.Combine(FileSystem.CacheDirectory, "exports");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, Path.GetFileName(backup.FileName));
+        await File.WriteAllBytesAsync(path, backup.Content, cancellationToken);
+        await Share.Default.RequestAsync(new ShareFileRequest
+        {
+            Title = "Сохранить ZIP-копию DONA CRM",
+            File = new ShareFile(path, "application/zip")
+        });
+    }
 }

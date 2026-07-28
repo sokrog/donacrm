@@ -20,6 +20,7 @@ public interface IBackupArchiveFileService
 {
     Task<byte[]?> PickAsync(CancellationToken cancellationToken = default);
     Task SaveAutomaticBackupAsync(BackupDownload backup, CancellationToken cancellationToken = default);
+    Task ExportAsync(BackupDownload backup, CancellationToken cancellationToken = default);
 }
 
 public sealed class BackupSnapshot

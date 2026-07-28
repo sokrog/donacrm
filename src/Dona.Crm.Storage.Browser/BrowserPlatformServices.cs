@@ -14,6 +14,9 @@ public sealed class BrowserBackupArchiveFileService(IJSRuntime javascript) : IBa
 
     public Task SaveAutomaticBackupAsync(BackupDownload backup, CancellationToken cancellationToken = default) =>
         javascript.InvokeVoidAsync("donaBrowser.download", cancellationToken, backup.FileName, backup.Content).AsTask();
+
+    public Task ExportAsync(BackupDownload backup, CancellationToken cancellationToken = default) =>
+        javascript.InvokeVoidAsync("donaBrowser.download", cancellationToken, backup.FileName, backup.Content).AsTask();
 }
 
 public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpClient http) : IGoogleConnectionService, IGoogleAccessTokenProvider
