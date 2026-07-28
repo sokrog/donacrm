@@ -1,0 +1,73 @@
+@page "/welcome"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICatalogRepository Catalog
+@inject ICommerceRepository Commerce
+@inject IBusinessSettingsRepository SettingsRepository
+@inject NavigationManager Navigation
+
+<PageTitle>Начало работы — DONA CRM</PageTitle>
+
+<div class="welcome-page">
+    <section class="welcome-card" aria-labelledby="welcome-title">
+        <p class="eyebrow">DONA CRM</p>
+        <h1 id="welcome-title">Начнём с первого товара</h1>
+        <p class="intro">Три поля — и каталог готов к работе. Остальное можно заполнить позже.</p>
+        <EditForm Model="model" OnValidSubmit="FinishAsync">
+            <DataAnnotationsValidator />
+            <label>Главная валюта<OrbitSelect TValue="string" @bind-Value="model.CurrencyCode" Options="@CurrencyOptions" Label="Главная валюта" /></label>
+            <label>Первая категория<InputText @bind-Value="model.CategoryName" autocomplete="off" /><ValidationMessage For="@(() => model.CategoryName)" /></label>
+            <label>Первый товар<InputText @bind-Value="model.ProductName" autocomplete="off" autofocus /><ValidationMessage For="@(() => model.ProductName)" /></label>
+            @if (error is not null) { <p class="error" role="alert">@error</p> }
+            <button disabled="@saving">@(saving ? "Сохраняем…" : "Создать товар")</button>
+        </EditForm>
+        <button class="skip" type="button" disabled="@saving" @onclick="SkipAsync">Продолжить без товара</button>
+    </section>
+</div>
+
+@code {
+    private readonly SetupModel model = new();
+    private bool saving;
+    private string? error;
+    private static IReadOnlyList<OrbitSelectOption<string>> CurrencyOptions => [new("UZS", "UZS · сум"), new("USD", "USD · доллар"), new("CNY", "CNY · юань")];
+
+    private async Task FinishAsync()
+    {
+        if (saving) return;
+        saving = true;
+        error = null;
+        try
+        {
+            var categories = await Commerce.GetCategoriesAsync();
+            var categoryName = model.CategoryName.Trim();
+            if (categories.All(category => !string.Equals(category.Name, categoryName, StringComparison.OrdinalIgnoreCase)))
+                await Commerce.UpsertCategoryAsync(new Category { Name = categoryName, SortOrder = categories.Count, IsActive = true });
+            await Catalog.UpsertProductAsync(new Product { Name = model.ProductName.Trim(), Category = categoryName, Status = ProductStatus.OnOrder });
+            var settings = await SettingsRepository.GetAsync();
+            settings.MainCurrencyCode = CurrencyCodes.Normalize(model.CurrencyCode);
+            settings.OnboardingCompleted = true;
+            await SettingsRepository.SaveAsync(settings);
+            Navigation.NavigateTo("/products", replace: true);
+        }
+        catch (Exception exception) { error = exception.Message; }
+        finally { saving = false; }
+    }
+
+    private async Task SkipAsync()
+    {
+        var settings = await SettingsRepository.GetAsync();
+        settings.OnboardingCompleted = true;
+        await SettingsRepository.SaveAsync(settings);
+        Navigation.NavigateTo("/", replace: true);
+    }
+
+    private sealed class SetupModel
+    {
+        public string CurrencyCode { get; set; } = "UZS";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Укажите категорию.")]
+        public string CategoryName { get; set; } = "Одежда";
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Укажите товар.")]
+        public string ProductName { get; set; } = string.Empty;
+    }
+}

@@ -2,9 +2,13 @@
 @using System.Globalization
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
 @inject HomeDashboardService Dashboard
 @inject IGoogleSyncService Sync
 @inject IGoogleConnectionService Google
+@inject ICatalogRepository Catalog
+@inject IBusinessSettingsRepository SettingsRepository
+@inject NavigationManager Navigation
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
@@ -171,7 +175,24 @@
         errorMessage = null;
         try
         {
-            BuildDashboard(await Dashboard.LoadAsync(DateTimeOffset.Now));
+            var dashboardTask = Dashboard.LoadAsync(DateTimeOffset.Now);
+            var productsTask = Catalog.GetProductsAsync();
+            var settingsTask = SettingsRepository.GetAsync();
+            await Task.WhenAll(dashboardTask, productsTask, settingsTask);
+            var products = await productsTask;
+            var settings = await settingsTask;
+            if (products.Count == 0 && !settings.OnboardingCompleted)
+            {
+                Navigation.NavigateTo("/welcome", replace: true);
+                return;
+            }
+            if (products.Count > 0 && !settings.OnboardingCompleted)
+            {
+                settings.OnboardingCompleted = true;
+                await SettingsRepository.SaveAsync(settings);
+            }
+
+            BuildDashboard(await dashboardTask);
             var googleState = await Google.GetStateAsync();
             googleConnected = googleState.IsConnected;
             accountName = googleState.AccountName;

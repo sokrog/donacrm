@@ -13,6 +13,7 @@ public sealed class BusinessSettings
     public int StaleInventoryDays { get; set; } = 60;
     public string SaleNumberPrefix { get; set; } = "SALE";
     public string MainCurrencyCode { get; set; } = "UZS";
+    public bool OnboardingCompleted { get; set; }
     public bool UseGoogleDriveImages { get; set; }
     public string? GoogleDriveFolderId { get; set; }
 }
