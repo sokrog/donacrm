@@ -30,7 +30,9 @@ builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetReq
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<BrowserGoogleSyncCheckpointStore>();
 builder.Services.AddScoped<IGoogleSyncCheckpointStore>(services => services.GetRequiredService<BrowserGoogleSyncCheckpointStore>());
-builder.Services.AddScoped<IGoogleSyncService, BrowserGoogleSyncService>();
+builder.Services.AddScoped<BrowserGoogleSyncService>();
+builder.Services.AddScoped<IGoogleSyncService>(services => services.GetRequiredService<BrowserGoogleSyncService>());
+builder.Services.AddScoped<ILocalSyncResetService>(services => services.GetRequiredService<BrowserGoogleSyncService>());
 builder.Services.AddScoped<IProductImagePicker, BrowserProductImagePicker>();
 builder.Services.AddSingleton(new AppPlatformProfile(
     "Хранилище в браузере",

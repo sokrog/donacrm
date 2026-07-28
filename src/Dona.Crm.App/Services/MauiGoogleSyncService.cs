@@ -9,7 +9,7 @@ public sealed class MauiGoogleSyncService(
     IGoogleAccessTokenProvider tokens,
     SqliteSyncStore local,
     SqliteSyncOperationStore operations,
-    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService
+    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService, ILocalSyncResetService
 {
     private readonly SemaphoreSlim sendGate = new(1, 1);
 
@@ -127,6 +127,12 @@ public sealed class MauiGoogleSyncService(
     }
 
     public Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default) => operations.GetAsync(cancellationToken);
+
+    public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
+    {
+        await operations.ClearPendingAsync(cancellationToken);
+        await checkpointStore.WriteAsync(new GoogleSyncCheckpoint(), cancellationToken);
+    }
 
     private async Task<GoogleSyncPushResult> SendAsync(GoogleSyncOperation operation, CancellationToken cancellationToken)
     {

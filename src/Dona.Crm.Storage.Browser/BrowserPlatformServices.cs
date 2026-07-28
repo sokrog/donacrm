@@ -185,7 +185,7 @@ public sealed class BrowserGoogleSyncService(
     IGoogleConnectionService connection,
     IGoogleAccessTokenProvider tokens,
     BrowserCrmRepository local,
-    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService
+    IGoogleSyncCheckpointStore checkpointStore) : IGoogleSyncService, ILocalSyncResetService
 {
     private const string OperationsKey = "dona.crm.google.sync-operations.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -269,6 +269,12 @@ public sealed class BrowserGoogleSyncService(
         return string.IsNullOrWhiteSpace(json)
             ? []
             : JsonSerializer.Deserialize<List<GoogleSyncOperation>>(json, JsonOptions) ?? [];
+    }
+
+    public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
+    {
+        await javascript.InvokeVoidAsync("localStorage.removeItem", cancellationToken, OperationsKey);
+        await checkpointStore.WriteAsync(new GoogleSyncCheckpoint(), cancellationToken);
     }
 
     private async Task<GoogleSyncPushResult> SendAsync(GoogleSyncOperation operation, CancellationToken cancellationToken)

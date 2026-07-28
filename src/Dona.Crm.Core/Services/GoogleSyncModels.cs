@@ -87,6 +87,11 @@ public interface IGoogleSyncService
     Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default);
 }
 
+public interface ILocalSyncResetService
+{
+    Task ResetLocalStateAsync(CancellationToken cancellationToken = default);
+}
+
 public sealed class GoogleSyncConflictException(string message) : InvalidOperationException(message);
 
 public static class GoogleSyncStatusEvaluator

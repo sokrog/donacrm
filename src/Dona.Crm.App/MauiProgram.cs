@@ -37,6 +37,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
 		builder.Services.AddSingleton<MauiGoogleSyncService>();
 		builder.Services.AddSingleton<IGoogleSyncService>(services => services.GetRequiredService<MauiGoogleSyncService>());
+		builder.Services.AddSingleton<ILocalSyncResetService>(services => services.GetRequiredService<MauiGoogleSyncService>());
 		builder.Services.AddSingleton<GoogleSyncCoordinator>();
 #if ANDROID
 		builder.Services.AddSingleton(new AppPlatformProfile(
