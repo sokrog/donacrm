@@ -326,6 +326,19 @@ public sealed class BackupArchiveCodecTests
 
         Assert.Contains("повторяющиеся пути", exception.Message);
     }
+
+    [Fact]
+    public void Creates_readable_json_export()
+    {
+        var export = BackupArchiveCodec.CreateJsonExport(
+            new BackupSnapshot { Products = [new Product { Sku = "JSON-1", Name = "Export" }] });
+
+        var snapshot = JsonSerializer.Deserialize<BackupSnapshot>(export.Content);
+
+        Assert.Equal("application/json", export.ContentType);
+        Assert.EndsWith(".json", export.FileName);
+        Assert.Equal("JSON-1", Assert.Single(snapshot!.Products).Sku);
+    }
 }
 
 public sealed class BusinessSettingsCompatibilityTests

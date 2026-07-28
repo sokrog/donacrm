@@ -45,8 +45,8 @@ public sealed class MauiBackupArchiveFileService : IBackupArchiveFileService
         await File.WriteAllBytesAsync(path, backup.Content, cancellationToken);
         await Share.Default.RequestAsync(new ShareFileRequest
         {
-            Title = "Сохранить ZIP-копию DONA CRM",
-            File = new ShareFile(path, "application/zip")
+            Title = backup.ContentType == "application/zip" ? "Сохранить ZIP-копию DONA CRM" : "Сохранить данные DONA CRM",
+            File = new ShareFile(path, backup.ContentType)
         });
     }
 }

@@ -5,7 +5,7 @@ using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed record BackupDownload(byte[] Content, string FileName);
+public sealed record BackupDownload(byte[] Content, string FileName, string ContentType = "application/zip");
 public sealed record BackupArchiveInspection(BackupSnapshot Snapshot, int LocalImageCount, long LocalImageBytes);
 public sealed record BackupPreview(DateTimeOffset CreatedAt, int SchemaVersion, int Products, int Purchases, int Sales, int Customers, int Suppliers, int Intermediaries, int Categories, int Collections, int Outfits, int ContentItems, int StockMovements, int LocalImages, long LocalImageBytes, int NewProducts, int UpdatedProducts, int NewPurchases, int UpdatedPurchases, int NewSales, int UpdatedSales);
 public sealed record BackupRestoreResult(BackupDownload AutomaticBackup, BackupPreview Preview);
@@ -141,6 +141,11 @@ public static class BackupArchiveCodec
 
         return output.ToArray();
     }
+
+    public static BackupDownload CreateJsonExport(BackupSnapshot snapshot) => new(
+        JsonSerializer.SerializeToUtf8Bytes(snapshot, WriteOptions),
+        $"dona-crm-data-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.json",
+        "application/json");
 
     public static BackupArchiveInspection Inspect(byte[] content)
     {
