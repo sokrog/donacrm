@@ -6,14 +6,10 @@ namespace Dona.Crm.Storage.Sqlite;
 public sealed class SqliteCatalogRepository(SqliteAggregateStore store) : ICatalogRepository
 {
     private const string Products = "catalog.products";
-    private const string SeedMarker = "metadata.catalog.v1";
     private readonly SemaphoreSlim gate = new(1, 1);
 
-    public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default)
-    {
-        await EnsureSeededAsync(cancellationToken);
-        return await store.ReadCollectionAsync<Product>(Products, cancellationToken);
-    }
+    public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) =>
+        store.ReadCollectionAsync<Product>(Products, cancellationToken);
 
     public async Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) =>
         (await GetProductsAsync(cancellationToken)).FirstOrDefault(product => product.Id == id);
@@ -24,30 +20,8 @@ public sealed class SqliteCatalogRepository(SqliteAggregateStore store) : ICatal
     public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) =>
         MutateAsync(values => values.RemoveAll(value => value.Id == id), cancellationToken);
 
-    private async Task EnsureSeededAsync(CancellationToken cancellationToken)
-    {
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            if ((await store.ReadCollectionAsync<StorageMarker>(SeedMarker, cancellationToken)).Count > 0)
-                return;
-
-            var products = await store.ReadCollectionAsync<Product>(Products, cancellationToken);
-            if (products.Count == 0)
-                await store.ReplaceCollectionAsync(Products, SqliteSeedData.Products.Select(value => (value.Id, value)), cancellationToken);
-
-            var marker = new StorageMarker(Guid.NewGuid(), 1);
-            await store.ReplaceCollectionAsync(SeedMarker, [(marker.Id, marker)], cancellationToken);
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
-
     private async Task MutateAsync(Action<List<Product>> mutation, CancellationToken cancellationToken)
     {
-        await EnsureSeededAsync(cancellationToken);
         await gate.WaitAsync(cancellationToken);
         try
         {
@@ -74,42 +48,20 @@ public sealed class SqliteCommerceRepository(SqliteAggregateStore store) : IComm
     private const string Intermediaries = "commerce.intermediaries";
     private const string Categories = "commerce.categories";
     private const string Purchases = "commerce.purchases";
-    private const string SeedMarker = "metadata.commerce.v1";
     private readonly SemaphoreSlim gate = new(1, 1);
 
     public Task<IReadOnlyList<Supplier>> GetSuppliersAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Supplier>(Suppliers, cancellationToken);
     public Task<IReadOnlyList<Intermediary>> GetIntermediariesAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Intermediary>(Intermediaries, cancellationToken);
-    public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) { await EnsureSeededAsync(cancellationToken); return await store.ReadCollectionAsync<Category>(Categories, cancellationToken); }
+    public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Category>(Categories, cancellationToken);
     public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Purchase>(Purchases, cancellationToken);
     public async Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default) => (await GetPurchasesAsync(cancellationToken)).FirstOrDefault(value => value.Id == id);
     public Task UpsertSupplierAsync(Supplier value, CancellationToken cancellationToken = default) => MutateAsync(Suppliers, value, item => item.Id, cancellationToken);
     public Task DeleteSupplierAsync(Guid id, CancellationToken cancellationToken = default) => DeleteAsync<Supplier>(Suppliers, id, item => item.Id, cancellationToken);
     public Task UpsertIntermediaryAsync(Intermediary value, CancellationToken cancellationToken = default) => MutateAsync(Intermediaries, value, item => item.Id, cancellationToken);
     public Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default) => DeleteAsync<Intermediary>(Intermediaries, id, item => item.Id, cancellationToken);
-    public async Task UpsertCategoryAsync(Category value, CancellationToken cancellationToken = default) { await EnsureSeededAsync(cancellationToken); await MutateAsync(Categories, value, item => item.Id, cancellationToken); }
-    public async Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default) { await EnsureSeededAsync(cancellationToken); await DeleteAsync<Category>(Categories, id, item => item.Id, cancellationToken); }
+    public Task UpsertCategoryAsync(Category value, CancellationToken cancellationToken = default) => MutateAsync(Categories, value, item => item.Id, cancellationToken);
+    public Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default) => DeleteAsync<Category>(Categories, id, item => item.Id, cancellationToken);
     public Task UpsertPurchaseAsync(Purchase value, CancellationToken cancellationToken = default) => MutateAsync(Purchases, value, item => item.Id, cancellationToken);
-
-    private async Task EnsureSeededAsync(CancellationToken cancellationToken)
-    {
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            if ((await store.ReadCollectionAsync<StorageMarker>(SeedMarker, cancellationToken)).Count > 0)
-                return;
-
-            var categories = await store.ReadCollectionAsync<Category>(Categories, cancellationToken);
-            if (categories.Count == 0)
-                await store.ReplaceCollectionAsync(Categories, SqliteSeedData.Categories.Select(value => (value.Id, value)), cancellationToken);
-
-            var marker = new StorageMarker(Guid.NewGuid(), 1);
-            await store.ReplaceCollectionAsync(SeedMarker, [(marker.Id, marker)], cancellationToken);
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
 
     private async Task MutateAsync<T>(string collection, T value, Func<T, Guid> id, CancellationToken cancellationToken)
     {
@@ -174,21 +126,4 @@ public sealed class SqliteSalesRepository(SqliteAggregateStore store) : ISalesRe
         }
         finally { gate.Release(); }
     }
-}
-
-internal sealed record StorageMarker(Guid Id, int Version);
-
-internal static class SqliteSeedData
-{
-    public static IReadOnlyList<Product> Products { get; } =
-    [
-        new() { Sku = "TS-0001", Name = "Oversize футболка Basic", Category = "Футболка", Status = ProductStatus.InStock, PurchasePriceCny = 28, DeliveryCostUzs = 18_000, SellingPriceUzs = 119_000, Variants = [new() { Color = "Чёрный", Size = "M", Quantity = 5 }, new() { Color = "Чёрный", Size = "L", Quantity = 3 }] },
-        new() { Sku = "BG-0001", Name = "Сумка City Mini", Category = "Сумка", Status = ProductStatus.OnOrder, PurchasePriceCny = 42, DeliveryCostUzs = 24_000, SellingPriceUzs = 169_000 },
-        new() { Sku = "HD-0001", Name = "Худи Minimal", Category = "Худи", Status = ProductStatus.LowStock, PurchasePriceCny = 75, DeliveryCostUzs = 36_000, SellingPriceUzs = 279_000, Variants = [new() { Color = "Бежевый", Size = "L", Quantity = 2 }] }
-    ];
-
-    public static IReadOnlyList<Category> Categories { get; } =
-        new[] { "Футболка", "Худи", "Рубашка", "Брюки", "Джинсы", "Куртка", "Сумка", "Кепка", "Ремень", "Украшения", "Другое" }
-            .Select((name, index) => new Category { Name = name, SortOrder = index, IsActive = true })
-            .ToList();
 }

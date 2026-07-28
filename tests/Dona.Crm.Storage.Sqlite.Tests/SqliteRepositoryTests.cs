@@ -30,11 +30,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Catalog_seeds_once_and_preserves_nested_product_data()
+    public async Task Catalog_starts_empty_and_preserves_nested_product_data()
     {
         var repository = new SqliteCatalogRepository(store!);
-        var seeded = await repository.GetProductsAsync();
-        Assert.Equal(3, seeded.Count);
+        Assert.Empty(await repository.GetProductsAsync());
 
         var product = new Product
         {
@@ -57,9 +56,11 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Deleting_every_product_does_not_restore_seed_data()
+    public async Task Deleting_every_product_does_not_restore_data()
     {
         var repository = new SqliteCatalogRepository(store!);
+        var initial = CreateProduct();
+        await repository.UpsertProductAsync(initial);
         foreach (var product in await repository.GetProductsAsync())
             await repository.DeleteProductAsync(product.Id);
 
@@ -249,7 +250,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var movements = new SqliteStockMovementRepository(store!);
         var settings = new SqliteBusinessSettingsRepository(store!);
         await settings.SaveAsync(new BusinessSettings { LowStockThreshold = 3, AutoUpdateStockStatus = true });
-        var product = (await catalog.GetProductsAsync()).Single(item => item.Status == ProductStatus.LowStock);
+        var initial = CreateProduct(ProductStatus.LowStock, 2);
+        await catalog.UpsertProductAsync(initial);
+        var product = (await catalog.GetProductsAsync()).Single(item => item.Id == initial.Id);
         var variant = Assert.Single(product.Variants);
         var service = new StockAdjustmentService(catalog, movements, settings, new ProductStatusService());
 
@@ -274,7 +277,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var sales = new SqliteSalesRepository(store!);
         var movements = new SqliteStockMovementRepository(store!);
-        var product = (await catalog.GetProductsAsync()).First(item => item.Variants.Any(variant => variant.AvailableQuantity >= 1));
+        var initial = CreateProduct(ProductStatus.InStock, 5);
+        await catalog.UpsertProductAsync(initial);
+        var product = (await catalog.GetProductsAsync()).Single(item => item.Id == initial.Id);
         var variant = product.Variants.First(item => item.AvailableQuantity >= 1);
         var originalQuantity = variant.Quantity!.Value;
         var sale = new Sale
@@ -356,7 +361,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var commerce = new SqliteCommerceRepository(store!);
         var movements = new SqliteStockMovementRepository(store!);
         var history = new SqlitePurchaseHistoryRepository(store!);
-        var product = (await catalog.GetProductsAsync()).First();
+        var initial = CreateProduct(ProductStatus.InStock, 5);
+        await catalog.UpsertProductAsync(initial);
+        var product = (await catalog.GetProductsAsync()).Single(item => item.Id == initial.Id);
         var variant = product.Variants.First();
         var originalQuantity = variant.Quantity ?? 0;
         var purchase = new Purchase
@@ -457,4 +464,13 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal("CLOUD", (await new SqliteBusinessSettingsRepository(store).GetAsync()).SaleNumberPrefix);
         Assert.Empty(await new SqliteCommerceRepository(store).GetPurchasesAsync());
     }
+
+    private static Product CreateProduct(ProductStatus status = ProductStatus.InStock, int quantity = 5) => new()
+    {
+        Sku = "TEST-001",
+        Name = "Тестовый товар",
+        Status = status,
+        SellingPriceUzs = 100_000,
+        Variants = [new ProductVariant { Color = "Чёрный", Size = "M", Quantity = quantity }]
+    };
 }
