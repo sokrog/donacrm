@@ -25,7 +25,7 @@
         <button type="button" class="@LowFilterClass" @onclick="ShowLowStock">Заканчивается</button>
         <button type="button" class="reset" disabled="@(filter is null && string.IsNullOrWhiteSpace(query) && sort == "created")" @onclick="ResetFilters">Сбросить</button>
     </div>
-    <label class="catalog-sort">Сортировка<select @bind="sort"><option value="created">Сначала новые</option><option value="price">Цена: выше</option><option value="stock">Остаток: меньше</option><option value="margin">Наценка: выше</option></select></label>
+    <label class="catalog-sort">Сортировка<OrbitSelect TValue="string" @bind-Value="sort" Options="@SortOptions" Label="Сортировка каталога" /></label>
 
     <nav class="catalog-tools" aria-label="Инструменты каталога"><a href="/collections"><OrbitIcon Name="catalog" /><span><strong>Коллекции</strong><small>Подборки товаров</small></span></a><a href="/outfits"><OrbitIcon Name="image" /><span><strong>Образы</strong><small>Готовые сочетания</small></span></a></nav>
 
@@ -69,6 +69,7 @@
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
     private List<Product> products = [];
     private string query = string.Empty; private string? filter; private string sort = "created";
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> SortOptions=[new("created","Сначала новые"),new("price","Цена: выше"),new("stock","Остаток: меньше"),new("margin","Наценка: выше")];
     private bool isLoading = true;
     private string? errorMessage;
     private IReadOnlyList<Product> FilteredProducts => Sort(ProductSearch.Filter(products.Where(MatchesFilter), query, Math.Max(8, products.Count))).ToList();
