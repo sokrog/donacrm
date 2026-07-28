@@ -45,6 +45,7 @@
                 }
                 @if (state.IsConnected)
                 {
+                    <a class="sync-action" href="/sync">Синхронизация данных</a>
                     <button type="button" class="disconnect" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
                 }
             </div>

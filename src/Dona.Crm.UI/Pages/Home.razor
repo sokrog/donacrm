@@ -26,7 +26,7 @@
 
     <div class="connection-row">
         <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
-        <a class="sync-shortcut" href="/connections" aria-label="Открыть подключения Google" title="Подключения Google">
+        <a class="sync-shortcut" href="@SyncHref" aria-label="Открыть синхронизацию Google" title="Синхронизация Google">
             <OrbitIcon Name="cloud" />
         </a>
     </div>
@@ -166,6 +166,7 @@
             : syncStatus.State == GoogleSyncState.Pending
                 ? "pending"
                 : string.Empty;
+    private string SyncHref => googleConnected && syncStatus.State is GoogleSyncState.Pending or GoogleSyncState.Conflict or GoogleSyncState.Error ? "/sync" : "/connections";
 
     protected override Task OnInitializedAsync() => LoadAsync();
 

@@ -69,9 +69,9 @@
                 var connection = await Google.GetStateAsync();
                 var sync = await Sync.GetStatusAsync();
                 if (sync.State is GoogleSyncState.Conflict or GoogleSyncState.Error)
-                    items.Insert(0, new("cloud", "magenta", "Проверьте подключение Google", sync.Error ?? "Синхронизация требует действия", "/connections"));
+                    items.Insert(0, new("cloud", "magenta", "Разрешите конфликт синхронизации", sync.Error ?? "Синхронизация требует действия", "/sync"));
                 else if (connection.IsConnected && sync.State == GoogleSyncState.Pending)
-                    items.Add(new("sync", "cyan", "Есть локальные изменения", "Они будут доступны для следующей синхронизации", "/connections"));
+                    items.Add(new("sync", "cyan", "Есть локальные изменения", "Откройте синхронизацию, чтобы сравнить и отправить данные", "/sync"));
             }
             catch (Exception exception)
             {
