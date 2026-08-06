@@ -196,7 +196,7 @@
             BuildDashboard(await dashboardTask);
             var googleState = await Google.GetStateAsync();
             googleConnected = googleState.IsConnected;
-            accountName = googleState.AccountName;
+            accountName = googleState.AccountName ?? googleState.AccountEmail;
             try
             {
                 syncStatus = await Sync.GetStatusAsync();

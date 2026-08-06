@@ -26,7 +26,7 @@
                 <span class="status @((state.IsConnected && !requiresSignIn) ? "connected" : null)">@(requiresSignIn ? "Нужно войти" : state.IsConnected ? "Подключено" : "Не подключено")</span>
             </div>
 
-            @if (state.IsConnected)
+            @if (state.IsConnected && !string.IsNullOrWhiteSpace(state.AccountName ?? state.AccountEmail))
             {
                 <div class="account-row"><InitialBadge Text="@(state.AccountName ?? state.AccountEmail)" Compact="true" /><div><strong>@(state.AccountName ?? state.AccountEmail)</strong>@if (!string.IsNullOrWhiteSpace(state.AccountName) && !string.IsNullOrWhiteSpace(state.AccountEmail)){<small>@state.AccountEmail</small>}</div></div>
             }
@@ -85,7 +85,7 @@
     {
         state = await Google.ConnectAsync();
         requiresSignIn = false;
-        return $"Подключён аккаунт {state.AccountEmail}.";
+        return $"Подключён аккаунт {state.AccountEmail ?? state.AccountName}.";
     });
 
     private async Task DisconnectAsync() => await RunAsync(async () =>

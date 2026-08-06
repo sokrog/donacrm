@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Dona.Crm.Web.Services;
 
 namespace Dona.Crm.App.Services;
@@ -12,8 +13,6 @@ public sealed class MauiGoogleConnectionService(
 {
     private const string SpreadsheetKey = "google.spreadsheet";
     private const string DriveFolderKey = "google.drive-folder";
-    private const string OAuthClientIdKey = "google.oauth-client-id";
-    private const string OAuthClientSecretKey = "google.oauth-client-secret";
     private const string AccountKey = "google.account";
     private const string AccountNameKey = "google.account-name";
     private const string ConnectedKey = "google.connected";
@@ -43,20 +42,11 @@ public sealed class MauiGoogleConnectionService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         var normalized = Normalize(settings);
-        var previousClientId = Preferences.Default.Get<string?>(OAuthClientIdKey, null);
         Preferences.Default.Set(SpreadsheetKey, normalized.SpreadsheetId);
         if (normalized.DriveFolderId is null)
             Preferences.Default.Remove(DriveFolderKey);
         else
             Preferences.Default.Set(DriveFolderKey, normalized.DriveFolderId);
-        if (string.IsNullOrWhiteSpace(normalized.OAuthClientId))
-            Preferences.Default.Remove(OAuthClientIdKey);
-        else
-            Preferences.Default.Set(OAuthClientIdKey, normalized.OAuthClientId);
-        if (!string.IsNullOrWhiteSpace(normalized.OAuthClientSecret))
-            await secure.SetAsync(OAuthClientSecretKey, normalized.OAuthClientSecret);
-        else if (!string.Equals(previousClientId, normalized.OAuthClientId, StringComparison.Ordinal))
-            secure.Remove(OAuthClientSecretKey);
         ClearCheckDetails();
         return await GetStateAsync(cancellationToken);
     }
@@ -67,12 +57,11 @@ public sealed class MauiGoogleConnectionService(
         EnsureConfigured(settings);
         var token = await authorization.AuthorizeAsync(
             settings.OAuthClientId,
-            await secure.GetAsync(OAuthClientSecretKey),
+            clientSecret: null,
             interactive: true,
             refreshToken: null,
             cancellationToken);
         await SaveTokenAsync(token);
-        await secure.SetAsync(ConnectedKey, "true");
         return await CheckAsync(cancellationToken);
     }
 
@@ -89,9 +78,13 @@ public sealed class MauiGoogleConnectionService(
             token,
             "Не удалось получить профиль Google",
             cancellationToken);
-        if (!string.IsNullOrWhiteSpace(user.Email))
-            await secure.SetAsync(AccountKey, user.Email);
-        if (!string.IsNullOrWhiteSpace(user.Name))
+        if (string.IsNullOrWhiteSpace(user.Email))
+            throw new InvalidOperationException("Google не вернул email авторизованного аккаунта. Отключите аккаунт и выполните вход снова.");
+
+        await secure.SetAsync(AccountKey, user.Email);
+        if (string.IsNullOrWhiteSpace(user.Name))
+            secure.Remove(AccountNameKey);
+        else
             await secure.SetAsync(AccountNameKey, user.Name);
         await secure.SetAsync(ConnectedKey, "true");
         Preferences.Default.Set(LastCheckedKey, DateTimeOffset.UtcNow.ToString("O"));
@@ -137,7 +130,7 @@ public sealed class MauiGoogleConnectionService(
 
         var refreshed = await authorization.AuthorizeAsync(
             settings.OAuthClientId,
-            await secure.GetAsync(OAuthClientSecretKey),
+            clientSecret: null,
             interactive: false,
             await secure.GetAsync(RefreshTokenKey),
             cancellationToken);
@@ -225,8 +218,7 @@ public sealed class MauiGoogleConnectionService(
 
     private static GoogleConnectionSettings ReadSettings() => new(
         Preferences.Default.Get(SpreadsheetKey, string.Empty),
-        Preferences.Default.Get<string?>(DriveFolderKey, null),
-        Preferences.Default.Get<string?>(OAuthClientIdKey, null));
+        Preferences.Default.Get<string?>(DriveFolderKey, null));
 
     private static DateTimeOffset? ReadDate(string key) =>
         DateTimeOffset.TryParse(Preferences.Default.Get<string?>(key, null), out var value) ? value : null;
@@ -238,5 +230,7 @@ public sealed class MauiGoogleConnectionService(
         Preferences.Default.Remove(LastCheckedKey);
     }
 
-    private sealed record UserInfoResponse(string? Email, string? Name);
+    private sealed record UserInfoResponse(
+        [property: JsonPropertyName("email")] string? Email,
+        [property: JsonPropertyName("name")] string? Name);
 }

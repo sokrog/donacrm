@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 #if !WINDOWS
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Maui.DevFlow.Blazor;
@@ -15,6 +16,15 @@ public static class MauiProgram
 	public static MauiApp CreateMauiApp()
 	{
 		var builder = MauiApp.CreateBuilder();
+		var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+#if DEBUG
+			?? "Development";
+#else
+			?? "Production";
+#endif
+		builder.Configuration
+			.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+			.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
 		builder
 			.UseMauiApp<App>()
 			.ConfigureFonts(fonts =>
@@ -58,10 +68,8 @@ public static class MauiProgram
 			"SQLite на устройстве",
 			"Основное хранилище · доступно без интернета",
 			UsesDirectGoogleAccess: true,
-			RequiresOAuthClientId: true,
-			OAuthClientDescription: "OAuth Client ID типа Desktop app из Google Cloud Console",
-			SupportsOAuthClientSecret: true,
-			OAuthClientSecretDescription: "Client Secret из JSON Desktop OAuth-клиента; сохраняется в защищённом хранилище Windows"));
+			RequiresOAuthClientId: false,
+			OAuthClientDescription: "OAuth-клиент Windows задаётся в appsettings для текущего окружения"));
 #endif
 		builder.Services.AddSingleton(new SqliteStoreOptions(
 			Path.Combine(FileSystem.AppDataDirectory, SqliteStoreOptions.DatabaseFilename)));

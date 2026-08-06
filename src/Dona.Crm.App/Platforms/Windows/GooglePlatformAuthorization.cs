@@ -1,12 +1,18 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace Dona.Crm.App.Services;
 
-public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatformAuthorization
+public sealed class GooglePlatformAuthorization(
+    HttpClient http,
+    IConfiguration configuration) : IGooglePlatformAuthorization
 {
-    public bool RequiresClientId => true;
+    private const string WindowsClientIdConfigPath = "GoogleOAuth:WindowsClientId";
+    private const string WindowsClientSecretConfigPath = "GoogleOAuth:WindowsClientSecret";
+
+    public bool RequiresClientId => false;
 
     public async Task<GooglePlatformToken> AuthorizeAsync(
         string? clientId,
@@ -15,7 +21,8 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
         string? refreshToken,
         CancellationToken cancellationToken = default)
     {
-        clientId = RequireClientId(clientId);
+        clientId = RequireClientId(configuration[WindowsClientIdConfigPath]);
+        clientSecret = configuration[WindowsClientSecretConfigPath];
         if (!interactive)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
@@ -78,8 +85,9 @@ public sealed class GooglePlatformAuthorization(HttpClient http) : IGooglePlatfo
     private static string RequireClientId(string? clientId) =>
         !string.IsNullOrWhiteSpace(clientId) &&
         clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)
-            ? clientId
-            : throw new InvalidOperationException("Для Windows укажите OAuth Client ID типа Desktop app.");
+            ? clientId.Trim()
+            : throw new InvalidOperationException(
+                $"Задайте '{WindowsClientIdConfigPath}' в appsettings для OAuth-клиента Google типа Desktop app.");
 
     private static int ReserveLoopbackPort()
     {
