@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Idea Validator"
+  short_description: "Evidence-backed app and investor analysis"
+  default_prompt: "Use $app-idea-validator to validate my app idea and produce an investor-ready HTML report that traces every material number to evidence."
