@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3ee">
+  <title>Dona — студия бренда</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="social.css"><link rel="stylesheet" href="media.css">
+</head>
+<body>
+  <a class="skip" href="#studio">Перейти к конструктору</a>
+  <header class="header">
+    <a href="#" class="studio-logo">d<span>o</span>na<span class="logo-dot">.</span> <small>BRAND STUDIO</small></a>
+    <nav aria-label="Этапы брендбука"><a href="#names">01 <span>Название</span></a><a href="#studio" class="active">02 <span>Визуальный мир</span></a><a href="#rules">03 <span>Брендбук</span></a></nav>
+    <button class="quiet-button" id="export">Сохранить концепт <span aria-hidden="true">↗</span></button>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">DURDONA → DONA · ИССЛЕДОВАНИЕ АЙДЕНТИКИ / 2026</p><h1>Женственность.<br><em>В своём характере.</em></h1></div>
+      <div class="intro-note"><span class="tiny-star">✳</span><p>С личным характером.<br>Семь направлений для бренда одежды,<br>в котором легко быть собой.</p><span class="edition">ИНТЕРАКТИВНЫЙ БРЕНДБУК · VOL. 07</span></div>
+    </section>
+    <section id="studio" class="studio-section" aria-labelledby="studio-title">
+      <div class="section-top"><h2 id="studio-title"><span class="index">02 /</span> Найдите своё настроение</h2><span class="subtle">Каждая деталь меняет целую историю</span></div>
+      <div id="concepts" class="concepts" role="group" aria-label="Готовые концепции"></div>
+      <p class="concept-rationale" id="concept-rationale"></p><div class="workspace">
+        <aside class="controls" aria-label="Настройки концепции">
+          <div class="controls-heading"><span>ВАША КОМБИНАЦИЯ</span><button id="reset" class="text-button">Сбросить</button></div>
+          <div class="control-group"><label for="name"><span class="step">01</span> Название</label><select id="name"></select><label class="custom-label" for="custom-name">Или своё название <span id="custom-name-count">0/32</span></label><input id="custom-name" type="text" maxlength="32" placeholder="Например, Dona Maison" autocomplete="off"><p id="name-hint" class="hint"></p><a class="inline-link" href="#names">Все идеи и их характер ↗</a></div>
+          <div class="control-group"><h3><span class="step">02</span> Символ бренда</h3><div id="symbols" class="symbol-grid" role="group" aria-label="Символ бренда"></div><div class="segmented" id="symbol-style" role="group" aria-label="Исполнение символа"><button data-style="outline">Контур</button><button data-style="filled">Заливка</button></div><a class="inline-link" href="#artwork-editor">Разместить на макете ↗</a><p id="symbol-hint" class="hint"></p></div>
+          <div class="control-group"><label for="font"><span class="step">03</span> Характер шрифта</label><select id="font"></select><div id="font-sample" class="font-sample">Aa <span>Нежность в деталях</span></div><p id="font-hint" class="hint"></p></div>
+          <div class="control-group"><h3><span class="step">04</span> Сезонная палитра</h3><div class="segmented" id="seasons" role="group" aria-label="Сезон"><button data-season="summer">☀ Лето</button><button data-season="winter">❄ Зима</button></div><div id="palettes" class="palette-options" role="group" aria-label="Готовые палитры"></div><div class="custom-color"><label for="accent">Основной цвет <span id="accent-hex"></span></label><input type="color" id="accent" aria-label="Свой основной цвет"></div><p class="hint">Свой цвет сохраняется отдельно для каждого сезона и концепта.</p></div>
+          <div class="control-group last"><h3><span class="step">05</span> Тема соцсетей</h3><div class="segmented" id="themes" role="group" aria-label="Тема соцсетей"><button data-theme="light">☼ Светлая</button><button data-theme="dark">◐ Тёмная</button></div><p class="hint">Светлая и тёмная подача макетов социальных сетей.</p></div>
+        </aside>
+        <div class="board" id="board">
+          <div class="board-toolbar"><span><i class="live-dot"></i> ЖИВОЙ ПРЕДПРОСМОТР</span><span id="board-id">CONCEPT 01 / SUMMER</span></div>
+          <div class="brand-hero">
+            <span class="hero-corner">ОДЕЖДА С ВАШИМ ХАРАКТЕРОМ</span><span class="hero-number" id="hero-number">01—03</span>
+            <div class="hero-lockup"><div id="hero-logo"></div><div class="brand-caption" id="brand-caption"></div></div>
+            <div class="hero-footer"><span id="mood-label"></span><span id="hero-tagline"></span><span>ЖЕНСКАЯ ОДЕЖДА</span></div>
+            <div class="hero-orbit" aria-hidden="true"></div>
+          </div>
+          <div class="applications">
+            <div class="packaging"><span class="tile-label">01 / УПАКОВКА</span><div class="bag"><div class="handle"></div><div class="bag-lockup"><div data-lockup></div><small>С ЛЮБОВЬЮ К ДЕТАЛЯМ</small></div></div><div class="hangtag"><span data-mark></span><span data-brand></span><small>Вещи для ваших дней</small></div><span class="tile-footer">Тактильная бумага · тонкая лента</span></div>
+            <div class="editorial"><span class="tile-label">02 / КАМПАНИЯ</span><div class="editorial-copy"><span id="collection-season"></span><h3 id="collection-title"></h3><p id="collection-copy"></p></div><div class="campaign-photo" role="img" aria-label="Шёлковая блуза и юбка на деревянном стуле"></div><span class="editorial-bottom" data-brand></span></div>
+          </div>
+          <div class="bottom-grid">
+            <div class="palette-tile"><span class="tile-label">03 / ЦВЕТОВОЙ КОД</span><div class="swatches" id="swatches"></div><p class="palette-principle">60% основы / 30% мягкого тона / 10% акцента</p><div class="type-specimen"><span class="tile-label">ТИПОГРАФИКА</span><div id="type-large">Aa Бб</div><p id="type-name"></p><span>Вещи, в которых вы — это вы.</span></div></div>
+            <div class="avatar-lab"><span class="tile-label">04 / МАЛЕНЬКИЙ МАСШТАБ</span><h3>Узнаваемость<br>с первого взгляда.</h3><div class="avatar-scale"><div class="avatar" data-mark></div><div class="avatar" id="small-avatar"></div><div class="avatar" id="tiny-avatar"></div></div><p>Аватар · крупный, средний и компактный</p><p>Для профиля — знак без мелкого названия. Во всех масштабах сохраняется полный рисунок — контурный или заливочный.</p><button class="quiet-button" id="download-avatar">Скачать аватар SVG ↗</button></div>
+          </div>
+          <div class="symbol-gallery" id="symbol-gallery" aria-label="Сравнение символов бренда"></div><section class="symbol-sheet"><div id="symbol-study"></div><div><span class="tile-label">РИСУНОК ЗНАКА</span><h3 id="symbol-title"></h3><p id="symbol-description"></p><small>Основной рисунок для печати и крупных носителей</small></div></section><section class="logo-directions"><span class="tile-label">05 / КОНСТРУКЦИЯ ЛОГОТИПА</span><h3>У каждого знака — своя композиция.</h3><div id="layouts" class="layout-grid" role="group" aria-label="Композиция логотипа"></div><p class="hint" id="layout-note"></p></section>
+          <section id="artwork-editor" class="artwork-editor">
+            <div class="section-top"><div><span class="tile-label">ВАША КОМПОЗИЦИЯ</span><h3>Разместите знак по-своему.</h3></div><span id="artwork-size-label"></span></div>
+            <p class="editor-intro">Перетащите символ на макете или выберите готовую позицию. Название, шрифт, цвет и исполнение берутся из вашего концепта.</p>
+            <div class="artwork-workspace">
+              <div class="artwork-preview"><div id="artwork-canvas" tabindex="0" role="group"></div><p id="editor-symbol-name"></p><small>Пунктирная рамка видна только при редактировании. Стрелки клавиатуры — точный сдвиг, Shift — крупный шаг.</small></div>
+              <div class="artwork-controls">
+                <label for="artwork-format">Носитель</label><select id="artwork-format"><option value="post">Публикация · 1080 × 1350</option><option value="story">История · 1080 × 1920</option><option value="card">Карточка · 1600 × 1000</option><option value="avatar">Аватар · 1080 × 1080</option></select>
+                <label for="artwork-symbol">Символ</label><select id="artwork-symbol"></select><label for="artwork-style">Исполнение</label><select id="artwork-style"><option value="outline">Контур</option><option value="filled">Заливка</option></select><p class="hint">Во всех размерах используется полный рисунок знака.</p>
+                <label>Размещение</label><div id="position-presets" role="group" aria-label="Размещение символа"></div>
+                <label for="artwork-x">По горизонтали <output id="value-x"></output></label><input id="artwork-x" type="range" min="0" max="100" step="0.1">
+                <label for="artwork-y">По вертикали <output id="value-y"></output></label><input id="artwork-y" type="range" min="0" max="100" step="0.1">
+                <label for="artwork-angle">Угол наклона <output id="value-angle"></output></label><input id="artwork-angle" type="range" min="-180" max="180" step="1">
+                <label for="artwork-size">Размер знака <output id="value-size"></output></label><input id="artwork-size" type="range" min="8" max="70" step="1">
+                <label class="editor-check"><input type="checkbox" id="artwork-name" checked> Показывать название</label>
+                <label class="editor-check"><input type="checkbox" id="artwork-transparent"> Прозрачный фон PNG</label>
+                <div class="placement-actions"><button id="apply-brand-placement" class="primary-button">Применить ко всему брендбуку</button><p class="placement-explanation">Отдельный символ: по центру, размер по области, только общий поворот. Знак с названием: пропорциональное масштабирование всей композиции.</p><p id="brand-placement-status" role="status"></p><button id="clear-brand-placement" class="quiet-button">Вернуть исходные композиции</button></div><button id="artwork-reset" class="quiet-button">Сбросить размещение</button>
+                <button id="download-artwork" class="primary-button">Сохранить макет PNG ↗</button>
+                <a id="png-result" hidden></a><img id="png-preview" hidden alt="Последнее сохранённое изображение PNG">
+              </div>
+            </div>
+          </section>
+
+          <section id="social-integrations" class="social-integrations"><div class="social-heading"><div><span class="tile-label">06 / СОЦИАЛЬНЫЕ СЕТИ</span><h3>Один голос. Разные форматы.</h3></div><span id="theme-label"></span></div>
+            <div class="social-grid"><article class="instagram"><div class="social-platform">INSTAGRAM <small>Профиль · концепт оформления</small></div><div class="profile-row"><div class="avatar" data-mark></div><div><strong data-brand></strong><p>Одежда для вашего ритма.<br>Коллекции · образы · детали</p></div></div><div class="highlights"><span><i data-mark></i>Новинки</span><span><i>♡</i>Образы</span><span><i>↗</i>Доставка</span><span><i>✧</i>Отзывы</span></div><div class="insta-grid"><div class="post post-photo" role="img" aria-label="Образ из шёлка и мягких складок"></div><div class="post post-type"><span>Мягкие<br>линии.</span><small>НОВАЯ КОЛЛЕКЦИЯ</small></div><div class="post post-photo photo-detail" role="img" aria-label="Деталь светлой ткани"></div><div class="post post-note"><small>ДЕТАЛИ</small><span>Ближе<br>к себе.</span></div><div class="post post-logo" data-lockup></div><div class="post post-type"><span>На каждый<br>ваш день.</span><small data-brand></small></div></div><p class="format-note">Сетка 3:4 · единый ритм обложек, деталей и текстов</p></article>
+            <article class="telegram"><div class="social-platform">TELEGRAM <small>Канал · концепт оформления</small></div><div class="channel-header"><div class="avatar" data-mark></div><div><strong data-brand></strong><small>канал бренда</small></div></div><div class="telegram-message"><div class="tg-cover"><div class="tg-photo" role="img" aria-label="Образ новой коллекции"></div><div data-lockup></div><p>Коллекция<br><em>для ваших дней.</em></p><span>THE EVERYDAY EDIT</span></div><div class="message-copy"><strong>Вещи, к которым хочется возвращаться</strong><p>Светлая блуза и юбка с мягкими складками — вместе или по отдельности. Один образ для рабочего дня, другой — для неспешной прогулки. Какой ближе вам?</p><span>♡ Сохранить образ <small>12:30</small></span></div></div><p class="format-note">Карточка + короткий текст · без мелких подписей на изображении</p></article></div>
+            <div class="stories-row"><div class="story story-one story-photo"><span>STORIES / 9:16</span><div data-lockup></div><h4>Новый день.<br><em>Любимые вещи.</em></h4><small>СМОТРЕТЬ КОЛЛЕКЦИЮ ↗</small></div><div class="story story-two"><span>STORIES / 9:16</span><div class="story-symbol" data-mark></div><h4>Продумано<br>до деталей.</h4><small data-brand></small></div><div class="social-guidance"><span class="tile-label">ПРАВИЛА АДАПТАЦИИ</span><h3>Одежда в центре.<br>Бренд — в деталях.</h3><p>Аватар — только знак, внутри безопасного круга. Публикация — короткий заголовок и свободное поле. История — вертикальная композиция с отступами сверху и снизу под интерфейс.</p><p>В ленте чередуются образы, детали ткани и короткие сообщения. Фотография создана для демонстрации направления; перед публикацией её заменяют съёмкой реальной коллекции.</p></div></div>
+          </section>
+        </div>
+      </div>
+    </section>
+    <section id="names" class="names-section"><div class="section-top"><h2><span class="index">01 /</span> Всё начинается с имени</h2><span class="subtle">Одна история. Разные интонации.</span></div><p class="section-description">Durdona — личная основа. Dona — короткое и гибкое имя. Дополнительное слово задаёт характер: от камерного ателье до современной городской марки.</p><div class="name-cards" id="name-cards"></div><p class="naming-note">Варианты для обсуждения: доступность товарных знаков, доменов и аккаунтов пока не проверялась. Для DŌNA понадобится также простое написание DONA.</p></section>
+    <section id="rules" class="rules-section"><div class="section-top"><h2><span class="index">03 /</span> Детали, которые держат стиль</h2><button class="quiet-button" id="download-logo">Скачать логотип SVG ↗</button></div><div class="rules-grid"><article><span class="rule-number">I.</span><h3>Деликатная женственность</h3><p>Плавные линии, воздух и одна выразительная деталь. Символ поддерживает имя, а не спорит с ним. Женственность выражается в пропорциях, цвете и внимании к деталям.</p></article><article><span class="rule-number">II.</span><h3>Логотипу нужен воздух</h3><p>Охранное поле — не меньше высоты буквы D. На небольших носителях используйте только символ. Тонкие линии требуют пробной печати на выбранной бумаге.</p></article><article><span class="rule-number">III.</span><h3>Сезон меняет настроение</h3><p>Лето — светлая основа и свежие полутона. Зима — насыщенный акцент и тёплые нейтральные цвета. Имя, символ и типографика объединяют коллекции.</p></article><article><span class="rule-number">IV.</span><h3>Говорим по-человечески</h3><p>«Для вашего ритма», «Любимая вещь на каждый день», «Красиво быть собой». Тёплый, уверенный тон без фамильярности и навязанных идеалов внешности.</p></article></div><div class="selection-summary"><div><p class="eyebrow">ВАШ ТЕКУЩИЙ ВЫБОР</p><p id="summary"></p></div><button class="primary-button" id="save-bottom">Сохранить брендбук ↗</button></div><details class="delivery-notes"><summary>Референсы и направление рисунка</summary><p>Каллиграфический контраст, свободные росчерки и пластика природных форм. Исходные логотипы не используются в макетах: знаки нарисованы отдельно для этой презентации.</p><p><a href="https://www.pinterest.com/pin/360569513942466018/" target="_blank" rel="noopener noreferrer">Pinterest · пластика инициала D ↗</a> · <a href="https://in.pinterest.com/pin/luxury-letter-d-logo-for-elegant-fashion--13581236381701090/" target="_blank" rel="noopener noreferrer">Pinterest · D для fashion-бренда ↗</a> · <a href="https://in.pinterest.com/pin/430093833183154447/" target="_blank" rel="noopener noreferrer">Pinterest · ботанический тюльпан ↗</a></p></details><details class="delivery-notes"><summary>О файлах и подготовке к публикации</summary><p class="technical-note">Концептуальный брендбук, версия 07. SVG сохраняет выбранную композицию и редактируемый текст: перед передачей в печать установите выбранный шрифт и переведите буквы в кривые. Шрифты Google Fonts включены в HTML; лицензии OFL находятся рядом с исходниками. Выбор сохраняется в этом браузере; экспорт HTML содержит страницу и настройки для просмотра офлайн.</p></details></section>
+  </main>
+  <footer><span class="footer-logo">dona.</span><span>Создано вокруг вас.</span><span>BRAND EXPLORATIONS / 2026</span></footer>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

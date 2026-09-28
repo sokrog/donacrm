@@ -1,0 +1,46 @@
+name: Publish Dona brandbook
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'design/dona-brandbook/**'
+      - '.github/workflows/brandbook-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build static site
+        run: python3 design/dona-brandbook/build.py --pages
+      - name: Upload public files
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: design/dona-brandbook/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

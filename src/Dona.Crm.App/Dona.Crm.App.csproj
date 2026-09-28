@@ -44,8 +44,20 @@
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+        <WindowsPackageType>MSIX</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <SelfContained>true</SelfContained>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <PublishReadyToRun>true</PublishReadyToRun>
+        <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+        <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\certs\signing.props" Condition="Exists('$(MSBuildThisFileDirectory)..\..\certs\signing.props')" />
+
     <ItemGroup>
-        <None Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" />
+        <Content Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>
