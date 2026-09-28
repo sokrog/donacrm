@@ -4,6 +4,7 @@ import argparse
 import json
 import shutil
 import base64
+import hashlib
 
 root = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser(description=__doc__)
@@ -28,6 +29,17 @@ if args.pages:
         destination = target / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / relative, destination)
+    # Bind markup, scripts, styles and fetched media to the same content version.
+    digest=hashlib.sha256()
+    for relative in files:
+        digest.update((root / relative).read_bytes())
+    version=digest.hexdigest()[:16]
+    page=(target / 'index.html').read_text(encoding='utf-8')
+    for relative in files:
+        if relative.suffix in ('.js','.css'):
+            page=page.replace(f'"{relative.as_posix()}"', f'"{relative.as_posix()}?v={version}"')
+    page=page.replace('<head>', f'<head><script>window.DONA_BUILD="{version}";</script>')
+    (target / 'index.html').write_text(page,encoding='utf-8')
     # Keep existing shared URLs and hash links working with the modular build.
     shutil.copyfile(target / 'index.html', target / 'dona-brandbook.html')
     (target / '.nojekyll').write_text('', encoding='utf-8')

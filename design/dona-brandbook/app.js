@@ -1,6 +1,10 @@
 (async () => {
   'use strict';
-  try{await window.DONA_MEDIA_READY;}catch(error){document.querySelector('#loading-state').textContent='Не удалось загрузить изображения. Обновите страницу или откройте офлайн-файл.';console.error(error);return;}
+  let exportReady=!window.DONA_MEDIA_READY;
+  document.addEventListener('click',event=>{
+    const control=event.target.closest('button,a');
+    if(!exportReady&&control&&(control.id.startsWith('download')||['export','save-bottom'].includes(control.id)||control.matches('[data-sketch],[data-download-media],[data-download-icon],[data-download-mockup]'))){event.preventDefault();event.stopImmediatePropagation();toast('Файлы ещё загружаются. Дождитесь завершения подготовки.');}
+  },true);
   const names = [
     ['DONA','ЛАКОНИЧНО','Короткое имя с выразительной модной типографикой.','ДОНА'],
     ['Dona Muse','ВДОХНОВЕНИЕ','Личный стиль, искусство сочетаний и мягкая уверенность.','ДОНА МЬЮЗ'],
@@ -249,9 +253,10 @@
     try{
       let css,js;
       if(window.DONA_ASSETS){({css,js}=window.DONA_ASSETS);}else{
-        const responses=await Promise.all([fetch('styles.css'),fetch('app.js'),fetch('fonts.css'),fetch('social.css'),fetch('media.css')]);
+        const fetchVersioned=path=>fetch(path+'?v='+encodeURIComponent(window.DONA_BUILD||'dev'));
+        const responses=await Promise.all(['styles.css','app.js','fonts.css','social.css','media.css'].map(fetchVersioned));
         if(responses.some(r=>!r.ok))throw new Error('assets');
-        const texts=await Promise.all(responses.map(r=>r.text()));css=texts[2]+'\n'+texts[0]+'\n'+texts[3]+'\n'+texts[4]+'\n'+await (await fetch('client.css')).text();js=texts[1];
+        const texts=await Promise.all(responses.map(r=>r.text()));css=texts[2]+'\n'+texts[0]+'\n'+texts[3]+'\n'+texts[4]+'\n'+await (await fetchVersioned('client.css')).text();js=texts[1];
       }
       const clone=document.documentElement.cloneNode(true);
       clone.querySelectorAll('script,style,link[rel=stylesheet]').forEach(el=>el.remove());
@@ -530,6 +535,18 @@
   window.addEventListener('hashchange',()=>showBookPage(true));
   render();
   showBookPage();
-  $('main').inert=false;$('#loading-state').hidden=true;
+  $('main').inert=false;
+  if(exportReady)$('#loading-state').hidden=true;
+  else{
+    $('#loading-state').textContent='Подготавливаем файлы для скачивания. Брендбук уже можно просматривать.';
+    window.DONA_MEDIA_READY.then(()=>{exportReady=true;renderLogos();$('#loading-state').hidden=true;}).catch(error=>{
+      console.error('Brand assets:',error);
+      const loading=$('#loading-state');loading.replaceChildren(document.createTextNode('Не все файлы загрузились. Просмотр доступен; для скачивания повторите загрузку. '));
+      const retry=document.createElement('button');retry.textContent='Повторить';retry.type='button';retry.addEventListener('click',()=>location.reload());loading.append(retry);
+    });
+  }
   document.fonts.ready.then(renderLogos);
-})();
+})().catch(error=>{
+  console.error('Brandbook startup:',error);
+  const el=document.querySelector('#loading-state');if(el){el.hidden=false;el.textContent='Не удалось запустить брендбук. Обновите страницу, чтобы загрузить актуальную версию.';}
+});
