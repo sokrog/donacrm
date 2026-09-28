@@ -1,22 +1,33 @@
-// Convert same-origin assets to embedded URLs for portable SVG/PNG exports.
-window.DONA_MEDIA = {};
-const assetVersion=window.DONA_BUILD||'dev';
-const assetUrl=path=>`${path}?v=${assetVersion}`;
-let loadedAssets=0,loadingFailed=false;
-function reportLoading(){const el=document.querySelector('#loading-state');if(el&&!loadingFailed)el.textContent=`Подготавливаем файлы для скачивания: ${loadedAssets}/24. Брендбук уже можно просматривать.`;}
-async function fetchAsset(path){
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
-  try{const r=await fetch(assetUrl(path),{signal:controller.signal});if(!r.ok)throw new Error(`${path}: ${r.status}`);const blob=await r.blob();return blob;}finally{clearTimeout(timer);}
-}
-window.DONA_MEDIA_READY = Promise.all(['kiss','bow','cherry','tulip','swan','packaging','garment','apparel','store-day','store-night','campaign','direction-dona','direction-muse','direction-belle','direction-belledona','direction-dona-cherry-swan','direction-muse-cherry-swan','direction-belle-cherry-swan','direction-belledona-cherry-swan'].map(async id => {
-  window.DONA_MEDIA[id]=assetUrl(`assets/${id}.png`);
-  const blob=await fetchAsset(`assets/${id}.png`);
-  window.DONA_MEDIA[id]=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
-  loadedAssets++;reportLoading();
-}));
-
+// Lightweight previews are the only images requested while browsing.
+const mediaIds=['kiss','bow','cherry','tulip','swan','packaging','garment','apparel','store-day','store-night','campaign','direction-dona','direction-muse','direction-belle','direction-belledona','direction-dona-cherry-swan','direction-muse-cherry-swan','direction-belle-cherry-swan','direction-belledona-cherry-swan'];
+const licenseIds=['cormorantgaramond','prata','manrope','marckscript','greatvibes'];
+const assetUrl=path=>`${path}?v=${window.DONA_RESOURCE_VERSIONS?.[path]||window.DONA_BUILD||'dev'}`;
+window.DONA_MEDIA=Object.fromEntries(mediaIds.map(id=>[id,assetUrl(`previews/${id}.webp`)]));
 window.DONA_LICENSES={};
-window.DONA_MEDIA_READY=Promise.all([window.DONA_MEDIA_READY,...['cormorantgaramond','prata','manrope','marckscript','greatvibes'].map(async family=>{const blob=await fetchAsset(`licenses/${family}-OFL.txt`);window.DONA_LICENSES[family]=await blob.text();loadedAssets++;reportLoading();})]);
-
-// Attach an early rejection handler; the application displays a retry message.
-window.DONA_MEDIA_READY.catch(()=>{loadingFailed=true;});
+const originals=new Map();
+let licenses;
+// Limit large original downloads to three concurrent requests; failures remain retryable.
+let active=0;
+const queue=[];
+async function fetchAsset(path){
+  if(active>=3)await new Promise(resolve=>queue.push(resolve));
+  else active++;
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);
+  try{
+    const response=await fetch(assetUrl(path),{signal:controller.signal});
+    if(!response.ok)throw new Error(`${path}: ${response.status}`);
+    return await response.blob();
+  }finally{clearTimeout(timer);const next=queue.shift();if(next)next();else active--;}
+}
+window.DONA_ORIGINAL=async id=>{
+  if(!mediaIds.includes(id))throw new Error('Unknown media: '+id);
+  if(!originals.has(id))originals.set(id,(async()=>{
+    const blob=await fetchAsset(`assets/${id}.png`);
+    return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+  })().catch(error=>{originals.delete(id);throw error;}));
+  return originals.get(id);
+};
+window.DONA_LOAD_LICENSES=()=>licenses||(licenses=Promise.all(licenseIds.map(async id=>{
+  window.DONA_LICENSES[id]=await (await fetchAsset(`licenses/${id}-OFL.txt`)).text();
+})).catch(error=>{licenses=undefined;throw error;}));
+window.DONA_ORIGINALS=async()=>Object.fromEntries(await Promise.all(mediaIds.map(async id=>[id,await window.DONA_ORIGINAL(id)])));

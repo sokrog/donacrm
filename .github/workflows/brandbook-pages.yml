@@ -30,6 +30,7 @@ jobs:
         run: |
           node --check design/dona-brandbook/app.js
           node --check design/dona-brandbook/assets.js
+          node design/dona-brandbook/test-assets.cjs
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Build static site

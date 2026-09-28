@@ -39,12 +39,14 @@ for ref in page.refs:
 
 loader = (root / 'assets.js').read_text(encoding='utf-8')
 for expression, suffix, folder in [
-    (r"Promise\.all\(\[(.*?)\]\.map", '.png', 'assets'),
-    (r"\.\.\.\[(.*?)\]\.map", '-OFL.txt', 'licenses'),
+    (r"const mediaIds=\[(.*?)\]", '.png', 'assets'),
+    (r"const licenseIds=\[(.*?)\]", '-OFL.txt', 'licenses'),
 ]:
     match = re.search(expression, loader, re.S)
     assert match, f'Loader list not found: {folder}'
     for name in re.findall(r"'([^']+)'", match[1]):
+        if folder == 'assets':
+            assert (root / 'previews' / (name + '.webp')).is_file(), f'Missing preview: {name}'
         path = root / folder / (name + suffix)
         assert path.is_file() and path.stat().st_size > 0, f'Missing asset: {path}'
 

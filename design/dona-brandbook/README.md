@@ -111,3 +111,10 @@ SVG композиций содержит **растровый знак ImageGen
 ### Индивидуальные комплекты эскизов
 
 Каждая карточка ImageGen имеет собственные PNG (4000 px по длинной стороне, пропорции сохранены), SVG и ZIP. Скачивание не меняет выбранный логотип. ZIP содержит по PNG/SVG в цвете бренда, светлом оттенке палитры, чёрном и белом, а также README с разрешением исходного участка рисунка и ограничениями применения. Увеличение PNG не добавляет деталей; SVG сохраняет растровый оригинал через маску.
+
+
+### Web previews and originals
+
+The Pages build uses committed `previews/*.webp` (about 1.1 MB in total). Carrier images are rendered when the Applications screen opens. Full-size `assets/*.png` are fetched on demand for export, cached for the session, and embedded into SVG/PNG/offline HTML. Original downloads are limited to three concurrent requests and can be retried after errors. Each image URL uses its own content hash, so a code-only deployment preserves image caching.
+
+After updating PNG artwork, regenerate previews with `python prepare_previews.py` (requires Pillow), and commit both versions. CI runs `node test-assets.cjs` to check lazy loading, deduplication, concurrency, and retries.

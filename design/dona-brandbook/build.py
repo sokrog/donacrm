@@ -18,6 +18,7 @@ if args.pages:
     )]
     files += sorted(path.relative_to(root) for path in (root / 'licenses').glob('*.txt'))
     files += sorted(path.relative_to(root) for path in (root / 'assets').glob('*.png'))
+    files += sorted(path.relative_to(root) for path in (root / 'previews').glob('*.webp'))
     target = root / 'dist'
     allowed = set(files) | {Path('.nojekyll'), Path('dona-brandbook.html')}
     if target.exists():
@@ -38,7 +39,8 @@ if args.pages:
     for relative in files:
         if relative.suffix in ('.js','.css'):
             page=page.replace(f'"{relative.as_posix()}"', f'"{relative.as_posix()}?v={version}"')
-    page=page.replace('<head>', f'<head><script>window.DONA_BUILD="{version}";</script>')
+    versions={relative.as_posix():hashlib.sha256((root / relative).read_bytes()).hexdigest()[:16] for relative in files if relative.parts[0] in ('assets','previews','licenses')}
+    page=page.replace('<head>', f'<head><script>window.DONA_BUILD="{version}";window.DONA_RESOURCE_VERSIONS={json.dumps(versions)};</script>')
     (target / 'index.html').write_text(page,encoding='utf-8')
     # Keep existing shared URLs and hash links working with the modular build.
     shutil.copyfile(target / 'index.html', target / 'dona-brandbook.html')

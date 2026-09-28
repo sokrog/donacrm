@@ -1,10 +1,5 @@
 (async () => {
   'use strict';
-  let exportReady=!window.DONA_MEDIA_READY;
-  document.addEventListener('click',event=>{
-    const control=event.target.closest('button,a');
-    if(!exportReady&&control&&(control.id.startsWith('download')||['export','save-bottom'].includes(control.id)||control.matches('[data-sketch],[data-download-media],[data-download-icon],[data-download-mockup]'))){event.preventDefault();event.stopImmediatePropagation();toast('Файлы ещё загружаются. Дождитесь завершения подготовки.');}
-  },true);
   const names = [
     ['DONA','ЛАКОНИЧНО','Короткое имя с выразительной модной типографикой.','ДОНА'],
     ['Dona Muse','ВДОХНОВЕНИЕ','Личный стиль, искусство сочетаний и мягкая уверенность.','ДОНА МЬЮЗ'],
@@ -246,11 +241,14 @@
   $('#name-cards').addEventListener('click',e=>{const b=e.target.closest('[data-name]');if(!b)return;state.name=b.dataset.name;render();$('#studio').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});toast(`Название: ${state.name}`);});
   $('#reset').addEventListener('click',()=>{const current=state.concept;state=structuredClone(initial);state.concept=current;const c=concepts[current];selectSymbol(c.symbol);state.font=c.font;if(isFixed())state.layout='imagegen-'+generatedSymbols.indexOf(c.symbol);render();toast('Восстановлены настройки концепта');});
   function download(content,type,filename){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
-  $('#download-logo').addEventListener('click',()=>{download(exportSvg(logoSvg(state.layout)),'image/svg+xml','dona-logo.svg');toast('Композиция сохранена в SVG');});
-  $('#download-avatar').addEventListener('click',()=>{const p=palette();const body=standaloneSymbol();download(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${p[2]}"/><g fill="none" stroke="${p[1]}" color="${p[1]}" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`,'image/svg+xml','dona-avatar.svg');toast('Аватар SVG сохранён');});
+  $('#download-logo').addEventListener('click',()=>{downloadSvg(logoSvg(state.layout),'dona-logo.svg');});
+  $('#download-avatar').addEventListener('click',()=>{const p=palette();const body=standaloneSymbol();downloadSvg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${p[2]}"/><g fill="none" stroke="${p[1]}" color="${p[1]}" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`,'dona-avatar.svg');});
 
   async function exportBook(){
     try{
+      toast('Подготавливаем полный брендбук с оригиналами…');
+      const fullMedia=window.DONA_ORIGINALS?await window.DONA_ORIGINALS():window.DONA_MEDIA;
+      await window.DONA_LOAD_LICENSES?.();
       let css,js;
       if(window.DONA_ASSETS){({css,js}=window.DONA_ASSETS);}else{
         const fetchVersioned=path=>fetch(path+'?v='+encodeURIComponent(window.DONA_BUILD||'dev'));
@@ -260,10 +258,10 @@
       }
       const clone=document.documentElement.cloneNode(true);
       clone.querySelectorAll('script,style,link[rel=stylesheet]').forEach(el=>el.remove());
-      clone.querySelectorAll('svg').forEach(el=>el.remove());clone.querySelectorAll('img').forEach(el=>el.removeAttribute('src'));clone.querySelectorAll('[style]').forEach(el=>{if(el.style.backgroundImage.includes('data:'))el.style.removeProperty('background-image');});
+      clone.querySelectorAll('svg').forEach(el=>el.remove());clone.querySelectorAll('img').forEach(el=>el.removeAttribute('src'));clone.querySelectorAll('[style]').forEach(el=>{if(el.style.backgroundImage)el.style.removeProperty('background-image');});
       clone.querySelector('#last-download').hidden=true;clone.querySelector('#last-download-link').removeAttribute('href');clone.querySelector('#toast').classList.remove('visible');clone.querySelector('#png-result').hidden=true;clone.querySelector('#png-result').removeAttribute('href');clone.querySelector('#png-preview').hidden=true;clone.querySelector('#png-preview').removeAttribute('src');
       const style=document.createElement('style');style.textContent=css;clone.querySelector('head').append(style);
-      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(window.DONA_MEDIA).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
+      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
       clone.querySelector('body').append(snapshot);
       const script=document.createElement('script');script.textContent=js;clone.querySelector('body').append(script);
       download('<!doctype html>\n'+clone.outerHTML,'text/html;charset=utf-8','dona-brandbook.html');toast('Интерактивный брендбук сохранён для просмотра офлайн');
@@ -357,7 +355,7 @@
       if(isFixed()){saveBlob(await pngBlob(logoSvg(state.layout)), 'dona-imagegen.png');return;}
       // Capture both vector artwork and text before awaiting; later UI edits do not alter the export.
       const a=artworkSpec(),name=state.name,format=state.editor.format;
-      const vector=`<svg xmlns="http://www.w3.org/2000/svg" width="${a.w}" height="${a.h}" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}">${artworkMark(a)}</svg>`;
+      const vector=await portableSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${a.w}" height="${a.h}" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}">${artworkMark(a)}</svg>`);
       await document.fonts.load(`${a.fontSize}px ${a.family}`,name);await document.fonts.load('20px Manrope','ЖЕНСКАЯ ОДЕЖДА');
       const url=URL.createObjectURL(new Blob([vector],{type:'image/svg+xml'})),img=new Image();
       try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});}finally{URL.revokeObjectURL(url);}
@@ -429,21 +427,39 @@
   }
   function renderClient(){
     carrierLogos.clear();
+    if(!$('#applications').hidden){
     for(const [container,items] of [['#physical-grid',[['packaging','Пакет, коробка и письмо','Матовая бумага, репсовая ручка и небольшая карточка с благодарностью.'],['garment','Внутренняя этикетка и бирка','Мягкий тканый ярлык у горловины и подвесная карточка.'],['apparel','Деликатный акцент на одежде','Небольшое нанесение на хлопковом лонгсливе. Основной акцент остаётся на крое и материале.']]],['#storefront-grid',[['store-day','Дневная вывеска','Светлые буквы на матовой рубиновой панели.'],['store-night','Вечерняя вывеска','Тёплая подсветка и мягкое свечение букв.']]]]){
       $(container).innerHTML=items.map(([id,title,caption])=>`<article class="physical-card"><div class="mockup">${mockupSvg(id)}</div><div class="physical-caption"><h4>${title}</h4><p>${caption}</p><button class="text-button" data-download-mockup="${id}">Скачать макет PNG ↗</button></div></article>`).join('');
     }
+    }
+    if(!$('#files').hidden){
     $('#generated-directions').innerHTML=names.flatMap(([name])=>[generatedBoards[name].id,generatedBoards[name].id+'-cherry-swan'].map(id=>`<figure><img loading="lazy" src="${window.DONA_MEDIA[id]}" alt="Эскизы логотипа ${name}"><figcaption>${name} · ${id.endsWith('swan')?'вишня и лебедь':'поцелуй, бант, тюльпан'} <button data-download-media="${id}" class="text-button">PNG ↗</button></figcaption></figure>`)).join('');
+    }
     $('#social-highlights').innerHTML=Object.entries(themedIcons).slice(0,5).map(([id,[label]])=>`<span><i>${iconSvg(id,'inherit')}</i>${label}</span>`).join('');
     $('#icon-downloads').innerHTML=Object.entries(themedIcons).map(([id,[label]])=>`<article>${iconSvg(id)}<strong>${label}</strong><div><button data-download-icon="${id}" data-format="svg">SVG</button><button data-download-icon="${id}" data-format="png">PNG</button><button data-download-icon="${id}" data-format="png" data-tone="light">PNG для тёмного фона</button></div></article>`).join('');
     $('#symbol-downloads').innerHTML=Object.entries(symbols).map(([id,item])=>`<article><div class="symbol-download-preview">${svg(id)}</div><strong>${item.name}</strong><button data-download-media="${id}">Исходник PNG</button></article>`).join('');
+    if(!$('#applications').hidden){
     $('#app-previews').innerHTML=['light','dark'].map(theme=>`<article class="app-phone ${theme}" aria-label="${theme==='light'?'Светлая':'Тёмная'} тема приложения"><div class="app-top"><span>9:41</span><span>● ▰</span></div><div class="app-name">${esc(state.name)} <span>♡</span></div><div class="app-content"><small>НОВАЯ КОЛЛЕКЦИЯ</small><h4>Ваш новый<br>любимый образ.</h4><img src="${window.DONA_MEDIA.campaign}" alt="Рубиновая блуза и светлые брюки"><div class="product-caption"><span>Шёлковая блуза<br><small>Ruby · XS–XL</small></span><span>♡</span></div><button type="button" data-theme="${theme}">${state.theme===theme?'Тема выбрана':'Выбрать тему'}</button></div><div class="app-nav">Каталог　　Избранное　　Корзина</div><p class="app-theme-label">${theme==='light'?'Светлая':'Тёмная'} тема ${state.theme===theme?'· выбрана':''}</p></article>`).join('');
     $$('.campaign-photo,.post-photo,.tg-photo,.story-photo').forEach(el=>{el.style.backgroundImage=`${el.matches('.tg-photo,.story-photo')?'linear-gradient(0deg,rgba(35,8,20,.74),transparent 78%),':''}url("${el.classList.contains('photo-detail')?window.DONA_MEDIA.garment:window.DONA_MEDIA.campaign}")`;el.style.backgroundSize='cover';el.style.backgroundPosition='center';});
   }
+  }
   function fontDefinitions(){const css=[];for(const sheet of document.styleSheets){try{for(const rule of sheet.cssRules)if(rule.type===CSSRule.FONT_FACE_RULE)css.push(rule.cssText);}catch{}}return `<defs><style>${esc(css.join('\n')+'\n'+Object.values(window.DONA_LICENSES||{}).map(text=>'/* '+text.replaceAll('*/','')+' */').join('\n'))}</style></defs>`;}
   function exportSvg(source){return source.replace('><',`>${fontDefinitions()}<`);}
+  async function portableSvg(source){
+    const used=Object.entries(window.DONA_MEDIA).filter(([,url])=>source.includes(url));
+    const originals=await Promise.all(used.map(async([id,url])=>[url,window.DONA_ORIGINAL?await window.DONA_ORIGINAL(id):url]));
+    for(const [url,original] of originals)source=source.replaceAll(url,original);
+    await window.DONA_LOAD_LICENSES?.();
+    return exportSvg(source);
+  }
+  async function downloadSvg(source,filename){
+    toast('Подготавливаем оригинал для скачивания…');
+    try{saveBlob(new Blob([await portableSvg(source)],{type:'image/svg+xml'}),filename);toast('SVG готов');}
+    catch(error){console.error(error);toast('Не удалось загрузить оригинал. Повторите скачивание.');}
+  }
   async function pngBlob(source,width=1800,height=612){
     await document.fonts.ready;
-    source=exportSvg(source).replace('<svg ',`<svg width="${width}" height="${height}" `);
+    source=(await portableSvg(source)).replace('<svg ',`<svg width="${width}" height="${height}" `);
     const url=URL.createObjectURL(new Blob([source],{type:'image/svg+xml'})),img=new Image();
     try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;canvas.getContext('2d').drawImage(img,0,0,width,height);return await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('PNG')),'image/png'));}finally{URL.revokeObjectURL(url);}
   }
@@ -459,14 +475,14 @@
     const p=palette(),status=button.closest('.sketch-downloads').querySelector('[data-sketch-status]');
     button.disabled=true;status.textContent='Готовим файл…';
     try{
-      if(button.dataset.export==='svg')saveBlob(new Blob([original],{type:'image/svg+xml'}),basename+'.svg');
+      if(button.dataset.export==='svg')saveBlob(new Blob([await portableSvg(original)],{type:'image/svg+xml'}),basename+'.svg');
       else if(button.dataset.export==='png')saveBlob(await pngBlob(original,...dimensions),basename+'-4000.png');
       else{
         const files=[];
         for(const [tone,color] of [['brand',p[1]],['ivory',p[2]],['black','#000000'],['white','#FFFFFF']]){
           status.textContent=`Готовим версию ${tone}…`;
           const source=original.replace(/style="color:[^"]*"/,`style="color:${color}"`);
-          files.push([`${basename}-${tone}.svg`,source],[`${basename}-${tone}-4000.png`,await pngBlob(source,...dimensions)]);
+          files.push([`${basename}-${tone}.svg`,await portableSvg(source)],[`${basename}-${tone}-4000.png`,await pngBlob(source,...dimensions)]);
         }
         const board=generatedBoards[name],box=index<3?board.boxes[index]:board.extraBoxes[index-3];
         files.push(['README.txt',`${name} — ${generatedLabels[index]}\nPNG: ${dimensions.join(' × ')} px, transparent background, sRGB.\nVariants: brand ${p[1]}, ivory ${p[2]}, black, white.\nSource artwork region: ${box[2]} × ${box[3]} px. A 4000 px export is scaled from this raster original; it does not add new detail. SVG embeds the original raster artwork and a transparency mask, not vector outlines.\nFor web, social media, presentations and small-format print. For embroidery, cutting, engraving or large-format production, commission vector tracing and obtain a proof from the supplier.\nComposition is fixed; retain its aspect ratio. White and ivory variants are intended for dark backgrounds.\n`]);
@@ -478,7 +494,7 @@
   });
   let lastDownloadUrl=null;
   function saveBlob(blob,filename){if(lastDownloadUrl)URL.revokeObjectURL(lastDownloadUrl);lastDownloadUrl=URL.createObjectURL(blob);const a=$('#last-download-link');a.href=lastDownloadUrl;a.download=filename;a.textContent=`Скачать ${filename} · ${(blob.size/1024/1024).toFixed(1)} МБ`;$('#last-download').hidden=false;const preview=$('#last-download-preview');preview.hidden=blob.type!=='image/png';if(!preview.hidden)preview.src=lastDownloadUrl;else preview.removeAttribute('src');a.click();}
-  async function mediaBlob(id){return await (await fetch(window.DONA_MEDIA[id])).blob();}
+  async function mediaBlob(id){return await (await fetch(window.DONA_ORIGINAL?await window.DONA_ORIGINAL(id):window.DONA_MEDIA[id])).blob();}
   document.addEventListener('click',async event=>{
     const media=event.target.closest('[data-download-media]'),icon=event.target.closest('[data-download-icon]'),mockup=event.target.closest('[data-download-mockup]'),theme=event.target.closest('#app-previews [data-theme]');
     if(theme){state.theme=theme.dataset.theme;render();return;}
@@ -490,7 +506,7 @@
       toast('Файл подготовлен для скачивания');
     }catch(error){console.error(error);toast('Не удалось сохранить файл. Попробуйте ещё раз.');}finally{button.disabled=false;}
   });
-  $('#download-current-svg').addEventListener('click',()=>download(exportSvg(logoSvg(state.layout)),'image/svg+xml','dona-logo.svg'));
+  $('#download-current-svg').addEventListener('click',()=>downloadSvg(logoSvg(state.layout),'dona-logo.svg'));
   $('#download-current-png').addEventListener('click',async()=>{const button=$('#download-current-png');button.disabled=true;try{const source=logoSvg(state.layout);saveBlob(await pngBlob(source,...(isFixed()?sketchDimensions(source):[1800,612])),'dona-logo.png');}catch(e){console.error(e);toast('Не удалось сохранить PNG');}finally{button.disabled=false;}});
   // Standard ZIP container. Compression is native; stored entries are the fallback.
   async function zipFiles(files){
@@ -509,10 +525,12 @@
     try{
       // Build all compositions synchronously against one captured palette/font choice.
       for(const [name] of names)for(const symbol of Object.keys(symbols))for(const layout of ['classic','side','signature']){
-        state={...saved,name,symbol,layout,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/${symbol}-${layout}.svg`,exportSvg(logoSvg(layout,false))]);
+        state={...saved,name,symbol,layout,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/${symbol}-${layout}.svg`,logoSvg(layout,false)]);
       }
-      for(const [name] of names)for(let i=0;i<5;i++){state={...saved,name,layout:`imagegen-${i}`,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/imagegen-${i+1}.svg`,exportSvg(logoSvg(state.layout))]);}
-      state=saved;files.push(['current-selection.svg',exportSvg(logoSvg(state.layout))],['palettes.json',JSON.stringify(seasonalPalettes,null,2)],['selection.json',JSON.stringify(saved,null,2)],['README.txt','Dona Brand Studio — 60 editable compositions + 20 fixed ImageGen sketches. SVG files contain embedded raster ImageGen symbols and editable text, not fully vector marks. Fonts are embedded under OFL. PNG symbols are original transparent assets. Icons are vector. Review final artwork and minimum detail size with your printer.']);
+      for(const [name] of names)for(let i=0;i<5;i++){state={...saved,name,layout:`imagegen-${i}`,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/imagegen-${i+1}.svg`,logoSvg(state.layout)]);}
+      state=saved;files.push(['current-selection.svg',logoSvg(state.layout)],['palettes.json',JSON.stringify(seasonalPalettes,null,2)],['selection.json',JSON.stringify(saved,null,2)],['README.txt','Dona Brand Studio — 60 editable compositions + 20 fixed ImageGen sketches. SVG files contain embedded raster ImageGen symbols and editable text, not fully vector marks. Fonts are embedded under OFL. PNG symbols are original transparent assets. Icons are vector. Review final artwork and minimum detail size with your printer.']);
+      status.textContent='Загружаем оригиналы для архива…';
+      for(const file of files)if(file[0].endsWith('.svg'))file[1]=await portableSvg(file[1]);
       for(const [family,license] of Object.entries(window.DONA_LICENSES||{}))files.push([`licenses/${family}-OFL.txt`,license]);
       for(const id of Object.keys(symbols))files.push([`symbols/${id}.png`,await mediaBlob(id)]);
       for(const id of Object.keys(themedIcons)){const source=iconSvg(id);files.push([`icons/${id}-light.svg`,iconSvg(id,palette()[2])],[`icons/${id}-light.png`,await pngBlob(iconSvg(id,palette()[2]),1080,1080)]);files.push([`icons/${id}.svg`,source],[`icons/${id}.png`,await pngBlob(source,1080,1080)]);status.textContent=`Готовим иконки: ${themedIcons[id][0]}…`;}
@@ -526,6 +544,7 @@
     $$('[data-page]').forEach(el=>el.hidden=el!==page);
     $$('[data-route]').forEach(link=>{const active=link.dataset.route===page.id;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
     document.title=`${page.querySelector('h1').textContent} — Dona Brand Studio`;
+    renderClient();
     requestAnimationFrame(()=>{
       refreshPlacementSurfaces();
       (target&&page.contains(target)?target:page).scrollIntoView({block:'start',behavior:'instant'});
@@ -536,15 +555,7 @@
   render();
   showBookPage();
   $('main').inert=false;
-  if(exportReady)$('#loading-state').hidden=true;
-  else{
-    $('#loading-state').textContent='Подготавливаем файлы для скачивания. Брендбук уже можно просматривать.';
-    window.DONA_MEDIA_READY.then(()=>{exportReady=true;renderLogos();$('#loading-state').hidden=true;}).catch(error=>{
-      console.error('Brand assets:',error);
-      const loading=$('#loading-state');loading.replaceChildren(document.createTextNode('Не все файлы загрузились. Просмотр доступен; для скачивания повторите загрузку. '));
-      const retry=document.createElement('button');retry.textContent='Повторить';retry.type='button';retry.addEventListener('click',()=>location.reload());loading.append(retry);
-    });
-  }
+  $('#loading-state').hidden=true;
   document.fonts.ready.then(renderLogos);
 })().catch(error=>{
   console.error('Brandbook startup:',error);
