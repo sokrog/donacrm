@@ -18,7 +18,7 @@ if args.pages:
     files += sorted(path.relative_to(root) for path in (root / 'licenses').glob('*.txt'))
     files += sorted(path.relative_to(root) for path in (root / 'assets').glob('*.png'))
     target = root / 'dist'
-    allowed = set(files) | {Path('.nojekyll')}
+    allowed = set(files) | {Path('.nojekyll'), Path('dona-brandbook.html')}
     if target.exists():
         unexpected = [p.relative_to(target) for p in target.rglob('*')
                       if p.is_file() and p.relative_to(target) not in allowed]
@@ -28,6 +28,8 @@ if args.pages:
         destination = target / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / relative, destination)
+    # Keep existing shared URLs and hash links working with the modular build.
+    shutil.copyfile(target / 'index.html', target / 'dona-brandbook.html')
     (target / '.nojekyll').write_text('', encoding='utf-8')
     print(f'GitHub Pages site: {target}')
     raise SystemExit(0)

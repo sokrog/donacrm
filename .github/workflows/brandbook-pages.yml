@@ -19,11 +19,23 @@ jobs:
   build:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Check JavaScript
+        run: |
+          node --check design/dona-brandbook/app.js
+          node --check design/dona-brandbook/assets.js
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
       - name: Build static site
         run: python3 design/dona-brandbook/build.py --pages
+      - name: Validate published resources
+        run: python3 design/dona-brandbook/validate_site.py
       - name: Upload public files
         uses: actions/upload-pages-artifact@v4
         with:
@@ -32,6 +44,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
@@ -39,8 +52,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Report deployment URL
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: printf '### Dona brandbook\n\n[Open published brandbook](%s)\n' "$PAGE_URL" >> "$GITHUB_STEP_SUMMARY"
