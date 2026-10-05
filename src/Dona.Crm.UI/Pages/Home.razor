@@ -13,7 +13,7 @@
 <PageTitle>Главная — DONA CRM</PageTitle>
 
 <div class="orbit-home" aria-busy="@isLoading">
-    <div class="home-brand"><img src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /><span>Ваш магазин. Всё под рукой.</span></div>
+    <div class="home-brand"><img src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /><span class="home-slogan">Ваш магазин. Всё под рукой.</span></div>
     <header class="home-header">
         <div>
             <p class="eyebrow">@DateLabel</p>
@@ -21,7 +21,7 @@
         </div>
         <a class="icon-button attention-shortcut" href="/attention" aria-label="Открыть раздел «Внимание»">
             <OrbitIcon Name="bell" />
-            @if (!isLoading && attentionItems.Count > 0) { <span class="attention-badge" aria-label="@attentionItems.Count сигналов">@attentionItems.Count</span> }
+            @if (!isLoading && attentionTotal > 0) { <span class="attention-badge" aria-label="@attentionTotal сигналов">@attentionTotal</span> }
         </a>
     </header>
 
@@ -70,7 +70,8 @@
             <section aria-labelledby="attention-heading">
                 <div class="section-heading">
                     <h2 id="attention-heading">Требует внимания</h2>
-                    @if (attentionItems.Count > 0) { <span>@attentionItems.Count @SignalWord(attentionItems.Count)</span> }
+                    @if (attentionTotal > attentionItems.Count) { <a class="section-link" href="/attention">Все · @attentionTotal</a> }
+                    else if (attentionTotal > 0) { <span>@attentionTotal @SignalWord(attentionTotal)</span> }
                 </div>
                 @if (attentionItems.Count == 0)
                 {
@@ -99,7 +100,7 @@
                 </section>
 
                 <section aria-labelledby="activity-heading">
-                    <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2><span>Последние операции</span></div>
+                    <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2></div>
                     @if (activityItems.Count == 0)
                     {
                         <p class="empty-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
@@ -109,7 +110,7 @@
                         <ol class="activity-list">
                             @foreach (var item in activityItems)
                             {
-                                <li><span class="activity-mark"><OrbitIcon Name="@item.Icon" /></span><div><strong>@item.Title</strong><p>@item.Caption</p></div></li>
+                                <li><a class="activity-item" href="@item.Href"><span class="activity-mark"><OrbitIcon Name="@item.Icon" /></span><div><strong>@item.Title</strong><p>@item.Caption</p></div></a></li>
                             }
                         </ol>
                     }
@@ -130,6 +131,7 @@
     private int availableQuantity;
     private int incomingQuantity;
     private List<AttentionItem> attentionItems = [];
+    private int attentionTotal;
     private List<ActivityItem> activityItems = [];
     private GoogleSyncStatus syncStatus = new(GoogleSyncState.LocalOnly);
     private bool googleConnected;
@@ -204,12 +206,12 @@
             }
             catch (Exception exception)
             {
-                syncStatus = new(GoogleSyncState.Error, Error: exception.Message);
+                syncStatus = new(GoogleSyncState.Error, Error: UserErrors.Describe(exception, "Не удалось проверить синхронизацию. Попробуйте ещё раз."));
             }
         }
         catch (Exception exception)
         {
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить главную страницу. Попробуйте ещё раз.");
         }
         finally
         {
@@ -226,32 +228,34 @@
         customerDebt = snapshot.CustomerDebtUzs;
         availableQuantity = snapshot.AvailableQuantity;
         incomingQuantity = snapshot.IncomingQuantity;
-        attentionItems = BuildAttention(snapshot).Take(4).ToList();
+        var allAttention = BuildAttention(snapshot).ToList();
+        attentionTotal = allAttention.Count;
+        attentionItems = allAttention.Take(4).ToList();
         activityItems = BuildActivity(snapshot).OrderByDescending(item => item.CreatedAt).Take(4).ToList();
     }
 
     private static IEnumerable<AttentionItem> BuildAttention(HomeDashboardSnapshot snapshot)
     {
         foreach (var product in snapshot.LowStockProducts)
-            yield return new("catalog", string.Empty, $"{product.Name} — осталось {product.Quantity} ед.", "/products");
+            yield return new("catalog", string.Empty, $"{product.Name} — осталось {product.Quantity} ед.", $"/products/{product.Id}");
 
         foreach (var sale in snapshot.SalesWithDebt)
-            yield return new("clock", "amber", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
+            yield return new("clock", "amber", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", $"/sales/{sale.Id}");
 
         foreach (var purchase in snapshot.DuePurchases)
-            yield return new("truck", "cyan", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
+            yield return new("truck", "cyan", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", $"/purchases/{purchase.Id}");
 
         foreach (var product in snapshot.ProductsWithoutImages)
-            yield return new("image", "magenta", $"{product.Name} — нет фотографии", "/products");
+            yield return new("image", "magenta", $"{product.Name} — нет фотографии", $"/products/{product.Id}");
     }
 
     private static IEnumerable<ActivityItem> BuildActivity(HomeDashboardSnapshot snapshot)
     {
         foreach (var sale in snapshot.RecentSales)
-            yield return new("check", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — {Money(sale.NetTotalUzs)} UZS", $"{sale.Status.Display()} · {RelativeTime(sale.CreatedAt)}", sale.CreatedAt);
+            yield return new("check", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — {Money(sale.NetTotalUzs)} UZS", $"{sale.Status.Display()} · {RelativeTime(sale.CreatedAt)}", sale.CreatedAt, $"/sales/{sale.Id}");
 
         foreach (var movement in snapshot.RecentMovements)
-            yield return new("catalog", $"{movement.ProductName} · {SignedQuantity(movement.QuantityDelta)} ед.", $"{movement.Type.Display()} · {RelativeTime(movement.CreatedAt)}", movement.CreatedAt);
+            yield return new("warehouse", $"{movement.ProductName} · {SignedQuantity(movement.QuantityDelta)} ед.", $"{movement.Type.Display()} · {RelativeTime(movement.CreatedAt)}", movement.CreatedAt, $"/products/{movement.ProductId}");
     }
 
     private static string Money(decimal value) => value.ToString("N0", RussianCulture);
@@ -268,5 +272,5 @@
     }
 
     private sealed record AttentionItem(string Icon, string Tone, string Text, string Href);
-    private sealed record ActivityItem(string Icon, string Title, string Caption, DateTimeOffset CreatedAt);
+    private sealed record ActivityItem(string Icon, string Title, string Caption, DateTimeOffset CreatedAt, string Href);
 }

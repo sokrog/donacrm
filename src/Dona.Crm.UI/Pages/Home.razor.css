@@ -56,7 +56,7 @@ h1 {
 }
 
 .attention-shortcut { position: relative; text-decoration: none; }
-.attention-badge { position: absolute; top: -3px; right: -3px; display: grid; min-width: 19px; height: 19px; place-items: center; border: 2px solid var(--dona-bg); border-radius: 999px; padding: 0 4px; background: var(--dona-danger); color: #fff; font-size: 10px; font-weight: 800; line-height: 1; }
+.attention-badge { position: absolute; top: -3px; right: -3px; display: grid; min-width: 19px; height: 19px; place-items: center; border: 2px solid var(--dona-bg); border-radius: 999px; padding: 0 4px; background: var(--dona-danger); color: #fff; font-size: var(--dona-type-micro); font-weight: 800; line-height: 1; }
 
 .connection-row {
     display: flex;
@@ -566,3 +566,15 @@ section {
 .action { transition: background .15s, border-color .15s; }
 .action:hover { background: var(--dona-surface-soft); border-color: var(--dona-line-strong); }
 @media (min-width: 900px) { .home-brand { display: none; } }
+
+.section-link { display: inline-flex; align-items: center; min-height: 44px; margin: -12px 0; color: var(--dona-brand); font-size: var(--dona-type-small); font-weight: 700; text-decoration: none; }
+.section-link:hover { text-decoration: underline; }
+.attention-item:hover { background: var(--dona-surface-soft); }
+.attention-item:focus-visible, .activity-item:focus-visible, .section-link:focus-visible { outline: 3px solid rgba(var(--dona-brand-rgb), .55); outline-offset: -3px; border-radius: 14px; }
+.activity-list li { display: block; padding-bottom: 6px; }
+.activity-item { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 13px; min-height: 44px; padding: 6px 8px 10px 0; border-radius: 14px; color: inherit; text-decoration: none; transition: background .15s; }
+.activity-item:hover { background: var(--dona-surface-soft); }
+.activity-list::before { top: 24px; bottom: 30px; }
+.home-brand img { height: 40px; width: auto; max-width: 96px; }
+.home-brand { padding-bottom: 8px; }
+.home-brand .home-slogan { display: none; }

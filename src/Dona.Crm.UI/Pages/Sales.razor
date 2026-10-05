@@ -3,21 +3,188 @@
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
 @inject ISalesRepository SalesRepository
+@inject NavigationManager Navigation
 
 <PageTitle>Продажи — DONA CRM</PageTitle>
 <div class="sales-page" aria-busy="@loading">
-    <header><div><p class="orbit-page-eyebrow">Заказы</p><h1 class="orbit-page-title">Продажи</h1></div><a class="orbit-icon-button orbit-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a></header>
-    <div class="sales-metrics orbit-metrics orbit-metrics--3 orbit-kpis"><article><span>Выручка</span><strong>@Money(financial.Sum(item=>item.NetTotalUzs))</strong><small>UZS</small></article><article><span>Активные</span><strong>@items.Count(item=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped)</strong><small>заказов</small></article><article class="debt"><span>Долг</span><strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong><small>UZS</small></article></div>
-    <a class="customers-link" href="/customers"><span class="sale-icon"><OrbitIcon Name="catalog" /></span><span><strong>Клиенты</strong><small>Контакты и история заказов</small></span><b aria-hidden="true">›</b></a>
-    <label class="sales-search orbit-search-label" for="sales-search">Поиск по номеру или клиенту<input class="orbit-search-control" id="sales-search" type="search" placeholder="SALE-… или имя" @bind="query" @bind:event="oninput" /></label>
-    @if(loading){<div class="sales-state">Загружаем продажи…</div>}
-    else if(error is not null){<div class="sales-state" role="alert">@error</div>}
-    else if(Filtered.Count==0){<div class="sales-state"><strong>@(items.Count==0?"Продаж пока нет":"Ничего не найдено")</strong><p>@(items.Count==0?"Создайте первый заказ и зарезервируйте товар.":"Измените поисковый запрос.")</p></div>}
-    else{<ul class="sales-list">@foreach(var sale in Filtered){<li><a href="/sales/@sale.Id"><span class="sale-icon"><OrbitIcon Name="sales" /></span><span><strong>@sale.Number</strong><small>@(sale.CustomerName??"Без клиента") · @sale.Status.Display()</small><em class="@StatusClass(sale.Status)">@sale.TotalQuantity ед.</em></span><span class="sale-total">@Money(sale.NetTotalUzs)<small>UZS</small>@if(sale.BalanceDueUzs>0){<em>долг @Money(sale.BalanceDueUzs)</em>}</span></a></li>}</ul>}
+    <header>
+        <div>
+            <p class="orbit-page-eyebrow">Заказы</p>
+            <h1 class="orbit-page-title">Продажи</h1>
+        </div>
+        <a class="orbit-icon-button orbit-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a>
+    </header>
+    <div class="sales-metrics orbit-metrics orbit-metrics--3 orbit-kpis">
+        <article>
+            <span>Выручка · @PeriodLabel(period)</span>
+            <strong>@Money(Revenue)</strong>
+            <small>UZS</small>
+        </article>
+        <article>
+            <span>Активные</span>
+            <strong>@items.Count(IsActive)</strong>
+            <small>заказов сейчас</small>
+        </article>
+        <article class="debt">
+            <span>Долг</span>
+            <strong>@Money(items.Where(item=>item.Status!=SaleStatus.Cancelled).Sum(item=>item.BalanceDueUzs))</strong>
+            <small>UZS сейчас</small>
+        </article>
+    </div>
+    <div class="sales-filters" role="group" aria-label="Период выручки">
+        @foreach(var option in Periods)
+        {
+            <button type="button" class="@(period==option.Key?"active":null)" aria-pressed="@(period==option.Key)" @onclick="() => Period = option.Key">@option.Label</button>
+        }
+    </div>
+    <a class="customers-link" href="/customers">
+        <span class="sale-icon"><OrbitIcon Name="catalog" /></span>
+        <span>
+            <strong>Клиенты</strong>
+            <small>Контакты и история заказов</small>
+        </span>
+        <b aria-hidden="true">›</b>
+    </a>
+    <div class="sales-filters" role="group" aria-label="Фильтр по статусу">
+        @foreach(var option in StatusFilters)
+        {
+            <button type="button" class="@(statusFilter==option.Key?"active":null)" aria-pressed="@(statusFilter==option.Key)" @onclick="() => StatusFilter = option.Key">@option.Label</button>
+        }
+    </div>
+    <label class="sales-search orbit-search-label" for="sales-search">
+        Поиск по номеру или клиенту
+        <input class="orbit-search-control" id="sales-search" type="search" placeholder="SALE-… или имя" value="@Query" @oninput="OnSearchInput" />
+    </label>
+    @if(loading)
+    {
+        <div class="sales-state">Загружаем продажи…</div>
+    }
+    else if(error is not null)
+    {
+        <div class="sales-state" role="alert">@error</div>
+    }
+    else if(Filtered.Count==0)
+    {
+        <div class="sales-state">
+            <strong>@(items.Count==0?"Продаж пока нет":"Ничего не найдено")</strong>
+            <p>@(items.Count==0?"Создайте первый заказ и зарезервируйте товар.":"Измените поиск или фильтр.")</p>
+        </div>
+    }
+    else
+    {
+        <ul class="sales-list">
+            @foreach(var sale in Filtered)
+            {
+                <li>
+                    <a href="/sales/@sale.Id">
+                        <span class="sale-icon"><OrbitIcon Name="sales" /></span>
+                        <span>
+                            <strong>@sale.Number</strong>
+                            <small>@(string.IsNullOrWhiteSpace(sale.CustomerName)?"Без клиента":sale.CustomerName) · @sale.Status.Display()</small>
+                            <em class="@StatusClass(sale.Status)">@sale.TotalQuantity ед.</em>
+                        </span>
+                        <span class="sale-total">
+                            @Money(sale.NetTotalUzs)
+                            <small>UZS</small>
+                            @if(sale.BalanceDueUzs>0)
+                            {
+                                <em>долг @Money(sale.BalanceDueUzs)</em>
+                            }
+                        </span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
 </div>
 @code{
-    private static readonly CultureInfo Ru=CultureInfo.GetCultureInfo("ru-RU");private IReadOnlyList<Sale> items=[];private bool loading=true;private string query=string.Empty;private string? error;
-    private IEnumerable<Sale> financial=>items.Where(item=>item.Status is SaleStatus.Completed or SaleStatus.Returned);private IReadOnlyList<Sale> Filtered=>items.Where(item=>string.IsNullOrWhiteSpace(query)||item.Number.Contains(query,StringComparison.OrdinalIgnoreCase)||(item.CustomerName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)).OrderByDescending(item=>item.CreatedAt).ToList();
-    protected override async Task OnInitializedAsync(){try{items=await SalesRepository.GetSalesAsync();}catch(Exception ex){error=ex.Message;}finally{loading=false;}}
-    private static string Money(decimal value)=>value.ToString("N0",Ru);private static string StatusClass(SaleStatus? status)=>status switch{SaleStatus.Completed=>"complete",SaleStatus.Cancelled or SaleStatus.Returned=>"closed",_=>"active"};
+    private static readonly CultureInfo Ru=CultureInfo.GetCultureInfo("ru-RU");
+    private IReadOnlyList<Sale> items=[];
+    private bool loading=true;
+    private string query=string.Empty;
+    private string? error;
+    [SupplyParameterFromQuery(Name="q")][Parameter]public string? QueryParam{get;set;}
+    [SupplyParameterFromQuery(Name="status")][Parameter]public string? StatusParam{get;set;}
+    [SupplyParameterFromQuery(Name="period")][Parameter]public string? PeriodParam{get;set;}
+    private static readonly (string Key,string Label)[] StatusFilters=[("all","Все"),("active","Активные"),("draft","Черновики"),("debt","С долгом"),("done","Завершённые"),("closed","Отменённые и возвраты")];
+    private static readonly (string Key,string Label)[] Periods=[("today","Сегодня"),("7d","7 дней"),("30d","30 дней"),("all","Всё время")];
+    private const string DefaultPeriod="30d";
+    private string statusFilter="all";
+    private string period=DefaultPeriod;
+    private readonly Queue<(string Q,string Status,string Period)> pendingUrls=new();
+    private string Query{get=>query;set{query=value??string.Empty;PushUrl();}}
+    private string StatusFilter{get=>statusFilter;set{statusFilter=value;PushUrl();}}
+    private string Period{get=>period;set{period=value;PushUrl();}}
+    protected override void OnParametersSet(){
+        var q=QueryParam?.Trim()??string.Empty;
+        var s=StatusFilters.Any(x=>x.Key==StatusParam)?StatusParam!:"all";
+        var p=Periods.Any(x=>x.Key==PeriodParam)?PeriodParam!:DefaultPeriod;
+        if(pendingUrls.Contains((q,s,p))){while(pendingUrls.Count>0&&pendingUrls.Dequeue()!=(q,s,p)){}return;}
+        pendingUrls.Clear();query=q;statusFilter=s;period=p;
+    }
+    private void OnSearchInput(ChangeEventArgs args)=>Query=args.Value?.ToString()??string.Empty;
+    private void PushUrl(){
+        var q=query.Trim();
+        pendingUrls.Enqueue((q,statusFilter,period));
+        Navigation.NavigateTo(
+            Navigation.GetUriWithQueryParameters(new Dictionary<string,object?>
+            {
+                ["q"]=q.Length==0?null:q,
+                ["status"]=statusFilter=="all"?null:statusFilter,
+                ["period"]=period==DefaultPeriod?null:period
+            }),
+            replace:true);
+    }
+    private static string PeriodLabel(string key)=>key switch
+    {
+        "today"=>"сегодня",
+        "7d"=>"7 дней",
+        "30d"=>"30 дней",
+        _=>"всё время"
+    };
+    private static bool IsActive(Sale item)=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped;
+    private bool MatchesStatus(Sale item)=>statusFilter switch
+    {
+        "active"=>IsActive(item),
+        "draft"=>item.Status==SaleStatus.Draft,
+        "debt"=>item.Status!=SaleStatus.Cancelled&&item.BalanceDueUzs>0,
+        "done"=>item.Status==SaleStatus.Completed,
+        "closed"=>item.Status is SaleStatus.Cancelled or SaleStatus.Returned,
+        _=>true
+    };
+    // Sale has no completion date, so the period is based on CreatedAt (local date).
+    private bool InPeriod(Sale item){
+        var date=item.CreatedAt.ToLocalTime().Date;
+        var today=DateTime.Today;
+        return period switch
+        {
+            "today"=>date==today,
+            "7d"=>date>today.AddDays(-7),
+            "30d"=>date>today.AddDays(-30),
+            _=>true
+        };
+    }
+    private decimal Revenue=>financial.Where(InPeriod).Sum(item=>item.NetTotalUzs);
+    private IEnumerable<Sale> financial=>items.Where(item=>item.Status is SaleStatus.Completed or SaleStatus.Returned);
+    private IReadOnlyList<Sale> Filtered=>items
+        .Where(MatchesStatus)
+        .Where(item=>string.IsNullOrWhiteSpace(query)||item.Number.Contains(query,StringComparison.OrdinalIgnoreCase)||(item.CustomerName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false))
+        .OrderByDescending(item=>item.CreatedAt)
+        .ToList();
+    protected override async Task OnInitializedAsync(){
+        try{
+            items=await SalesRepository.GetSalesAsync();
+        }catch(Exception ex){
+            error=UserErrors.Describe(ex, "Не удалось загрузить продажи. Попробуйте ещё раз.");
+        }finally{
+            loading=false;
+        }
+    }
+    private static string Money(decimal value)=>value.ToString("N0",Ru);
+    private static string StatusClass(SaleStatus? status)=>status switch
+    {
+        SaleStatus.Completed=>"complete",
+        SaleStatus.Cancelled or SaleStatus.Returned=>"closed",
+        _=>"active"
+    };
 }

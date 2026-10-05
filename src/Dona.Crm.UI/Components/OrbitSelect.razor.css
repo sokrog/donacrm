@@ -18,7 +18,7 @@
 
 .orbit-select-trigger.empty { color: var(--dona-muted); }
 .orbit-select-trigger:disabled { cursor: not-allowed; opacity: .55; }
-.orbit-select-trigger:focus-visible { outline: 3px solid rgba(var(--dona-success-rgb), 0.28); border-color: var(--dona-cyan); }
+.orbit-select-trigger:focus-visible { outline: 3px solid rgba(var(--dona-brand-rgb), .55); border-color: var(--dona-brand); }
 .orbit-select-trigger ::deep svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--dona-muted); }
 
 .orbit-select-overlay {
@@ -177,4 +177,32 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
     .orbit-select-dialog {
         border-radius: 20px;
     }
+}
+
+/* Desktop: anchored popover under the trigger (position computed by orbitModal.openSelect, fixed so parents cannot clip it). */
+@media (min-width: 900px) {
+    .orbit-select-overlay {
+        display: block;
+        padding: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .orbit-select-dialog {
+        position: fixed;
+        top: var(--select-top, auto);
+        bottom: var(--select-bottom, auto);
+        left: var(--select-left, 0);
+        width: var(--select-width, 260px);
+        max-width: calc(100vw - 16px);
+        max-height: var(--select-max, 320px);
+        gap: 8px;
+        border-radius: 14px;
+        padding: 8px;
+        box-shadow: 0 14px 40px var(--dona-shadow);
+    }
+
+    .orbit-select-dialog > header { display: none; }
+    .orbit-select-search { min-height: 40px; }
+    .orbit-select-options > button { min-height: 44px; }
 }

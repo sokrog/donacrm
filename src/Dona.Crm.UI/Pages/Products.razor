@@ -4,34 +4,57 @@
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
 @inject ICatalogRepository Catalog
+@inject NavigationManager Navigation
 
 <PageTitle>Каталог — DONA CRM</PageTitle>
 
 <div class="catalog-page" aria-busy="@isLoading">
     <header class="catalog-header">
-        <div><p class="orbit-page-eyebrow">DONA CRM</p><h1 class="orbit-page-title">Каталог</h1></div>
+        <div>
+            <p class="orbit-page-eyebrow">DONA CRM</p>
+            <h1 class="orbit-page-title">Каталог</h1>
+        </div>
         <a class="orbit-icon-button orbit-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
     </header>
 
     <div class="search-box orbit-search-label">
         <label for="product-search">Поиск по названию или SKU</label>
-        <input class="orbit-search-control" id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" @bind="query" @bind:event="oninput" />
+        <input class="orbit-search-control" id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" value="@Query" @oninput="OnSearchInput" />
     </div>
     <div class="catalog-filters" role="group" aria-label="Быстрые фильтры каталога">
-        <button type="button" class="@(filter is null ? "active" : null)" @onclick="() => filter = null">Все</button>
+        <button type="button" class="@(filter is null ? "active" : null)" @onclick="() => Filter = null">Все</button>
         <button type="button" class="@PhotoFilterClass" @onclick="ShowWithoutPhoto">Без фото</button>
         <button type="button" class="@PriceFilterClass" @onclick="ShowWithoutPrice">Без цены</button>
         <button type="button" class="@VariantsFilterClass" @onclick="ShowWithoutVariants">Без вариантов</button>
         <button type="button" class="@LowFilterClass" @onclick="ShowLowStock">Заканчивается</button>
         <button type="button" class="reset" disabled="@(filter is null && string.IsNullOrWhiteSpace(query) && sort == "created")" @onclick="ResetFilters">Сбросить</button>
     </div>
-    <label class="catalog-sort">Сортировка<OrbitSelect TValue="string" @bind-Value="sort" Options="@SortOptions" Label="Сортировка каталога" /></label>
+    <label class="catalog-sort">Сортировка<OrbitSelect TValue="string" @bind-Value="Sort" Options="@SortOptions" Label="Сортировка каталога" /></label>
 
-    <nav class="catalog-tools" aria-label="Инструменты каталога"><a href="/collections"><OrbitIcon Name="catalog" /><span><strong>Коллекции</strong><small>Подборки товаров</small></span></a><a href="/outfits"><OrbitIcon Name="image" /><span><strong>Образы</strong><small>Готовые сочетания</small></span></a></nav>
+    <nav class="catalog-tools" aria-label="Инструменты каталога">
+        <a href="/collections">
+            <OrbitIcon Name="catalog" />
+            <span>
+                <strong>Коллекции</strong>
+                <small>Подборки товаров</small>
+            </span>
+        </a>
+        <a href="/outfits">
+            <OrbitIcon Name="image" />
+            <span>
+                <strong>Образы</strong>
+                <small>Готовые сочетания</small>
+            </span>
+        </a>
+    </nav>
 
     @if (errorMessage is not null)
     {
-        <div class="catalog-state" role="alert"><strong>Каталог не загрузился</strong><p>@errorMessage</p><button @onclick="LoadAsync">Повторить</button></div>
+        <div class="catalog-state" role="alert">
+            <strong>Каталог не загрузился</strong>
+            <p>@errorMessage</p>
+            <button @onclick="LoadAsync">Повторить</button>
+        </div>
     }
     else if (isLoading)
     {
@@ -39,10 +62,16 @@
     }
     else
     {
-        <div class="catalog-summary"><span>@FilteredProducts.Count @ProductWord(FilteredProducts.Count)</span><span>@products.Sum(item => item.Quantity) ед. на складе</span></div>
+        <div class="catalog-summary">
+            <span>@FilteredProducts.Count @ProductWord(FilteredProducts.Count)</span>
+            <span>@products.Sum(item => item.Quantity) ед. на складе</span>
+        </div>
         @if (FilteredProducts.Count == 0)
         {
-            <div class="catalog-state"><strong>@(products.Count == 0 ? "Каталог пуст" : "Ничего не найдено")</strong><p>@(products.Count == 0 ? "Добавьте первый товар, чтобы начать учёт." : "Попробуйте изменить запрос.")</p></div>
+            <div class="catalog-state">
+                <strong>@(products.Count == 0 ? "Каталог пуст" : "Ничего не найдено")</strong>
+                <p>@(products.Count == 0 ? "Добавьте первый товар, чтобы начать учёт." : "Попробуйте изменить запрос.")</p>
+            </div>
         }
         else
         {
@@ -52,11 +81,40 @@
                     <li>
                         <a class="product-card" href="/products/@product.Id">
                             <span class="product-visual">
-                                @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl)) { <ProductImageView Image="@product.PrimaryImage" FallbackUrl="@product.PrimaryImageUrl" Alt="" /> }
-                                else { <OrbitIcon Name="catalog" /> }
+                                @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl))
+                                {
+                                    <ProductImageView Image="@product.PrimaryImage" FallbackUrl="@product.PrimaryImageUrl" Alt="" />
+                                }
+                                else
+                                {
+                                    <OrbitIcon Name="catalog" />
+                                }
                             </span>
-                            <span class="product-info"><strong>@product.Name</strong><small>@product.Sku · @product.Category</small><span class="status @StatusClass(product.Status)">@product.Status.Display()</span>@if (Issues(product).Count > 0) { <small class="product-issues">@string.Join(" · ", Issues(product))</small> }</span>
-                            <span class="product-numbers"><strong>@Money(product.SellingPriceUzs ?? 0)</strong><small>UZS</small><span>@product.Quantity ед.</span></span>
+                            <span class="product-info">
+                                <strong>@product.Name</strong>
+                                @if (Subtitle(product) is { Length: > 0 } subtitle)
+                                {
+                                    <small>@subtitle</small>
+                                }
+                                <span class="status @StatusClass(product.Status)">@product.Status.Display()</span>
+                                @if (Issues(product) is { Count: > 0 } issues)
+                                {
+                                    <small class="product-issues" title="@string.Join(", ", issues)" aria-label="@string.Join(", ", issues)">@(issues.Count == 1 ? issues[0] : $"Заполнить: {issues.Count}")</small>
+                                }
+                            </span>
+                            <span class="product-numbers">
+                                @if (product.SellingPriceUzs is > 0)
+                                {
+                                    <strong>@Money(product.SellingPriceUzs.Value)</strong>
+                                    <small>UZS</small>
+                                }
+                                else
+                                {
+                                    <strong>—</strong>
+                                    <small>нет цены</small>
+                                }
+                                <span>@product.Quantity ед.</span>
+                            </span>
                         </a>
                     </li>
                 }
@@ -68,28 +126,122 @@
 @code {
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
     private List<Product> products = [];
-    private string query = string.Empty; private string? filter; private string sort = "created";
-    private static readonly IReadOnlyList<OrbitSelectOption<string>> SortOptions=[new("created","Сначала новые"),new("price","Цена: выше"),new("stock","Остаток: меньше"),new("margin","Наценка: выше")];
+    [SupplyParameterFromQuery(Name = "q")] [Parameter] public string? QueryParam { get; set; }
+    [SupplyParameterFromQuery(Name = "filter")] [Parameter] public string? FilterParam { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] [Parameter] public string? SortParam { get; set; }
+    private static readonly string[] FilterKeys = ["photo", "price", "variants", "low"];
+    private static readonly string[] SortKeys = ["created", "price", "stock", "margin"];
+    private readonly Queue<(string Q, string? Filter, string Sort)> pendingUrls = new();
+    private string query = string.Empty;
+    private string? filter;
+    private string sort = "created";
+    private string Query { get => query; set { query = value ?? string.Empty; PushUrl(); } }
+    private string? Filter { get => filter; set { filter = value; PushUrl(); } }
+    private string Sort { get => sort; set { sort = value; PushUrl(); } }
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> SortOptions =
+    [
+        new("created", "Сначала новые"),
+        new("price", "Цена: выше"),
+        new("stock", "Остаток: меньше"),
+        new("margin", "Наценка: выше")
+    ];
     private bool isLoading = true;
     private string? errorMessage;
-    private IReadOnlyList<Product> FilteredProducts => Sort(ProductSearch.Filter(products.Where(MatchesFilter), query, Math.Max(8, products.Count))).ToList();
+    private IReadOnlyList<Product> FilteredProducts => ApplySort(ProductSearch.Filter(products.Where(MatchesFilter), query, Math.Max(8, products.Count))).ToList();
 
     protected override Task OnInitializedAsync() => LoadAsync();
+    protected override void OnParametersSet()
+    {
+        var q = QueryParam?.Trim() ?? string.Empty;
+        var f = FilterParam is not null && FilterKeys.Contains(FilterParam) ? FilterParam : null;
+        var s = SortParam is not null && SortKeys.Contains(SortParam) ? SortParam : "created";
+        // Skip echoes of URL updates we pushed ourselves (a stale echo must not overwrite newer input).
+        if (pendingUrls.Contains((q, f, s)))
+        {
+            while (pendingUrls.Count > 0 && pendingUrls.Dequeue() != (q, f, s)) { }
+            return;
+        }
+        pendingUrls.Clear();
+        query = q;
+        filter = f;
+        sort = s;
+    }
+    private void OnSearchInput(ChangeEventArgs args) => Query = args.Value?.ToString() ?? string.Empty;
+    private void PushUrl()
+    {
+        var q = query.Trim();
+        pendingUrls.Enqueue((q, filter, sort));
+        var uri = Navigation.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["q"] = q.Length == 0 ? null : q,
+            ["filter"] = filter,
+            ["sort"] = sort == "created" ? null : sort
+        });
+        Navigation.NavigateTo(uri, replace: true);
+    }
     private async Task LoadAsync()
     {
-        isLoading = true; errorMessage = null;
-        try { products = (await Catalog.GetProductsAsync()).Where(item => item.Status != ProductStatus.Archived).ToList(); }
-        catch (Exception exception) { errorMessage = exception.Message; }
-        finally { isLoading = false; }
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            products = (await Catalog.GetProductsAsync()).Where(item => item.Status != ProductStatus.Archived).ToList();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить каталог. Попробуйте ещё раз.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private static string Money(decimal value) => value.ToString("N0", RussianCulture);
     private static string ProductWord(int count) => count == 1 ? "товар" : count is >= 2 and <= 4 ? "товара" : "товаров";
-    private static string StatusClass(ProductStatus? status) => status switch { ProductStatus.InStock => "ok", ProductStatus.LowStock => "warning", ProductStatus.OutOfStock => "danger", _ => string.Empty };
-    private bool MatchesFilter(Product product) => filter switch { "photo" => string.IsNullOrWhiteSpace(product.PrimaryImageUrl), "price" => product.SellingPriceUzs is null or <= 0, "variants" => product.Variants.Count == 0, "low" => product.Status is ProductStatus.LowStock or ProductStatus.OutOfStock, _ => true };
-    private string PhotoFilterClass => filter == "photo" ? "active" : string.Empty; private string PriceFilterClass => filter == "price" ? "active" : string.Empty; private string VariantsFilterClass => filter == "variants" ? "active" : string.Empty; private string LowFilterClass => filter == "low" ? "active" : string.Empty;
-    private void ShowWithoutPhoto() => filter = "photo"; private void ShowWithoutPrice() => filter = "price"; private void ShowWithoutVariants() => filter = "variants"; private void ShowLowStock() => filter = "low";
-    private void ResetFilters(){filter=null;query=string.Empty;sort="created";}
-    private IEnumerable<Product> Sort(IEnumerable<Product> values) => sort switch { "price" => values.OrderByDescending(value => value.SellingPriceUzs ?? 0), "stock" => values.OrderBy(value => value.Quantity), "margin" => values.OrderByDescending(value => value.MarkupPercent), _ => values.OrderByDescending(value => value.CreatedAt) };
-    private static List<string> Issues(Product product) => new[] { string.IsNullOrWhiteSpace(product.PrimaryImageUrl) ? "Нет фото" : null, product.SellingPriceUzs is null or <= 0 ? "Нет цены" : null, string.IsNullOrWhiteSpace(product.Category) ? "Нет категории" : null, product.Variants.Count == 0 ? "Нет вариантов" : null }.OfType<string>().ToList();
+    private static string StatusClass(ProductStatus? status) => status switch
+    {
+        ProductStatus.InStock => "ok",
+        ProductStatus.LowStock => "warning",
+        ProductStatus.OutOfStock => "danger",
+        _ => string.Empty
+    };
+    private bool MatchesFilter(Product product) => filter switch
+    {
+        "photo" => string.IsNullOrWhiteSpace(product.PrimaryImageUrl),
+        "price" => product.SellingPriceUzs is null or <= 0,
+        "variants" => product.Variants.Count == 0,
+        "low" => product.Status is ProductStatus.LowStock or ProductStatus.OutOfStock,
+        _ => true
+    };
+    private string PhotoFilterClass => filter == "photo" ? "active" : string.Empty;
+    private string PriceFilterClass => filter == "price" ? "active" : string.Empty;
+    private string VariantsFilterClass => filter == "variants" ? "active" : string.Empty;
+    private string LowFilterClass => filter == "low" ? "active" : string.Empty;
+    private void ShowWithoutPhoto() => Filter = "photo";
+    private void ShowWithoutPrice() => Filter = "price";
+    private void ShowWithoutVariants() => Filter = "variants";
+    private void ShowLowStock() => Filter = "low";
+    private void ResetFilters()
+    {
+        filter = null;
+        query = string.Empty;
+        sort = "created";
+        PushUrl();
+    }
+    private static string Subtitle(Product product) => string.Join(" · ", new[] { product.Sku, product.Category }.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
+    private IEnumerable<Product> ApplySort(IEnumerable<Product> values) => sort switch
+    {
+        "price" => values.OrderByDescending(value => value.SellingPriceUzs ?? 0),
+        "stock" => values.OrderBy(value => value.Quantity),
+        "margin" => values.OrderByDescending(value => value.MarkupPercent),
+        _ => values.OrderByDescending(value => value.CreatedAt)
+    };
+    private static List<string> Issues(Product product) => new[]
+    {
+        string.IsNullOrWhiteSpace(product.PrimaryImageUrl) ? "Нет фото" : null,
+        product.SellingPriceUzs is null or <= 0 ? "Нет цены" : null,
+        string.IsNullOrWhiteSpace(product.Category) ? "Нет категории" : null,
+        product.Variants.Count == 0 ? "Нет вариантов" : null
+    }.OfType<string>().ToList();
 }

@@ -1,15 +1,18 @@
 @typeparam TValue
 @inherits InputBase<TValue>
 @using System.Diagnostics.CodeAnalysis
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
 <button type="button"
+        id="@triggerId"
         class="orbit-select-trigger @(CssClass) @(SelectedOption is null ? "empty" : null)"
         disabled="@Disabled"
         role="combobox"
         aria-label="@AriaLabel"
         aria-expanded="@open"
         aria-controls="@dialogId"
-        aria-haspopup="dialog"
+        aria-haspopup="listbox"
         @onclick="Open"
         @onkeydown="TriggerKeyDown">
     <span>@(SelectedOption?.Label ?? Placeholder)</span>
@@ -80,6 +83,9 @@
     [Parameter] public int SearchThreshold { get; set; } = 8;
     [Parameter] public RenderFragment? Footer { get; set; }
 
+    private readonly string triggerId = $"orbit-select-trigger-{Guid.NewGuid():N}";
+    private bool focusPending;
+    private bool returnFocus;
     private readonly string dialogId = $"orbit-select-{Guid.NewGuid():N}";
     private readonly string titleId = $"orbit-select-title-{Guid.NewGuid():N}";
     private bool open;
@@ -102,15 +108,41 @@
             return;
         query = string.Empty;
         open = true;
+        focusPending = true;
     }
 
-    private void Close() => open = false;
+    private void Close()
+    {
+        if (open)
+            returnFocus = true;
+        open = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (open && focusPending)
+            {
+                focusPending = false;
+                await JS.InvokeVoidAsync("orbitModal.openSelect", triggerId, dialogId);
+            }
+            else if (!open && returnFocus)
+            {
+                returnFocus = false;
+                await JS.InvokeVoidAsync("orbitModal.focusElement", triggerId);
+            }
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+        }
+    }
     public void CloseDialog() => Close();
 
     private async Task SelectAsync(OrbitSelectOption<TValue> option)
     {
         CurrentValue = option.Value;
-        open = false;
+        Close();
         await InvokeAsync(StateHasChanged);
     }
 
