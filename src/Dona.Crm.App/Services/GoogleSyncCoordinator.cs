@@ -1,4 +1,5 @@
 using Dona.Crm.Storage.Sqlite;
+using Dona.Crm.Web.Services;
 using Microsoft.Maui.Networking;
 
 namespace Dona.Crm.App.Services;
@@ -11,7 +12,10 @@ public sealed class GoogleSyncCoordinator(
     SqliteAggregateStore store,
     MauiGoogleSyncService sync) : IDisposable
 {
+    private static readonly TimeSpan ChangeDebounce = TimeSpan.FromSeconds(3);
+
     private readonly SemaphoreSlim gate = new(1, 1);
+    private AsyncDebouncer? debouncer;
     private bool started;
     private bool disposed;
 
@@ -21,12 +25,16 @@ public sealed class GoogleSyncCoordinator(
             return;
 
         started = true;
+        debouncer = new AsyncDebouncer(ChangeDebounce, _ => QueueAndFlushAsync());
         store.BusinessDataChanged += OnBusinessDataChanged;
         Connectivity.ConnectivityChanged += OnConnectivityChanged;
         RequestFlush();
     }
 
     public void RequestFlush() => _ = FlushPendingAsync();
+
+    /// <summary>Queues (and uploads when online) a pending debounced change immediately, e.g. before suspension.</summary>
+    public Task FlushChangesAsync() => debouncer?.FlushAsync() ?? Task.CompletedTask;
 
     public void Dispose()
     {
@@ -36,10 +44,11 @@ public sealed class GoogleSyncCoordinator(
         disposed = true;
         store.BusinessDataChanged -= OnBusinessDataChanged;
         Connectivity.ConnectivityChanged -= OnConnectivityChanged;
-        gate.Dispose();
+        debouncer?.Dispose();
+        // The gate is not disposed: an in-flight run may still release it after shutdown.
     }
 
-    private void OnBusinessDataChanged(object? sender, EventArgs args) => _ = QueueAndFlushAsync();
+    private void OnBusinessDataChanged(object? sender, EventArgs args) => debouncer?.Trigger();
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs args)
     {

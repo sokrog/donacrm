@@ -19,6 +19,9 @@ public partial class App : Application
     {
         var window = new Window(services.GetRequiredService<MainPage>()) { Title = "DONA CRM" };
         window.Activated += (_, _) => syncCoordinator.RequestFlush();
+        // Persist a pending debounced change before the OS may suspend the app.
+        window.Deactivated += (_, _) => _ = syncCoordinator.FlushChangesAsync();
+        window.Stopped += (_, _) => _ = syncCoordinator.FlushChangesAsync();
         return window;
     }
 }
