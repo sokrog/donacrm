@@ -1,0 +1,93 @@
+/* Reset, document defaults, typography, focus and motion. No components here. */
+@import url("../brand/fonts.css");
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body, #app {
+    min-height: 100%;
+}
+
+html {
+    background: var(--dona-bg);
+    font-size: var(--dona-root-font-size);
+}
+
+body {
+    min-height: 100dvh;
+    margin: 0;
+    overflow-x: hidden;
+    background: var(--dona-bg);
+    color: var(--dona-text);
+    font-family: "Manrope", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body.orbit-modal-open {
+    position: fixed;
+    right: 0;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+button, a, input, select, textarea {
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+input, select, textarea {
+    accent-color: var(--dona-brand);
+}
+
+/* iOS zooms into inputs below 16px */
+@media (max-width: 899px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    select,
+    textarea {
+        font-size: 1rem !important; /* legacy: scoped control rules set smaller sizes; remove when they are gone */
+    }
+}
+
+input::placeholder, textarea::placeholder { color: var(--dona-muted); }
+
+:where(input, select, textarea):focus-visible {
+    outline: 3px solid rgba(var(--dona-brand-rgb), .55);
+    outline-offset: 1px;
+    border-color: var(--dona-brand) !important; /* legacy: scoped control borders have higher specificity */
+}
+
+button {
+    color: inherit;
+}
+
+:where(button, a):focus-visible {
+    outline: 3px solid var(--dona-brand);
+    outline-offset: 2px;
+}
+
+:where(button, a):active {
+    transform: scale(.98);
+}
+
+/* Brand typography is reserved for headings; amounts and forms stay easy to scan. */
+h1 { font-family: "Prata", Georgia, serif; font-weight: 400; line-height: 1.35; color: var(--dona-brand); }
+h1:focus { outline: none; }
+button:not(:disabled), select, summary { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+input, textarea { caret-color: var(--dona-brand); }
+::selection { background: var(--dona-brand); color: var(--dona-on-brand); }
+.dona-logo { display: block; width: 156px; height: 76px; object-fit: contain; }
+.dona-boot-logo { display: block; width: 220px; height: 110px; object-fit: contain; margin: 0 auto 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}

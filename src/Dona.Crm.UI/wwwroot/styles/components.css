@@ -1,0 +1,518 @@
+/* Global shared components. `dona-` prefix, BEM-ish modifiers, tokens only, no !important
+   (except the clearly marked LEGACY block at the bottom).
+   `orbit-*` names in selector lists are legacy aliases - wave 4 removes them. */
+
+/* ================= Buttons ================= */
+.dona-btn {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: var(--dona-space-2);
+    border: 1px solid transparent;
+    border-radius: var(--dona-radius-md);
+    padding: 0 var(--dona-space-4);
+    background: transparent;
+    color: var(--dona-text);
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-strong);
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+}
+
+.dona-btn:disabled, .dona-btn[aria-disabled="true"] { opacity: .6; }
+
+.dona-btn--primary {
+    border: 0;
+    background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep));
+    color: var(--dona-on-brand);
+}
+
+.dona-btn--secondary {
+    border-color: var(--dona-line-strong);
+    background: transparent;
+    color: var(--dona-text);
+}
+
+.dona-btn--danger {
+    border-color: rgba(var(--dona-danger-rgb), .28);
+    background: rgba(var(--dona-danger-rgb), .1);
+    color: var(--dona-danger);
+}
+
+.dona-btn--ghost {
+    background: rgba(var(--dona-brand-rgb), .12);
+    border-color: rgba(var(--dona-brand-rgb), .28);
+    color: var(--dona-brand);
+}
+
+.dona-btn--block { display: flex; width: 100%; }
+
+.dona-btn--icon {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    line-height: 0;
+}
+
+.dona-btn--icon > svg { display: block; width: 22px; height: 22px; }
+
+/* Icon buttons used in page headers (legacy orbit-* aliases) */
+.dona-icon-button, .orbit-icon-button {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    padding: 0;
+    line-height: 0;
+    text-decoration: none;
+}
+
+.dona-icon-button > svg, .orbit-icon-button > svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+}
+
+.dona-add-button, .orbit-add-button {
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: 17px;
+    background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep));
+    box-shadow: var(--dona-shadow-brand);
+    color: var(--dona-on-brand);
+}
+
+.dona-back-button, .orbit-back-button {
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 15px;
+    background: transparent;
+    color: var(--dona-text);
+}
+
+/* ================= Typography ================= */
+.dona-eyebrow, .orbit-page-eyebrow {
+    margin: 0 0 var(--dona-space-1);
+    color: var(--dona-brand);
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-strong);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.dona-title, .orbit-page-title {
+    margin: 0;
+    font-size: var(--dona-type-page-title);
+    letter-spacing: -.04em;
+}
+
+/* Back button + eyebrow/title heading (secondary pages) */
+.dona-heading, .orbit-secondary-heading {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 13px;
+}
+
+.dona-heading > div, .orbit-secondary-heading > div { min-width: 0; }
+
+.dona-heading > div > :first-child, .orbit-secondary-heading > div > :first-child {
+    margin: 0 0 3px;
+    color: var(--dona-brand);
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-strong);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.dona-inline-icon, .orbit-inline-icon {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    margin-right: .35em;
+    vertical-align: -.2em;
+}
+
+/* ================= Surfaces ================= */
+.dona-card {
+    border: 1px solid var(--dona-line);
+    border-radius: var(--dona-radius-lg);
+    padding: var(--dona-space-4);
+    background: var(--dona-surface);
+}
+
+/* Form section card */
+.dona-section {
+    display: grid;
+    gap: 14px;
+    border: 1px solid var(--dona-line);
+    border-radius: 20px;
+    padding: 17px;
+    background: var(--dona-surface);
+}
+
+.dona-section > h2, .dona-section-title h2 {
+    margin: 0;
+    font-size: var(--dona-type-subtitle);
+}
+
+.dona-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.dona-section-title p {
+    margin: var(--dona-space-1) 0 0;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-caption);
+}
+
+.dona-section-title > button, .dona-section-title > a {
+    min-height: var(--dona-tap);
+    border: 1px solid rgba(var(--dona-brand-rgb), .28);
+    border-radius: var(--dona-radius-md);
+    padding: 0 var(--dona-space-3);
+    background: rgba(var(--dona-brand-rgb), .12);
+    color: var(--dona-brand);
+    font-size: var(--dona-type-small);
+}
+
+/* ================= Forms ================= */
+.dona-field {
+    display: grid;
+    gap: 7px;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-label);
+}
+
+.dona-field :is(input, select, textarea),
+.dona-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: var(--dona-radius-md);
+    padding: 0 var(--dona-space-3);
+    background: var(--dona-field);
+    color: var(--dona-text);
+    font: inherit;
+    font-size: var(--dona-type-body-sm);
+}
+
+.dona-field textarea { min-height: 80px; padding-top: var(--dona-space-3); }
+
+.dona-field :is(input, select, textarea):focus-visible,
+.dona-input:focus-visible {
+    border-color: var(--dona-brand);
+}
+
+.dona-field :is(input, select, textarea):is(.invalid, [aria-invalid="true"]),
+.dona-input:is(.invalid, [aria-invalid="true"]) {
+    border-color: var(--dona-danger);
+}
+
+.dona-field .validation-message,
+.dona-validation {
+    color: var(--dona-danger);
+    font-size: var(--dona-type-label);
+}
+
+.dona-field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+}
+
+@media (max-width: 390px) {
+    .dona-field-row { grid-template-columns: 1fr; }
+}
+
+/* Form action bar: sticky above the tab bar on mobile, static on desktop */
+.dona-actions {
+    position: sticky;
+    bottom: calc(var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom));
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dona-space-2);
+    padding: 10px;
+    border: 1px solid var(--dona-line);
+    border-radius: 17px;
+    background: var(--dona-surface);
+    backdrop-filter: blur(18px);
+}
+
+.dona-actions > .dona-btn { flex: 1 1 120px; }
+.dona-actions > .dona-btn--primary { order: -1; flex-basis: 100%; }
+
+@media (min-width: 900px) {
+    .dona-actions { position: static; bottom: auto; margin-top: var(--dona-space-1); }
+}
+
+/* Inline confirmation (delete / cancel) */
+.dona-confirm {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--dona-space-2);
+}
+
+.dona-confirm > span, .dona-confirm > p {
+    width: 100%;
+    margin: 0;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-label);
+}
+
+/* Filter chips: horizontal scroller that bleeds to the page edge on mobile */
+.dona-chips {
+    display: flex;
+    width: calc(100% + var(--dona-page-inline));
+    gap: var(--dona-space-2);
+    overflow-x: auto;
+    margin-top: var(--dona-space-3);
+    margin-right: calc(var(--dona-page-inline) * -1);
+    padding: 2px var(--dona-page-inline) 7px 0;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+}
+
+.dona-chips::-webkit-scrollbar { display: none; }
+
+.dona-chips > button {
+    flex: 0 0 auto;
+    min-height: var(--dona-tap);
+    border: 1px solid var(--dona-line);
+    border-radius: var(--dona-radius-pill);
+    padding: 0 13px;
+    background: var(--dona-surface);
+    color: var(--dona-muted);
+    font: inherit;
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-strong);
+}
+
+.dona-chips > button.active, .dona-chips > button[aria-pressed="true"] {
+    border-color: var(--dona-brand);
+    background: var(--dona-brand);
+    color: var(--dona-on-brand);
+}
+
+/* Search: label above a single input */
+.dona-search label, .dona-search__label {
+    display: block;
+    margin: 0 0 var(--dona-space-2);
+    color: var(--dona-muted);
+    font-size: var(--dona-type-small);
+}
+
+.orbit-search-label {
+    color: var(--dona-muted);
+    font-size: var(--dona-type-small);
+}
+
+.dona-search input, .dona-search__control, .orbit-search-control.orbit-search-control {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--dona-control-height);
+    border: 1px solid var(--dona-line-strong);
+    border-radius: var(--dona-radius-md);
+    padding: 0 14px;
+    background: var(--dona-field);
+    color: var(--dona-text);
+    font: inherit;
+    font-size: var(--dona-type-body-sm);
+}
+
+.dona-search input::placeholder, .dona-search__control::placeholder,
+.orbit-search-control.orbit-search-control::placeholder {
+    color: var(--dona-muted);
+}
+
+/* ================= Feedback ================= */
+.dona-state {
+    border: 1px solid var(--dona-line);
+    border-radius: var(--dona-radius-lg);
+    padding: var(--dona-space-5);
+    background: var(--dona-surface);
+    color: var(--dona-muted);
+    font-size: var(--dona-type-body);
+}
+
+.dona-state > p { margin: 7px 0 14px; line-height: 1.5; }
+.dona-state--error { border-color: rgba(var(--dona-danger-rgb), .28); background: rgba(var(--dona-danger-rgb), .08); color: var(--dona-danger); }
+
+.dona-message {
+    margin: 0;
+    color: var(--dona-danger);
+    font-size: var(--dona-type-small);
+}
+
+.dona-message--error { color: var(--dona-danger); }
+.dona-message--success { color: var(--dona-success); }
+
+.dona-badge {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 3px 7px;
+    background: rgba(var(--dona-brand-rgb), .12);
+    color: var(--dona-brand);
+    font-size: var(--dona-type-caption);
+}
+
+.dona-badge--ok { background: rgba(var(--dona-success-rgb), .09); color: var(--dona-success); }
+.dona-badge--warning { background: rgba(var(--dona-warning-rgb), .09); color: var(--dona-warning); }
+.dona-badge--danger { background: rgba(var(--dona-danger-rgb), .09); color: var(--dona-danger); }
+
+/* ================= Lists ================= */
+/* Row link: icon tile + text + trailing value / chevron */
+.dona-list-row {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    min-height: 76px;
+    border: 1px solid var(--dona-line);
+    border-radius: 17px;
+    padding: 11px;
+    background: var(--dona-surface);
+    color: var(--dona-text);
+    text-decoration: none;
+}
+
+.dona-list-row > span, .dona-list-row strong, .dona-list-row small { display: block; min-width: 0; }
+.dona-list-row strong { font-size: var(--dona-type-body-sm); }
+.dona-list-row small { margin-top: var(--dona-space-1); color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.dona-list-row b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }
+
+.dona-icon-tile {
+    display: grid;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 13px;
+    background: rgba(var(--dona-brand-rgb), .13);
+    color: var(--dona-brand);
+}
+
+.dona-icon-tile svg { width: 21px; }
+
+/* KPI tiles */
+.dona-kpis, .orbit-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--dona-field-gap);
+}
+
+.dona-kpis > *, .orbit-metrics > * { min-width: 0; }
+
+.dona-kpis--3 > :last-child:nth-child(odd), .orbit-metrics--3 > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+@media (min-width: 460px) {
+    .dona-kpis--3, .orbit-metrics--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dona-kpis--3 > :last-child:nth-child(odd), .orbit-metrics--3 > :last-child:nth-child(odd) { grid-column: auto; }
+}
+
+@media (min-width: 700px) {
+    .dona-kpis--4, .orbit-metrics--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.dona-kpi, .orbit-kpis.orbit-kpis > article {
+    min-width: 0;
+    min-height: 96px;
+    border: 1px solid var(--dona-line);
+    border-radius: 16px;
+    padding: 13px;
+    background: var(--dona-surface);
+}
+
+.dona-kpi > span, .dona-kpi > small,
+.orbit-kpis.orbit-kpis > article > span, .orbit-kpis.orbit-kpis > article > small {
+    display: block;
+    color: var(--dona-muted);
+    font-size: var(--dona-type-label);
+}
+
+.dona-kpi > strong, .orbit-kpis.orbit-kpis > article > strong {
+    display: block;
+    margin: 9px 0 2px;
+    font-size: var(--dona-type-body-lg);
+}
+
+.dona-kpi:is(.warning, .debt) > strong,
+.orbit-kpis.orbit-kpis > article:is(.warning, .debt) > strong {
+    color: var(--dona-warning);
+}
+
+/* Section back arrows are redundant on desktop (sidebar navigation) */
+@media (min-width: 900px) {
+    .dona-back-button--section, .orbit-back-button--section { display: none; }
+}
+
+/* ================================================================== */
+/* LEGACY (wave 4 removes): orbit-* names sit next to scoped page       */
+/* rules of equal/higher specificity, so they still need !important.   */
+/* ================================================================== */
+.orbit-icon-button {
+    display: inline-grid !important; /* legacy */
+    place-items: center !important; /* legacy */
+    padding: 0 !important; /* legacy */
+    line-height: 0 !important; /* legacy */
+    text-decoration: none !important; /* legacy */
+}
+
+.orbit-add-button {
+    width: 52px !important; /* legacy */
+    height: 52px !important; /* legacy */
+    border: 0 !important; /* legacy */
+    border-radius: 17px !important; /* legacy */
+    background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep)) !important; /* legacy */
+    color: white !important; /* legacy */
+}
+
+.orbit-back-button {
+    width: 48px !important; /* legacy */
+    height: 48px !important; /* legacy */
+    border: 1px solid var(--dona-line-strong) !important; /* legacy */
+    border-radius: 15px !important; /* legacy */
+    color: var(--dona-text) !important; /* legacy */
+}
+
+.orbit-secondary-heading { display: flex !important; /* legacy */ }
+
+.orbit-metrics {
+    display: grid !important; /* legacy */
+    grid-auto-flow: row !important; /* legacy */
+    grid-auto-columns: auto !important; /* legacy */
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; /* legacy */
+    gap: var(--dona-field-gap) !important; /* legacy */
+    overflow: visible !important; /* legacy */
+    margin-right: 0 !important; /* legacy */
+    margin-left: 0 !important; /* legacy */
+    padding-right: 0 !important; /* legacy */
+    padding-left: 0 !important; /* legacy */
+}
+
+@media (min-width: 460px) {
+    .orbit-metrics--3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; /* legacy */ }
+}
+
+@media (min-width: 700px) {
+    .orbit-metrics--4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* legacy */ }
+}
+
+@media (min-width: 900px) {
+    .orbit-back-button--section { display: none !important; /* legacy */ }
+}

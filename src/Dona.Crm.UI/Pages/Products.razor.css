@@ -2,7 +2,6 @@
 .catalog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .catalog-header p { margin: 0 0 4px; color: var(--dona-brand); font-size: var(--dona-type-small); font-weight: 700; letter-spacing: .1em; }
 h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; }
-.add-button { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 17px; background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep)); color: white; font-size: var(--dona-type-page-title); text-decoration: none; box-shadow: 0 10px 28px rgba(var(--dona-brand-rgb), 0.28); }
 .search-box label { display: block; margin: 0 0 8px; color: var(--dona-muted); font-size: var(--dona-type-small); }
 .search-box input { width: 100%; min-height: 50px; border: 1px solid var(--dona-line-strong); border-radius: 15px; padding: 0 15px; background: var(--dona-surface); color: var(--dona-text); font: inherit; }
 .search-box input:focus { outline: 3px solid rgba(var(--dona-brand-rgb), .55); border-color: var(--dona-brand); }

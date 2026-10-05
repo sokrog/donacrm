@@ -1,0 +1,117 @@
+/* Design tokens. The only place raw colours / sizes are defined. */
+
+:root {
+    color-scheme: light;
+
+    /* colour */
+    --dona-brand: #630625;
+    --dona-brand-deep: #48071d;
+    --dona-brand-rgb: 99, 6, 37;
+    --dona-on-brand: #fff8fa;
+    --dona-bg: #fce6ed;
+    --dona-surface: #fff8fa;
+    --dona-surface-soft: #f5d9e2;
+    --dona-field: #fffdfd;
+    --dona-line: #e8c9d3;
+    --dona-line-strong: #b77e90;
+    --dona-text: #381523;
+    --dona-muted: #765462;
+    --dona-rose: #963c60;
+    --dona-success: #24634f;
+    --dona-success-rgb: 36, 99, 79;
+    --dona-warning: #87500e;
+    --dona-warning-rgb: 135, 80, 14;
+    --dona-danger: #af183e;
+    --dona-danger-rgb: 175, 24, 62;
+    --dona-overlay: rgba(56, 21, 35, .42);
+    --dona-shadow: rgba(99, 6, 37, .09);
+    --dona-sidebar: #f9dfe7;
+
+    /* legacy aliases — still used by Home/OrbitSelect */
+    --dona-panel-solid: var(--dona-surface);
+    --dona-purple: var(--dona-brand);
+    --dona-magenta: var(--dona-rose);
+    --dona-cyan: var(--dona-success);
+    --dona-amber: var(--dona-warning);
+
+    /* spacing scale (4px grid) */
+    --dona-space-1: 4px;
+    --dona-space-2: 8px;
+    --dona-space-3: 12px;
+    --dona-space-4: 16px;
+    --dona-space-5: 20px;
+    --dona-space-6: 24px;
+    --dona-space-7: 32px;
+    --dona-space-8: 40px;
+
+    /* radius scale: md = fields/buttons (most common 12px), lg = cards/list rows (17-18px), xl = form sections (20-22px) */
+    --dona-radius-sm: 10px;
+    --dona-radius-md: 12px;
+    --dona-radius-lg: 18px;
+    --dona-radius-xl: 22px;
+    --dona-radius-pill: 999px;
+
+    /* font weight: only Manrope Regular is bundled; "strong" is synthesized by the
+       browser until a Bold face is added to brand/fonts.css. Use only these two. */
+    --dona-weight-regular: 400;
+    --dona-weight-strong: 700;
+
+    /* elevation */
+    --dona-shadow-sm: 0 12px 28px var(--dona-shadow);
+    --dona-shadow-md: 0 22px 60px var(--dona-shadow);
+    --dona-shadow-lg: 0 28px 80px var(--dona-overlay);
+    --dona-shadow-brand: 0 10px 28px rgba(var(--dona-brand-rgb), .28);
+
+    /* layout */
+    --dona-page-narrow: 520px;
+    --dona-page-form: 960px;
+    --dona-page-wide: 1180px;
+    --dona-page-inline: 20px;
+    --dona-page-block: 22px;
+    --dona-page-top: 22px;
+    --dona-page-top-form: 18px;
+    --dona-section-gap: 16px;
+    --dona-card-gap: 12px;
+    --dona-field-gap: 8px;
+
+    /* controls */
+    --dona-tap: 44px;
+    --dona-control-height: 50px;
+
+    /* type */
+    --dona-root-font-size: 16px;
+    --dona-type-micro: .75rem;
+    --dona-type-caption: .78rem;
+    --dona-type-label: .8rem;
+    --dona-type-small: .84rem;
+    --dona-type-body-sm: .9rem;
+    --dona-type-body: .95rem;
+    --dona-type-subtitle: 1.02rem;
+    --dona-type-body-lg: 1.12rem;
+    --dona-type-title-sm: 1.25rem;
+    --dona-type-title-md: 1.4rem;
+    --dona-type-title-lg: 1.5rem;
+    --dona-type-page-title: 1.7rem;
+    --dona-type-display: 2rem;
+    --dona-type-metric: clamp(2rem, 10vw, 2.75rem);
+}
+
+@media (prefers-contrast: more) {
+    :root {
+        --dona-line: #9c6074;
+        --dona-line-strong: #630625;
+        --dona-muted: #57323f;
+    }
+}
+
+@media (min-width: 900px) {
+    :root {
+        --dona-root-font-size: 17px;
+        --dona-page-inline: 32px;
+        --dona-page-block: 30px;
+        --dona-section-gap: 20px;
+        --dona-card-gap: 14px;
+        --dona-field-gap: 10px;
+        --dona-control-height: 52px;
+    }
+}

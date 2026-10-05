@@ -6,23 +6,11 @@ html { min-width: 320px; }
 #blazor-error-ui a { color:var(--dona-success); }
 @media (min-width: 900px) {
     body { background-attachment:fixed; }
-    :where(.orbit-home,.catalog-page,.products-page,.sales-page,.purchases-page,.partners-page,.inventory-page,.analytics-page,.marketing-page,.marketing-hub,.content-page,.customers-page,.more-page) { width:min(100%,1180px) !important; max-width:1180px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
-    :where(.settings-page,.connections-page,.sync-page,.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor) { width:min(100%,960px) !important; max-width:960px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
-    .catalog-tools { grid-template-columns:repeat(4,minmax(0,1fr)); }
-    .product-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
-    .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }
-    .marketing-page .marketing-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
-    .content-page .content-tools { grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); align-items:end; }
-    .content-page .content-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
-    :where(.form-actions,.actions,.settings-actions) { position:static !important; bottom:auto !important; margin-top:4px; }
+    .orbit-home { width:min(100%,1180px) !important; max-width:1180px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
 }
 
 @media (min-width: 1400px) {
     :where(.catalog-page,.marketing-page,.marketing-hub,.content-page) { max-width:1320px !important; }
     .product-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .content-page .content-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
-}
-
-@media (max-width: 899px) {
-    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom)) !important; }
 }

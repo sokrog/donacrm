@@ -1,0 +1,105 @@
+/* Page-specific leftovers that used to live in dona.css.
+   TODO(wave 3/4): move each block into its page's scoped .razor.css, then delete this file. */
+
+/* Editor form grid helpers */
+:where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page,.connections-page) form {
+    display: grid;
+    gap: var(--dona-section-gap);
+}
+
+:where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page,.connections-page) form > :where(.save-error,.message,.editor-message,.settings-message,.connection-message,.validation-errors) {
+    margin: 0;
+}
+
+/* Customers link (Sales page) */
+.customers-link {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 62px;
+    margin-top: 12px;
+    border: 1px solid var(--dona-line);
+    border-radius: 15px;
+    padding: 9px 12px;
+    background: var(--dona-surface);
+    color: var(--dona-text);
+    text-decoration: none;
+}
+
+.customers-link span,
+.customers-link strong,
+.customers-link small { display: block; }
+.customers-link strong { font-size: var(--dona-type-body-sm); }
+.customers-link small { margin-top: 3px; color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.customers-link b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }
+
+/* More page */
+.more-page { width: min(100%, 520px); margin: 0 auto; padding: calc(28px + env(safe-area-inset-top)) 20px 28px; }
+.more-page h1 { margin: 4px 0 0; font-size: var(--dona-type-page-title); }
+.more-intro { margin: 7px 0 20px; color: var(--dona-muted); font-size: var(--dona-type-body-sm); }
+.more-list { display: grid; gap: 10px; }
+.more-list a { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 76px; border: 1px solid var(--dona-line); border-radius: 17px; padding: 11px; background: var(--dona-surface); color: var(--dona-text); text-decoration: none; }
+.more-list a > span, .more-list strong, .more-list small { display: block; }
+.more-list strong { font-size: var(--dona-type-body-sm); }
+.more-list small { margin-top: 4px; color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.more-list b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }
+.more-list .sale-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 13px; background: rgba(var(--dona-brand-rgb), 0.13); color: var(--dona-brand); }
+.more-list .sale-icon svg { width: 21px; }
+
+/* Placeholder page */
+.placeholder-page {
+    width: min(100%, 520px);
+    min-height: calc(100dvh - 90px);
+    margin: 0 auto;
+    padding: calc(42px + env(safe-area-inset-top)) 22px 32px;
+}
+
+.placeholder-page h1 {
+    margin: 0 0 12px;
+    font-size: var(--dona-type-display);
+    letter-spacing: -.04em;
+}
+
+.placeholder-page p:not(.placeholder-kicker) {
+    max-width: 36rem;
+    margin: 0 0 24px;
+    color: var(--dona-muted);
+    line-height: 1.6;
+}
+
+.placeholder-kicker {
+    margin: 0 0 8px;
+    color: var(--dona-brand);
+    font-size: var(--dona-type-body-sm);
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.placeholder-link {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    padding: 0 18px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 14px;
+    background: var(--dona-surface);
+    color: var(--dona-text);
+    text-decoration: none;
+}
+
+/* Settings: connections action */
+.settings-page .connections-action {
+    display: flex;
+    min-height: var(--dona-control-height);
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(var(--dona-success-rgb), 0.2);
+    border-radius: 12px;
+    background: rgba(var(--dona-success-rgb), 0.07);
+    color: var(--dona-success);
+    font-size: var(--dona-type-small);
+    font-weight: 700;
+    text-decoration: none;
+}

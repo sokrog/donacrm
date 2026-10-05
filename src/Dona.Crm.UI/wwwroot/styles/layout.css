@@ -1,0 +1,74 @@
+/* Page-level layout primitives. */
+
+/* Page wrapper. Lists: .dona-page (+ --wide). Editors / settings: .dona-page--form. */
+.dona-page {
+    width: min(100%, var(--dona-page-narrow));
+    margin: 0 auto;
+    padding: calc(var(--dona-page-top) + env(safe-area-inset-top)) var(--dona-page-inline) 28px;
+}
+
+.dona-page--form {
+    padding-top: calc(var(--dona-page-top-form) + env(safe-area-inset-top));
+    padding-bottom: 30px;
+}
+
+@media (max-width: 899px) {
+    /* room for the sticky action bar + bottom tab bar */
+    .dona-page--form {
+        padding-bottom: calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom));
+    }
+}
+
+@media (min-width: 900px) {
+    .dona-page--wide { width: min(100%, var(--dona-page-wide)); max-width: var(--dona-page-wide); }
+    .dona-page--form { width: min(100%, var(--dona-page-form)); max-width: var(--dona-page-form); }
+}
+
+/* Vertical rhythm between page sections */
+.dona-stack {
+    display: grid;
+    gap: var(--dona-section-gap);
+}
+
+/* Title block + trailing action (list pages: title + add button) */
+.dona-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--dona-space-3);
+    margin-bottom: var(--dona-space-5);
+}
+
+/* Header with a back button on the left (editors) */
+.dona-page-header--back {
+    justify-content: flex-start;
+    gap: 13px;
+    margin-bottom: 15px;
+}
+
+/* ------------------------------------------------------------------ */
+/* LEGACY: remove after pages migrate to .dona-page (wave 4)           */
+/* ------------------------------------------------------------------ */
+@media (min-width: 900px) {
+    :where(.catalog-page,.products-page,.sales-page,.purchases-page,.partners-page,.inventory-page,.analytics-page,.marketing-page,.marketing-hub,.content-page,.customers-page,.more-page) {
+        width:min(100%,1180px) !important;
+        max-width:1180px !important;
+        padding-right:var(--dona-page-inline) !important;
+        padding-left:var(--dona-page-inline) !important;
+    }
+    :where(.settings-page,.connections-page,.sync-page,.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor) {
+        width:min(100%,960px) !important;
+        max-width:960px !important;
+        padding-right:var(--dona-page-inline) !important;
+        padding-left:var(--dona-page-inline) !important;
+    }
+    .catalog-tools { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
+    .product-list,.marketing-page .marketing-list,.content-page .content-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--dona-card-gap); }
+    .marketing-hub .hub-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--dona-card-gap); }
+    .content-page .content-tools { grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); align-items:end; }
+    :where(.form-actions,.actions,.settings-actions) { position:static !important; bottom:auto !important; margin-top:4px; }
+}
+
+@media (max-width: 899px) {
+    :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom)) !important; }
+}
