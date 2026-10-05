@@ -9,18 +9,18 @@
 @inject IntermediaryAnalyticsService IntermediaryAnalytics
 
 <PageTitle>Партнёры — DONA CRM</PageTitle>
-<div class="partners-page">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--wide">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
-                <h1>Партнёры</h1>
+                <h1 class="dona-title">Партнёры</h1>
             </div>
         </div>
         @if (!Editing)
         {
-            <button class="orbit-icon-button orbit-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
+            <button class="dona-icon-button dona-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
         }
     </header>
     <div class="partner-tabs" role="group" aria-label="Тип партнёра">
@@ -35,60 +35,60 @@
     </div>
     @if (errorMessage is not null && !Editing)
     {
-        <p class="delete-error" role="alert">@errorMessage</p>
+        <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
     }
     @if (loading)
     {
-        <div class="partner-state">Загружаем партнёров…</div>
+        <div class="dona-state">Загружаем партнёров…</div>
     }
     else if (editingSupplier is not null)
     {
         <EditForm Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section class="partner-form">
-                <div class="form-heading">
+            <section class="dona-section">
+                <div class="dona-section-title form-heading">
                     <div>
                         <p>Поставщик</p>
                         <h2>@(isNew ? "Новая карточка" : editingSupplier.Name)</h2>
                     </div>
                     <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
                 </div>
-                <label>
+                <label class="dona-field">
                     Название
                     <InputText @bind-Value="editingSupplier.Name" />
                     <ValidationMessage For="() => editingSupplier.Name" />
                 </label>
-                <div class="field-row">
-                    <label>Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label>
-                    <label>MOQ, шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label>
+                    <label class="dona-field">MOQ, шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
                 </div>
-                <label>Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
-                <div class="field-row">
-                    <label>Рейтинг 0–5<InputNumber @bind-Value="editingSupplier.Rating" min="0" max="5" step="0.1" /></label>
-                    <label>WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label>
+                <label class="dona-field">Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Рейтинг 0–5<InputNumber @bind-Value="editingSupplier.Rating" min="0" max="5" step="0.1" /></label>
+                    <label class="dona-field">WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label>
                 </div>
-                <label>Контакт<InputText @bind-Value="editingSupplier.Contact" /></label>
-                <label>Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>
+                <label class="dona-field">Контакт<InputText @bind-Value="editingSupplier.Contact" /></label>
+                <label class="dona-field">Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>
                 @if (errorMessage is not null)
                 {
-                    <p class="delete-error" role="alert">@errorMessage</p>
+                    <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
-                @if (confirmDelete)
-                {
-                    <div class="delete-confirm">
-                        <span>Удалить поставщика? История закупок сохранится.</span>
-                        <button type="button" class="secondary" @onclick="() => confirmDelete = false">Нет</button>
-                        <button type="button" class="danger" disabled="@saving" @onclick="DeleteSupplierAsync">Да, удалить</button>
-                    </div>
-                }
-                <div class="form-actions">
-                    <button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>
+                <div class="dona-actions">
+                    @if (confirmDelete)
+                    {
+                        <div class="dona-confirm">
+                            <span>Удалить поставщика? История закупок сохранится.</span>
+                            <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
+                            <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteSupplierAsync">Да, удалить</button>
+                        </div>
+                    }
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
                     @if (!isNew && !confirmDelete)
                     {
-                        <button type="button" class="danger" @onclick="() => confirmDelete = true">Удалить</button>
+                        <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
                     }
-                    <button disabled="@saving">Сохранить</button>
+                    <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
                 </div>
             </section>
         </EditForm>
@@ -98,74 +98,74 @@
         <EditForm Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section class="partner-form">
-                <div class="form-heading">
+            <section class="dona-section">
+                <div class="dona-section-title form-heading">
                     <div>
                         <p>Посредник</p>
                         <h2>@(isNew ? "Новая карточка" : editingIntermediary.Name)</h2>
                     </div>
                     <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
                 </div>
-                <label>
+                <label class="dona-field">
                     Название
                     <InputText @bind-Value="editingIntermediary.Name" />
                     <ValidationMessage For="() => editingIntermediary.Name" />
                 </label>
-                <label>Компания<InputText @bind-Value="editingIntermediary.Company" /></label>
-                <label>Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
-                <div class="field-row">
-                    <label>Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label>
-                    <label>Телефон<InputText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label>
+                <label class="dona-field">Компания<InputText @bind-Value="editingIntermediary.Company" /></label>
+                <label class="dona-field">Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label>
+                    <label class="dona-field">Телефон<InputText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label>
                 </div>
-                <div class="field-row">
-                    <label>Telegram<InputText @bind-Value="editingIntermediary.Telegram" /></label>
-                    <label>WeChat<InputText @bind-Value="editingIntermediary.WeChat" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Telegram<InputText @bind-Value="editingIntermediary.Telegram" /></label>
+                    <label class="dona-field">WeChat<InputText @bind-Value="editingIntermediary.WeChat" /></label>
                 </div>
-                <div class="field-row">
-                    <label>Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label>
-                    <label>Комиссия, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" step="0.1" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label>
+                    <label class="dona-field">Комиссия, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" step="0.1" /></label>
                 </div>
-                <div class="field-row">
-                    <label>Минимальный вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label>
-                    <label>Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Минимальный вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label>
+                    <label class="dona-field">Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label>
                 </div>
-                <label>Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label>
-                <label class="toggle-row">
+                <label class="dona-field">Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label>
+                <label class="dona-field toggle-row">
                     <InputCheckbox @bind-Value="editingIntermediary.OfficialImport" />
                     <span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span>
                 </label>
-                <label>Заметки<InputTextArea @bind-Value="editingIntermediary.Notes" /></label>
+                <label class="dona-field">Заметки<InputTextArea @bind-Value="editingIntermediary.Notes" /></label>
                 @if (errorMessage is not null)
                 {
-                    <p class="delete-error" role="alert">@errorMessage</p>
+                    <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
-                @if (confirmDelete)
-                {
-                    <div class="delete-confirm">
-                        <span>Удалить посредника? История закупок сохранится.</span>
-                        <button type="button" class="secondary" @onclick="() => confirmDelete = false">Нет</button>
-                        <button type="button" class="danger" disabled="@saving" @onclick="DeleteIntermediaryAsync">Да, удалить</button>
-                    </div>
-                }
-                <div class="form-actions">
-                    <button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>
+                <div class="dona-actions">
+                    @if (confirmDelete)
+                    {
+                        <div class="dona-confirm">
+                            <span>Удалить посредника? История закупок сохранится.</span>
+                            <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
+                            <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteIntermediaryAsync">Да, удалить</button>
+                        </div>
+                    }
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
                     @if (!isNew && !confirmDelete)
                     {
-                        <button type="button" class="danger" @onclick="() => confirmDelete = true">Удалить</button>
+                        <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
                     }
-                    <button disabled="@saving">Сохранить</button>
+                    <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
                 </div>
             </section>
         </EditForm>
     }
     else
     {
-        <label class="partner-search orbit-search-label">Поиск<input class="orbit-search-control" placeholder="Название, компания или контакт" @bind="query" @bind:event="oninput" /></label>
+        <div class="dona-search partner-search"><label for="partner-search">Поиск</label><input id="partner-search" placeholder="Название, компания или контакт" @bind="query" @bind:event="oninput" /></div>
         @if (mode == PartnerMode.Supplier)
         {
             @if (!FilteredSuppliers.Any())
             {
-                <div class="partner-state">
+                <div class="dona-state">
                     <strong>Поставщиков пока нет</strong>
                     <p>Добавьте магазин, чтобы выбирать его в закупках.</p>
                 </div>
@@ -177,7 +177,7 @@
                     {
                         var actual = SupplierActual(value.Id);
                         <li>
-                            <button type="button" @onclick="() => EditSupplier(value)">
+                            <button type="button" class="dona-list-row" @onclick="() => EditSupplier(value)">
                                 <InitialBadge Text="@value.Name" />
                                 <span>
                                     <strong>@value.Name</strong>
@@ -195,7 +195,7 @@
         {
             @if (!FilteredIntermediaries.Any())
             {
-                <div class="partner-state">
+                <div class="dona-state">
                     <strong>Посредников пока нет</strong>
                     <p>Добавьте логистического партнёра для поставок из Китая.</p>
                 </div>
@@ -207,7 +207,7 @@
                     {
                         var actual = IntermediaryActual(value.Id);
                         <li>
-                            <button type="button" @onclick="() => EditIntermediary(value)">
+                            <button type="button" class="dona-list-row" @onclick="() => EditIntermediary(value)">
                                 <InitialBadge Text="@value.Name" Variant="cyan" />
                                 <span>
                                     <strong>@value.Name</strong>

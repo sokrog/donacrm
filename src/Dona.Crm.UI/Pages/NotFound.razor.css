@@ -1,0 +1,16 @@
+.not-found {
+    min-height: calc(100dvh - 90px);
+}
+
+.not-found h1 {
+    margin: 0 0 var(--dona-space-3);
+    font-size: var(--dona-type-display);
+    letter-spacing: -.04em;
+}
+
+.not-found p:not(.dona-eyebrow) {
+    max-width: 36rem;
+    margin: 0 0 var(--dona-space-6);
+    color: var(--dona-muted);
+    line-height: 1.6;
+}

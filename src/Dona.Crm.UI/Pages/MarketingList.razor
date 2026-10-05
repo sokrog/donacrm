@@ -7,29 +7,29 @@
 @inject NavigationManager Navigation
 
 <PageTitle>@Title — DONA CRM</PageTitle>
-<div class="marketing-page" aria-busy="@isLoading">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/marketing" aria-label="Вернуться в маркетинг"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--wide" aria-busy="@isLoading">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button" href="/marketing" aria-label="Вернуться в маркетинг"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Маркетинг</p>
-                <h1>@Title</h1>
+                <h1 class="dona-title">@Title</h1>
             </div>
         </div>
-        <a class="orbit-icon-button orbit-add-button" href="@($"/{Kind}/new")" aria-label="@AddLabel"><OrbitIcon Name="plus" /></a>
+        <a class="dona-icon-button dona-add-button" href="@($"/{Kind}/new")" aria-label="@AddLabel"><OrbitIcon Name="plus" /></a>
     </header>
     <p class="intro">@(IsCollections ? "Группируйте товары по сезону, стилю или запуску." : "Собирайте готовые сочетания и сразу считайте их стоимость.")</p>
     @if(isLoading)
     {
-        <div class="marketing-state">Загружаем…</div>
+        <div class="dona-state">Загружаем…</div>
     }
     else if(error is not null)
     {
-        <div class="marketing-state" role="alert">@error</div>
+        <div class="dona-state dona-state--error" role="alert">@error</div>
     }
     else if((IsCollections && collections.Count==0) || (!IsCollections && outfits.Count==0))
     {
-        <div class="marketing-state">
+        <div class="dona-state">
             <strong>Пока пусто</strong>
             <p>Нажмите кнопку добавления, чтобы создать первую запись.</p>
         </div>
@@ -40,8 +40,8 @@
             @foreach(var item in collections)
             {
                 <li>
-                    <a href="/collections/@item.Id">
-                        <span class="item-icon">
+                    <a class="dona-list-row" href="/collections/@item.Id">
+                        <span class="dona-icon-tile">
                             @if(item.PrimaryImage is not null)
                             {
                                 <ProductImageView Image="@item.PrimaryImage" Alt="" />
@@ -67,8 +67,8 @@
             @foreach(var item in outfits)
             {
                 <li>
-                    <a href="/outfits/@item.Id">
-                        <span class="item-icon magenta">
+                    <a class="dona-list-row" href="/outfits/@item.Id">
+                        <span class="dona-icon-tile item-magenta">
                             @if(item.PrimaryImage is not null)
                             {
                                 <ProductImageView Image="@item.PrimaryImage" Alt="" />

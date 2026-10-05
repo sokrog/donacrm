@@ -5,34 +5,34 @@
 @inject IBusinessSettingsRepository Settings
 
 <PageTitle>Маркетинг — DONA CRM</PageTitle>
-<div class="marketing-hub">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--wide">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
-                <h1>Маркетинг</h1>
+                <h1 class="dona-title">Маркетинг</h1>
             </div>
         </div>
     </header>
     <p class="hub-intro">Подготовка ассортимента и публикаций в одном месте.</p>
     @if (loading)
     {
-        <div class="hub-state">Загружаем маркетинг…</div>
+        <div class="dona-state">Загружаем маркетинг…</div>
     }
     else if (errorMessage is not null)
     {
-        <div class="hub-alert" role="alert">Не удалось загрузить маркетинг: @errorMessage</div>
+        <div class="dona-state dona-state--error hub-alert" role="alert">Не удалось загрузить маркетинг: @errorMessage</div>
     }
     else
     {
         @if (Overdue > 0)
         {
-            <div class="hub-alert">Просрочено публикаций: @Overdue. Перенесите дату или обновите статус.</div>
+            <div class="dona-state dona-state--error hub-alert">Просрочено публикаций: @Overdue. Перенесите дату или обновите статус.</div>
         }
         <nav class="hub-list" aria-label="Разделы маркетинга">
-            <a href="/content-plan">
-                <span class="hub-icon content"><OrbitIcon Name="marketing" /></span>
+            <a class="dona-list-row" href="/content-plan">
+                <span class="dona-icon-tile hub-content"><OrbitIcon Name="marketing" /></span>
                 <span>
                     <strong>Контент-план</strong>
                     <small>@UpcomingText</small>
@@ -42,8 +42,8 @@
                     <small>публикаций</small>
                 </b>
             </a>
-            <a href="/collections">
-                <span class="hub-icon"><OrbitIcon Name="catalog" /></span>
+            <a class="dona-list-row" href="/collections">
+                <span class="dona-icon-tile"><OrbitIcon Name="catalog" /></span>
                 <span>
                     <strong>Коллекции</strong>
                     <small>Сезоны, запуски и подборки</small>
@@ -53,8 +53,8 @@
                     <small>коллекций</small>
                 </b>
             </a>
-            <a href="/outfits">
-                <span class="hub-icon outfit"><OrbitIcon Name="image" /></span>
+            <a class="dona-list-row" href="/outfits">
+                <span class="dona-icon-tile hub-outfit"><OrbitIcon Name="image" /></span>
                 <span>
                     <strong>Образы</strong>
                     <small>Готовые сочетания товаров</small>

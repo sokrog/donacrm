@@ -14,29 +14,29 @@
 @inject ProfitAnalyticsService ProfitService
 
 <PageTitle>Аналитика — DONA CRM</PageTitle>
-<div class="analytics-page">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--wide analytics-page">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
-                <h1>Аналитика</h1>
+                <h1 class="dona-title">Аналитика</h1>
             </div>
         </div>
     </header>
     @if (loading)
     {
-        <div class="analytics-state">Собираем показатели…</div>
+        <div class="dona-state">Собираем показатели…</div>
     }
     else if (loadFailed)
     {
-        <div class="analytics-state" role="alert">@errorMessage</div>
+        <div class="dona-state dona-state--error" role="alert">@errorMessage</div>
     }
     else
     {
         @if (errorMessage is not null)
         {
-            <div class="analytics-state" role="alert">@errorMessage</div>
+            <div class="dona-state dona-state--error" role="alert">@errorMessage</div>
         }
         <div class="period-tabs" role="group" aria-label="Период аналитики">
             <button class="@(period == 7 ? "active" : null)" @onclick="() => SetPeriod(7)">7 дней</button>
@@ -46,19 +46,19 @@
         </div>
         <details class="custom-period">
             <summary>Свой период</summary>
-            <div class="field-row">
-                <label>С даты<OrbitDatePicker @bind-Value="from" ValueChangedAfter="_ => Rebuild()" /></label>
-                <label>По дату<OrbitDatePicker @bind-Value="to" ValueChangedAfter="_ => Rebuild()" /></label>
+            <div class="dona-field-row">
+                <label class="dona-field">С даты<OrbitDatePicker @bind-Value="from" ValueChangedAfter="_ => Rebuild()" /></label>
+                <label class="dona-field">По дату<OrbitDatePicker @bind-Value="to" ValueChangedAfter="_ => Rebuild()" /></label>
             </div>
         </details>
-        <section class="sales-overview orbit-metrics orbit-metrics--4">
-            <article><span>Выручка</span><strong>@Money(report.RevenueUzs)</strong><small>@CurrencyLabel</small></article>
-            <article><span>Прибыль</span><strong class="@(report.ProfitUzs < 0 ? "negative" : null)">@Money(report.ProfitUzs)</strong><small>маржа @report.MarginPercent.ToString("N1")%</small></article>
-            <article><span>Заказы</span><strong>@report.Orders</strong><small>@report.Units единиц</small></article>
-            <article><span>Средний чек</span><strong>@Money(report.AverageCheckUzs)</strong><small>@CurrencyLabel</small></article>
+        <section class="dona-kpis dona-kpis--4 sales-overview">
+            <article class="dona-kpi"><span>Выручка</span><strong>@Money(report.RevenueUzs)</strong><small>@CurrencyLabel</small></article>
+            <article class="dona-kpi"><span>Прибыль</span><strong class="@(report.ProfitUzs < 0 ? "negative" : null)">@Money(report.ProfitUzs)</strong><small>маржа @report.MarginPercent.ToString("N1")%</small></article>
+            <article class="dona-kpi"><span>Заказы</span><strong>@report.Orders</strong><small>@report.Units единиц</small></article>
+            <article class="dona-kpi"><span>Средний чек</span><strong>@Money(report.AverageCheckUzs)</strong><small>@CurrencyLabel</small></article>
         </section>
-        <section>
-            <div class="section-heading">
+        <section class="dona-section">
+            <div class="dona-section-title">
                 <div>
                     <h2>Динамика продаж</h2>
                     <p>@PeriodLabel</p>
@@ -78,19 +78,19 @@
                 </div>
             }
         </section>
-        <section>
-            <div class="section-heading">
+        <section class="dona-section">
+            <div class="dona-section-title">
                 <div>
                     <h2>Запасы</h2>
                     <p>Текущий снимок склада</p>
                 </div>
                 <a href="/inventory">Открыть склад</a>
             </div>
-            <div class="inventory-grid">
-                <article><span>Себестоимость</span><strong>@Money(inventory.InventoryCostUzs)</strong></article>
-                <article><span>Потенциал прибыли</span><strong>@Money(inventory.PotentialProfitUzs)</strong></article>
-                <article class="@(inventory.LowStockVariants > 0 ? "warning" : null)"><span>Заканчивается</span><strong>@inventory.LowStockVariants</strong></article>
-                <article class="@(inventory.StaleInventoryCostUzs > 0 ? "warning" : null)"><span>Залежалось</span><strong>@Money(inventory.StaleInventoryCostUzs)</strong></article>
+            <div class="dona-kpis">
+                <article class="dona-kpi"><span>Себестоимость</span><strong>@Money(inventory.InventoryCostUzs)</strong></article>
+                <article class="dona-kpi"><span>Потенциал прибыли</span><strong>@Money(inventory.PotentialProfitUzs)</strong></article>
+                <article class="dona-kpi @(inventory.LowStockVariants > 0 ? "warning" : null)"><span>Заканчивается</span><strong>@inventory.LowStockVariants</strong></article>
+                <article class="dona-kpi @(inventory.StaleInventoryCostUzs > 0 ? "warning" : null)"><span>Залежалось</span><strong>@Money(inventory.StaleInventoryCostUzs)</strong></article>
             </div>
             @if (InventorySignals.Any())
             {
@@ -105,14 +105,14 @@
                 </ul>
             }
         </section>
-        <section>
-            <div class="section-heading">
+        <section class="dona-section">
+            <div class="dona-section-title">
                 <div>
                     <h2>Рейтинг</h2>
                     <p>Лучшие результаты выбранного среза</p>
                 </div>
             </div>
-            <label class="ranking-select">Срез<OrbitSelect TValue="string" @bind-Value="ranking" Options="@RankingOptions" Label="Срез рейтинга" /></label>
+            <label class="dona-field">Срез<OrbitSelect TValue="string" @bind-Value="ranking" Options="@RankingOptions" Label="Срез рейтинга" /></label>
             @if (ranking == "content")
             {
                 @if (profit.Content.Count == 0)

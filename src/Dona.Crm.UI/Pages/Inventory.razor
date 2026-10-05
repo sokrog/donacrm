@@ -4,28 +4,28 @@
 @inject IStockMovementRepository Movements
 
 <PageTitle>Движения склада — DONA CRM</PageTitle>
-<div class="inventory-page">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--wide">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Склад</p>
-                <h1>Движения</h1>
+                <h1 class="dona-title">Движения</h1>
             </div>
         </div>
-        <a href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Корректировка</a>
+        <a class="dona-btn dona-btn--primary" href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="dona-inline-icon" />Корректировка</a>
     </header>
     @if (isLoading)
     {
-        <div class="inventory-state">Загружаем журнал…</div>
+        <div class="dona-state">Загружаем журнал…</div>
     }
     else if (error is not null)
     {
-        <div class="inventory-state" role="alert">@error</div>
+        <div class="dona-state dona-state--error" role="alert">@error</div>
     }
     else if (items.Count == 0)
     {
-        <div class="inventory-state">
+        <div class="dona-state">
             <strong>Движений пока нет</strong>
             <p>Они появятся после корректировки, продажи или приёмки закупки.</p>
         </div>
@@ -36,7 +36,7 @@
             @foreach (var item in items.OrderByDescending(value => value.CreatedAt))
             {
                 <li>
-                    <span class="movement-icon"><OrbitIcon Name="adjust" /></span>
+                    <span class="dona-icon-tile movement-icon"><OrbitIcon Name="adjust" /></span>
                     <div>
                         <strong>@item.ProductName</strong>
                         <small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small>

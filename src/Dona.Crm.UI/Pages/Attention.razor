@@ -10,35 +10,35 @@
 
 <PageTitle>Внимание — DONA CRM</PageTitle>
 
-<div class="attention-page" aria-busy="@loading">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/" aria-label="Вернуться на главную"><OrbitIcon Name="back" /></a>
-            <div><p>Главная</p><h1>Внимание</h1><small>Актуальные задачи на этом устройстве</small></div>
+<div class="dona-page attention-page" aria-busy="@loading">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button" href="/" aria-label="Вернуться на главную"><OrbitIcon Name="back" /></a>
+            <div><p>Главная</p><h1 class="dona-title">Внимание</h1><small class="heading-note">Актуальные задачи на этом устройстве</small></div>
         </div>
     </header>
 
     @if (loading)
     {
-        <div class="attention-state">Проверяем данные…</div>
+        <div class="dona-state">Проверяем данные…</div>
     }
     else if (error is not null)
     {
-        <div class="attention-state error" role="alert"><strong>Не удалось собрать сигналы</strong><p>@error</p><button type="button" @onclick="LoadAsync">Повторить</button></div>
+        <div class="dona-state dona-state--error" role="alert"><strong>Не удалось собрать сигналы</strong><p>@error</p><button type="button" class="dona-btn dona-btn--primary" @onclick="LoadAsync">Повторить</button></div>
     }
     else if (items.Count == 0)
     {
-        <div class="attention-state calm"><span><OrbitIcon Name="check" /></span><strong>Всё спокойно</strong><p>Срочных задач и предупреждений сейчас нет.</p></div>
+        <div class="dona-state calm"><span><OrbitIcon Name="check" /></span><strong>Всё спокойно</strong><p>Срочных задач и предупреждений сейчас нет.</p></div>
     }
     else
     {
         <p class="summary" role="status">@items.Count @SignalWord(items.Count) требуют внимания.</p>
-        <ul class="attention-list">
+        <ul class="dona-card attention-list">
             @foreach (var item in items)
             {
                 <li>
                     <a href="@item.Href">
-                        <span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span>
+                        <span class="dona-icon-tile attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span>
                         <span>
                             <strong>@item.Title</strong>
                             <small>@item.Detail</small>

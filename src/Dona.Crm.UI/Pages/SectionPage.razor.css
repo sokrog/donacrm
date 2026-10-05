@@ -1,0 +1,10 @@
+.more-intro {
+    margin: var(--dona-space-2) 0 var(--dona-space-5);
+    color: var(--dona-muted);
+    font-size: var(--dona-type-body-sm);
+}
+
+.more-list {
+    display: grid;
+    gap: var(--dona-space-3);
+}

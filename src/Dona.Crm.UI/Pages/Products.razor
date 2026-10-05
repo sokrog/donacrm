@@ -8,20 +8,20 @@
 
 <PageTitle>Каталог — DONA CRM</PageTitle>
 
-<div class="catalog-page" aria-busy="@isLoading">
-    <header class="catalog-header">
+<div class="dona-page dona-page--wide" aria-busy="@isLoading">
+    <header class="dona-page-header">
         <div>
-            <p class="orbit-page-eyebrow">DONA CRM</p>
-            <h1 class="orbit-page-title">Каталог</h1>
+            <p class="dona-eyebrow">DONA CRM</p>
+            <h1 class="dona-title">Каталог</h1>
         </div>
-        <a class="orbit-icon-button orbit-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
+        <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
     </header>
 
-    <div class="search-box orbit-search-label">
+    <div class="dona-search">
         <label for="product-search">Поиск по названию или SKU</label>
-        <input class="orbit-search-control" id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" value="@Query" @oninput="OnSearchInput" />
+        <input id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" value="@Query" @oninput="OnSearchInput" />
     </div>
-    <div class="catalog-filters" role="group" aria-label="Быстрые фильтры каталога">
+    <div class="dona-chips" role="group" aria-label="Быстрые фильтры каталога">
         <button type="button" class="@(filter is null ? "active" : null)" @onclick="() => Filter = null">Все</button>
         <button type="button" class="@PhotoFilterClass" @onclick="ShowWithoutPhoto">Без фото</button>
         <button type="button" class="@PriceFilterClass" @onclick="ShowWithoutPrice">Без цены</button>
@@ -50,15 +50,15 @@
 
     @if (errorMessage is not null)
     {
-        <div class="catalog-state" role="alert">
+        <div class="dona-state dona-state--error catalog-state" role="alert">
             <strong>Каталог не загрузился</strong>
             <p>@errorMessage</p>
-            <button @onclick="LoadAsync">Повторить</button>
+            <button class="dona-btn dona-btn--primary" @onclick="LoadAsync">Повторить</button>
         </div>
     }
     else if (isLoading)
     {
-        <div class="catalog-state" role="status">Загружаем товары…</div>
+        <div class="dona-state catalog-state" role="status">Загружаем товары…</div>
     }
     else
     {
@@ -68,7 +68,7 @@
         </div>
         @if (FilteredProducts.Count == 0)
         {
-            <div class="catalog-state">
+            <div class="dona-state catalog-state">
                 <strong>@(products.Count == 0 ? "Каталог пуст" : "Ничего не найдено")</strong>
                 <p>@(products.Count == 0 ? "Добавьте первый товар, чтобы начать учёт." : "Попробуйте изменить запрос.")</p>
             </div>
@@ -79,8 +79,8 @@
                 @foreach (var product in FilteredProducts)
                 {
                     <li>
-                        <a class="product-card" href="/products/@product.Id">
-                            <span class="product-visual">
+                        <a class="dona-list-row product-card" href="/products/@product.Id">
+                            <span class="dona-icon-tile product-visual">
                                 @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl))
                                 {
                                     <ProductImageView Image="@product.PrimaryImage" FallbackUrl="@product.PrimaryImageUrl" Alt="" />
@@ -96,7 +96,7 @@
                                 {
                                     <small>@subtitle</small>
                                 }
-                                <span class="status @StatusClass(product.Status)">@product.Status.Display()</span>
+                                <span class="dona-badge @StatusClass(product.Status)">@product.Status.Display()</span>
                                 @if (Issues(product) is { Count: > 0 } issues)
                                 {
                                     <small class="product-issues" title="@string.Join(", ", issues)" aria-label="@string.Join(", ", issues)">@(issues.Count == 1 ? issues[0] : $"Заполнить: {issues.Count}")</small>
@@ -201,9 +201,9 @@
     private static string ProductWord(int count) => count == 1 ? "товар" : count is >= 2 and <= 4 ? "товара" : "товаров";
     private static string StatusClass(ProductStatus? status) => status switch
     {
-        ProductStatus.InStock => "ok",
-        ProductStatus.LowStock => "warning",
-        ProductStatus.OutOfStock => "danger",
+        ProductStatus.InStock => "dona-badge--ok",
+        ProductStatus.LowStock => "dona-badge--warning",
+        ProductStatus.OutOfStock => "dona-badge--danger",
         _ => string.Empty
     };
     private bool MatchesFilter(Product product) => filter switch

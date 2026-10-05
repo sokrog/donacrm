@@ -6,50 +6,50 @@
 @inject IBusinessSettingsRepository Settings
 
 <PageTitle>Закупки — DONA CRM</PageTitle>
-<div class="purchases-page">
-    <header>
+<div class="dona-page dona-page--wide">
+    <header class="dona-page-header">
         <div>
-            <p class="orbit-page-eyebrow">Поставка</p>
-            <h1 class="orbit-page-title">Закупки</h1>
+            <p class="dona-eyebrow">Поставка</p>
+            <h1 class="dona-title">Закупки</h1>
         </div>
-        <a class="orbit-icon-button orbit-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a>
+        <a class="dona-icon-button dona-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a>
     </header>
     @if (loading)
     {
-        <div class="purchase-state">Загружаем закупки…</div>
+        <div class="dona-state">Загружаем закупки…</div>
     }
     else if (errorMessage is not null)
     {
-        <div class="purchase-state" role="alert"><strong>Не удалось загрузить закупки</strong><p>@errorMessage</p></div>
+        <div class="dona-state dona-state--error" role="alert"><strong>Не удалось загрузить закупки</strong><p>@errorMessage</p></div>
     }
     else
     {
-        <section class="purchase-metrics orbit-metrics orbit-metrics--3 orbit-kpis">
-            <article><span>В пути</span><strong>@Active.Count()</strong><small>закупок</small></article>
-            <article><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article>
-            <article class="@(OverdueCount > 0 ? "warning" : null)"><span>Просрочено</span><strong>@OverdueCount</strong><small>закупок</small></article>
+        <section class="dona-kpis dona-kpis--3 purchase-metrics">
+            <article class="dona-kpi"><span>В пути</span><strong>@Active.Count()</strong><small>закупок</small></article>
+            <article class="dona-kpi"><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article>
+            <article class="dona-kpi @(OverdueCount > 0 ? "warning" : null)"><span>Просрочено</span><strong>@OverdueCount</strong><small>закупок</small></article>
         </section>
         @if (OverdueCount > 0)
         {
             <div class="purchase-alert" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>
         }
         <div class="purchase-tools">
-            <input class="orbit-search-control" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" />
+            <input class="dona-input" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" />
             <OrbitSelect TValue="string" @bind-Value="status" Options="@PurchaseStatusFilterOptions" Label="Статус закупки" />
         </div>
         @if (!Filtered.Any())
         {
-            <div class="purchase-state"><strong>Закупки не найдены</strong><p>Измените фильтр или создайте первую закупку.</p></div>
+            <div class="dona-state"><strong>Закупки не найдены</strong><p>Измените фильтр или создайте первую закупку.</p></div>
         }
         else
         {
             <div class="purchase-list">
                 @foreach (var item in Filtered.OrderByDescending(value => value.OrderedAt))
                 {
-                    <a href="/purchases/@item.Id">
+                    <a class="dona-card" href="/purchases/@item.Id">
                         <div class="purchase-card-title">
                             <span><strong>@item.Number</strong><small>@(item.SupplierName ?? "Поставщик не указан")</small></span>
-                            <em>@item.Status.Display()</em>
+                            <span class="dona-badge">@item.Status.Display()</span>
                         </div>
                         <div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@Money(item.TotalCostUzs) UZS</span></div>
                         <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : item.TrackingCode)</span><span>@Delivery(item)</span></div>

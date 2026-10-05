@@ -4,35 +4,35 @@
 @inject AppPlatformProfile Platform
 
 <PageTitle>Подключения — DONA CRM</PageTitle>
-<div class="connections-page">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--form">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
-                <small>Ещё</small>
-                <h1>Подключения</h1>
-                <p>Данные работают локально и сохраняются в личном аккаунте только после входа.</p>
+                <p>Ещё</p>
+                <h1 class="dona-title">Подключения</h1>
+                <p class="heading-note">Данные работают локально и сохраняются в личном аккаунте только после входа.</p>
             </div>
         </div>
     </header>
 
     @if (loading)
     {
-        <div class="connection-state">Проверяем подключения…</div>
+        <div class="dona-state">Проверяем подключения…</div>
     }
     else
     {
-        <section class="local-card">
-            <span class="provider-icon local"><OrbitIcon Name="catalog" /></span>
+        <section class="dona-card local-card">
+            <span class="dona-icon-tile provider-local"><OrbitIcon Name="catalog" /></span>
             <div><strong>@Platform.StorageTitle</strong><small>@Platform.StorageDescription</small></div>
             <b>Подключено</b>
         </section>
 
-        <section class="google-card">
+        <section class="dona-section google-card">
             <div class="provider-heading">
-                <span class="provider-icon google">G</span>
+                <span class="dona-icon-tile provider-google">G</span>
                 <div><h2>Google</h2><p>Резервные копии и фотографии</p></div>
-                <span class="status @((state.IsConnected && !requiresSignIn) ? "connected" : null)">@(requiresSignIn ? "Нужно войти" : state.IsConnected ? "Подключено" : "Не подключено")</span>
+                <span class="dona-badge @((state.IsConnected && !requiresSignIn) ? "dona-badge--ok" : null)">@(requiresSignIn ? "Нужно войти" : state.IsConnected ? "Подключено" : "Не подключено")</span>
             </div>
 
             @if (state.IsConnected && !string.IsNullOrWhiteSpace(state.AccountName ?? state.AccountEmail))
@@ -53,18 +53,18 @@
 
             @if (message is not null)
             {
-                <p class="connection-message @(success ? "success" : null)" role="status">@message</p>
+                <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
             }
 
             <div class="connection-actions">
                 @if (!state.IsConnected || requiresSignIn)
                 {
-                    <button type="button" class="primary" disabled="@busy" @onclick="ConnectAsync">@(busy ? "Выполняем…" : requiresSignIn ? "Войти снова" : "Войти через Google")</button>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@busy" @onclick="ConnectAsync">@(busy ? "Выполняем…" : requiresSignIn ? "Войти снова" : "Войти через Google")</button>
                 }
                 @if (state.IsConnected)
                 {
-                    <a class="sync-action" href="/sync">Синхронизация данных</a>
-                    <button type="button" class="disconnect" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
+                    <a class="dona-btn dona-btn--ghost" href="/sync">Синхронизация данных</a>
+                    <button type="button" class="dona-btn dona-btn--danger" disabled="@busy" @onclick="DisconnectAsync">Отключить аккаунт</button>
                 }
             </div>
             @if (state.LastCheckedAt is not null) { <p class="last-check">Последняя проверка: @state.LastCheckedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }

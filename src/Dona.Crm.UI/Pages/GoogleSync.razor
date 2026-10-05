@@ -5,30 +5,30 @@
 @inject AppPlatformProfile Platform
 
 <PageTitle>Синхронизация — DONA CRM</PageTitle>
-<div class="sync-page">
-    <header>
-        <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/connections" aria-label="Вернуться к подключениям"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--form">
+    <header class="dona-page-header">
+        <div class="dona-heading">
+            <a class="dona-icon-button dona-back-button" href="/connections" aria-label="Вернуться к подключениям"><OrbitIcon Name="back" /></a>
             <div>
-                <small>Подключения</small>
-                <h1>Синхронизация</h1>
-                <p>Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
+                <p>Подключения</p>
+                <h1 class="dona-title">Синхронизация</h1>
+                <p class="heading-note">Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
             </div>
         </div>
     </header>
 
     @if (loading)
     {
-        <div class="sync-state">Проверяем подключение…</div>
+        <div class="dona-state">Проверяем подключение…</div>
     }
     else if (!connected)
     {
-        <div class="sync-state"><strong>Google не подключён</strong><p>Вернитесь в подключения, выполните вход в Google.</p><a href="/connections">Открыть подключения</a></div>
+        <div class="dona-state"><strong>Google не подключён</strong><p>Вернитесь в подключения, выполните вход в Google.</p><a class="dona-btn dona-btn--secondary" href="/connections">Открыть подключения</a></div>
     }
     else
     {
-        <section class="direction-card">
-            <span><OrbitIcon Name="cloud" /></span>
+        <section class="dona-card direction-card">
+            <span class="dona-icon-tile"><OrbitIcon Name="cloud" /></span>
             <div>
                 <strong>@Platform.StorageTitle ↔ личное облако Google</strong>
                 <small>Сначала сравнение, затем выбранное направление</small>
@@ -37,18 +37,18 @@
 
         @if (preview is null)
         {
-            <section class="sync-intro">
+            <section class="dona-section sync-intro">
                 <h2>Безопасный предварительный просмотр</h2>
                 <p>Приложение прочитает скрытую папку приложения в вашем Google Drive и покажет только количество записей. Локальные данные останутся без изменений.</p>
-                <button disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button>
+                <button class="dona-btn dona-btn--primary dona-btn--block" disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button>
             </section>
         }
         else
         {
-            <section class="summary-card">
+            <section class="dona-card summary-card">
                 <div><span>На устройстве</span><strong>@preview.LocalTotal</strong></div><i aria-hidden="true">→</i><div><span>В Google</span><strong>@preview.GoogleTotal</strong></div>
             </section>
-            <section class="section-list" aria-label="Сравнение разделов">
+            <section class="dona-card section-list" aria-label="Сравнение разделов">
                 @foreach (var syncSection in preview.Sections)
                 {
                     <div>
@@ -70,43 +70,43 @@
             {
                 <button class="refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
                 <div class="sync-actions">
-                    <button class="secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
-                    <button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>
+                    <button class="dona-btn dona-btn--secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
+                    <button class="dona-btn dona-btn--primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>
                 </div>
             }
             else if (confirmPull)
             {
-                <section class="confirm-card">
+                <section class="dona-card confirm-card">
                     <strong>Заменить локальный снимок?</strong>
                     <p>Товары, закупки, продажи, маркетинг и настройки в @Platform.StorageTitle.ToLowerInvariant() будут заменены данными из Google.</p>
                     <div>
-                        <button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button>
-                        <button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button>
+                        <button class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="() => confirmPull = false">Отмена</button>
+                        <button class="dona-btn dona-btn--danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button>
                     </div>
                 </section>
             }
             else
             {
-                <section class="confirm-card push">
+                <section class="dona-card confirm-card push">
                     <strong>Заменить данные в личном облаке Google?</strong>
                     <p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию снимка, чтобы не перезаписать изменения с другого устройства.</p>
                     <div>
-                        <button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button>
-                        <button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button>
+                        <button class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="() => confirmPush = false">Отмена</button>
+                        <button class="dona-btn dona-btn--primary" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button>
                     </div>
                 </section>
             }
         }
 
-        @if (message is not null) { <p class="sync-message @(success ? "success" : null)" role="status">@message</p> }
+        @if (message is not null) { <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p> }
         @if (retryOperation is not null)
         {
-            <section class="retry-card">
+            <section class="dona-card retry-card">
                 <span>
                     <strong>Предыдущая отправка не подтверждена</strong>
                     <small>@retryOperation.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm") · сохранён точный снимок</small>
                 </span>
-                <button disabled="@busy" @onclick="RetryAsync">Повторить</button>
+                <button class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="RetryAsync">Повторить</button>
             </section>
         }
     }
