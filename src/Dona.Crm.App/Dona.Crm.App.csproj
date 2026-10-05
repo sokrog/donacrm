@@ -57,7 +57,8 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\certs\signing.props" Condition="Exists('$(MSBuildThisFileDirectory)..\..\certs\signing.props')" />
 
     <ItemGroup>
-        <Content Update="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <Content Remove="appsettings*.json" />
+        <Content Include="appsettings*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup>

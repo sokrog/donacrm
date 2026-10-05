@@ -16,3 +16,4 @@ certs/
 src/Dona.Crm.App/appsettings.json
 src/Dona.Crm.App/appsettings.Development.json
 src/Dona.Crm.App/appsettings.Production.json
+artifacts/*.log
