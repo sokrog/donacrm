@@ -7,9 +7,9 @@
 @inject NavigationManager Navigation
 
 <PageTitle>Корректировка склада — DONA CRM</PageTitle>
-<div class="adjust-page">
-    <header>
-        <a class="orbit-icon-button orbit-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--form">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a>
         <div>
             <p>Склад</p>
             <h1>Корректировка</h1>
@@ -17,32 +17,32 @@
     </header>
     @if (isLoading)
     {
-        <div class="adjust-state">Загружаем остатки…</div>
+        <div class="dona-state">Загружаем остатки…</div>
     }
     else if (products.Count == 0)
     {
-        <div class="adjust-state">
+        <div class="dona-state">
             <strong>Нет товаров с вариантами</strong>
             <p>Сначала добавьте товар и хотя бы один вариант.</p>
-            <a href="/products/new">Добавить товар</a>
+            <a class="state-link" href="/products/new">Добавить товар</a>
         </div>
     }
     else
     {
-        <EditForm Model="model" OnValidSubmit="SaveAsync">
+        <EditForm class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section>
+            <section class="dona-section">
                 <h2>Фактический остаток</h2>
-                <label>Товар<OrbitSelect TValue="Guid?" @bind-Value="model.ProductId" @bind-Value:after="ProductChanged" Options="@ProductOptions" Label="Товар" Searchable="true" /></label>
-                <label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="model.ProductVariantId" @bind-Value:after="VariantChanged" Options="@VariantOptions" Label="Вариант" Disabled="@(SelectedProduct is null)" /></label>
+                <label class="dona-field">Товар<OrbitSelect TValue="Guid?" @bind-Value="model.ProductId" @bind-Value:after="ProductChanged" Options="@ProductOptions" Label="Товар" Searchable="true" /></label>
+                <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="model.ProductVariantId" @bind-Value:after="VariantChanged" Options="@VariantOptions" Label="Вариант" Disabled="@(SelectedProduct is null)" /></label>
                 <div class="quantity-grid">
                     <div>
                         <span>Сейчас</span>
                         <strong>@(SelectedVariant?.Quantity ?? 0) ед.</strong>
                         <small>резерв @(SelectedVariant?.ReservedQuantity ?? 0)</small>
                     </div>
-                    <label>Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label>
+                    <label class="dona-field">Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label>
                 </div>
                 @if (SelectedVariant is not null && model.NewQuantity is not null)
                 {
@@ -52,17 +52,17 @@
                     </div>
                 }
             </section>
-            <section>
+            <section class="dona-section">
                 <h2>Причина</h2>
-                <label>Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label>
-                <label>Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label>
+                <label class="dona-field">Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label>
+                <label class="dona-field">Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label>
             </section>
             <ValidationSummary />
             @if(error is not null)
             {
-                <p class="adjust-error" role="alert">@error</p>
+                <p class="dona-message dona-message--error" role="alert">@error</p>
             }
-            <div class="actions"><a href="/inventory">Отмена</a><button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button></div>
+            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/inventory">Отмена</a><button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button></div>
         </EditForm>
     }
 </div>

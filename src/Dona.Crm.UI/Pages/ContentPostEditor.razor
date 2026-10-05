@@ -6,9 +6,9 @@
 @inject NavigationManager Navigation
 
 <PageTitle>@(IsNew ? "Новая публикация" : post.Title) — DONA CRM</PageTitle>
-<div class="content-editor">
-    <header>
-        <a class="orbit-icon-button orbit-back-button" href="/content-plan" aria-label="Вернуться к контент-плану"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--form">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/content-plan" aria-label="Вернуться к контент-плану"><OrbitIcon Name="back" /></a>
         <div>
             <p>@post.Status.Display()</p>
             <h1>@(IsNew ? "Новая публикация" : post.Title)</h1>
@@ -16,35 +16,35 @@
     </header>
     @if (loading)
     {
-        <div class="editor-state">Загружаем публикацию…</div>
+        <div class="dona-state">Загружаем публикацию…</div>
     }
     else if (error is not null)
     {
-        <div class="editor-state" role="alert">@error</div>
+        <div class="dona-state dona-state--error" role="alert">@error</div>
     }
     else
     {
-        <EditForm Model="post" OnValidSubmit="SaveAsync">
+        <EditForm class="dona-stack" Model="post" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section>
+            <section class="dona-section">
                 <h2>Публикация</h2>
-                <label>Тема<InputText @bind-Value="post.Title" placeholder="О чём публикация" /><ValidationMessage For="() => post.Title" /></label>
-                <div class="field-row">
-                    <label>Формат<OrbitSelect TValue="ContentType?" @bind-Value="post.Type" Options="@ContentTypeOptions" Label="Формат публикации" /></label>
-                    <label>Статус<OrbitSelect TValue="ContentStatus?" @bind-Value="post.Status" Options="@ContentStatusOptions" Label="Статус публикации" /></label>
+                <label class="dona-field">Тема<InputText @bind-Value="post.Title" placeholder="О чём публикация" /><ValidationMessage For="() => post.Title" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Формат<OrbitSelect TValue="ContentType?" @bind-Value="post.Type" Options="@ContentTypeOptions" Label="Формат публикации" /></label>
+                    <label class="dona-field">Статус<OrbitSelect TValue="ContentStatus?" @bind-Value="post.Status" Options="@ContentStatusOptions" Label="Статус публикации" /></label>
                 </div>
-                <label>Дата публикации<OrbitDatePicker @bind-Value="post.ScheduledAt" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                <label class="dona-field">Дата публикации<OrbitDatePicker @bind-Value="post.ScheduledAt" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
             </section>
-            <section>
-                <div class="section-heading">
+            <section class="dona-section">
+                <div class="dona-section-title">
                     <div>
                         <h2>Связанные товары</h2>
                         <p>Через коллекцию или готовый образ</p>
                     </div>
                 </div>
-                <label>Коллекция<OrbitSelect TValue="Guid?" @bind-Value="post.CollectionId" @bind-Value:after="CollectionChanged" Options="@CollectionOptions" Label="Коллекция" Searchable="true" /></label>
-                <label>Готовый образ<OrbitSelect TValue="Guid?" @bind-Value="post.OutfitId" @bind-Value:after="OutfitChanged" Options="@OutfitOptions" Label="Готовый образ" Searchable="true" /></label>
+                <label class="dona-field">Коллекция<OrbitSelect TValue="Guid?" @bind-Value="post.CollectionId" @bind-Value:after="CollectionChanged" Options="@CollectionOptions" Label="Коллекция" Searchable="true" /></label>
+                <label class="dona-field">Готовый образ<OrbitSelect TValue="Guid?" @bind-Value="post.OutfitId" @bind-Value:after="OutfitChanged" Options="@OutfitOptions" Label="Готовый образ" Searchable="true" /></label>
                 @if (post.CollectionId is null && post.OutfitId is null)
                 {
                     <p class="association-note">Публикация сохранится без привязки к ассортименту.</p>
@@ -54,43 +54,43 @@
                     <p class="association-note linked">Привязка позволит учитывать результат публикации в аналитике.</p>
                 }
             </section>
-            <section>
-                <div class="section-heading">
+            <section class="dona-section">
+                <div class="dona-section-title">
                     <div>
                         <h2>Материал</h2>
                         <p>Текст можно доработать позже</p>
                     </div>
                     <span>@(post.Caption?.Length ?? 0) знаков</span>
                 </div>
-                <label>Текст публикации<InputTextArea @bind-Value="post.Caption" placeholder="Текст, призыв к действию, хэштеги…" /></label>
+                <label class="dona-field">Текст публикации<InputTextArea @bind-Value="post.Caption" placeholder="Текст, призыв к действию, хэштеги…" /></label>
                 @if (post.Status == ContentStatus.Published)
                 {
-                    <label>Ссылка на публикацию<InputText @bind-Value="post.PublicationUrl" inputmode="url" placeholder="https://…" /></label>
+                    <label class="dona-field">Ссылка на публикацию<InputText @bind-Value="post.PublicationUrl" inputmode="url" placeholder="https://…" /></label>
                 }
                 <details>
                     <summary>Дополнительные заметки</summary>
-                    <label>Заметки<InputTextArea @bind-Value="post.Notes" /></label>
+                    <label class="dona-field">Заметки<InputTextArea @bind-Value="post.Notes" /></label>
                 </details>
             </section>
             @if (confirmDelete)
             {
-                <div class="delete-confirm">
+                <div class="dona-confirm confirm-box">
                     <span>Удалить публикацию? Это действие нельзя отменить.</span>
-                    <button type="button" class="secondary" @onclick="() => confirmDelete = false">Нет</button>
-                    <button type="button" class="danger" @onclick="DeleteAsync">Да, удалить</button>
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
+                    <button type="button" class="dona-btn dona-btn--danger" @onclick="DeleteAsync">Да, удалить</button>
                 </div>
             }
             @if (message is not null)
             {
-                <p class="editor-message" role="alert">@message</p>
+                <p class="dona-message dona-message--error" role="alert">@message</p>
             }
-            <div class="actions">
-                <a href="/content-plan">Отмена</a>
+            <div class="dona-actions">
+                <a class="dona-btn dona-btn--secondary" href="/content-plan">Отмена</a>
                 @if (!IsNew && !confirmDelete)
                 {
-                    <button type="button" class="danger" @onclick="() => confirmDelete = true">Удалить</button>
+                    <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
                 }
-                <button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                <button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
             </div>
         </EditForm>
     }

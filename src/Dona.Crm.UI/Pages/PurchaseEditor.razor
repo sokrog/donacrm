@@ -10,9 +10,9 @@
 @inject NavigationManager Navigation
 
 <PageTitle>@(IsNew ? "Новая закупка" : purchase.Number) — DONA CRM</PageTitle>
-<div class="purchase-editor">
-    <header>
-        <a class="orbit-icon-button orbit-back-button" href="/purchases" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
+<div class="dona-page dona-page--form">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
         <div>
             <p>@purchase.Status.Display()</p>
             <h1>@(IsNew ? "Новая закупка" : purchase.Number)</h1>
@@ -20,11 +20,11 @@
     </header>
     @if (loading)
     {
-        <div class="editor-state">Загружаем закупку…</div>
+        <div class="dona-state">Загружаем закупку…</div>
     }
     else if (error is not null)
     {
-        <div class="editor-state" role="alert">@error</div>
+        <div class="dona-state dona-state--error" role="alert">@error</div>
     }
     else
     {
@@ -37,39 +37,39 @@
                 }
             </ol>
         }
-        <EditForm Model="purchase" OnValidSubmit="SaveAsync">
+        <EditForm class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section>
+            <section class="dona-section">
                 <h2>Поставка</h2>
-                <div class="field-row">
-                    <label>Номер<InputText @bind-Value="purchase.Number" /></label>
-                    <label>Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Номер<InputText @bind-Value="purchase.Number" /></label>
+                    <label class="dona-field">Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
                 </div>
-                <label>Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label>
-                <label>Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label>
+                <label class="dona-field">Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label>
+                <label class="dona-field">Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label>
                 <a class="manage-partners" href="/partners">Управлять поставщиками и посредниками →</a>
-                <div class="field-row">
-                    <label>Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
-                    <label>Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
+                    <label class="dona-field">Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
                 </div>
-                <label>Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
+                <label class="dona-field">Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
             </section>
-            <section>
-                <div class="section-title">
+            <section class="dona-section">
+                <div class="dona-section-title">
                     <div>
                         <h2>Стоимость партии</h2>
                         <p>@purchase.TotalQuantity ед. · @Money(purchase.TotalCostUzs) UZS</p>
                     </div>
                 </div>
-                <div class="field-row">
-                    <label>Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="CurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
-                    <label>Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="CurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
+                    <label class="dona-field">Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
                 </div>
                 <div class="cost-grid">
-                    <label>Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
-                    <label>Доставка, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
-                    <label>Другие расходы<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
+                    <label class="dona-field">Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
+                    <label class="dona-field">Доставка, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
+                    <label class="dona-field">Другие расходы<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
                 </div>
                 <div class="cost-summary">
                     <span>Товар<strong>@Money(purchase.GoodsCostUzs)</strong></span>
@@ -77,13 +77,13 @@
                     <span class="total">Итого<strong>@Money(purchase.TotalCostUzs) UZS</strong></span>
                 </div>
             </section>
-            <section>
-                <div class="section-title">
+            <section class="dona-section">
+                <div class="dona-section-title">
                     <div>
                         <h2>Позиции</h2>
                         <p>Товары и варианты</p>
                     </div>
-                    <button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Позиция</button>
+                    <button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="dona-inline-icon" />Позиция</button>
                 </div>
                 @if (purchase.Items.Count == 0)
                 {
@@ -92,12 +92,12 @@
                 @foreach (var item in purchase.Items)
                 {
                     <article class="purchase-line" @key="item.Id">
-                        <label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
-                        <label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
+                        <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
+                        <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
                         <div class="line-fields">
-                            <label>Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
-                            <label>Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label>
-                            <label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
+                            <label class="dona-field">Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
+                            <label class="dona-field">Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label>
+                            <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
                         </div>
                         @if ((item.ReceivedQuantity ?? 0) > 0)
                         {
@@ -105,31 +105,31 @@
                         }
                         else if (removeCandidate == item.Id)
                         {
-                            <div class="remove-confirm">
+                            <div class="dona-confirm confirm-box">
                                 <span>Удалить позицию?</span>
-                                <button type="button" class="secondary" @onclick="() => removeCandidate = null">Нет</button>
-                                <button type="button" class="danger" @onclick="() => RemoveItem(item)">Да, удалить</button>
+                                <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => removeCandidate = null">Нет</button>
+                                <button type="button" class="dona-btn dona-btn--danger" @onclick="() => RemoveItem(item)">Да, удалить</button>
                             </div>
                         }
                         else
                         {
-                            <button type="button" class="remove-line" @onclick="() => removeCandidate = item.Id">Удалить позицию</button>
+                            <button type="button" class="dona-btn dona-btn--danger" @onclick="() => removeCandidate = item.Id">Удалить позицию</button>
                         }
                     </article>
                 }
             </section>
             @if (!IsNew && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(value => value.MissingQuantity > 0))
             {
-                <section class="receipt-card">
-                    <div class="section-title">
+                <section class="dona-section receipt-card">
+                    <div class="dona-section-title">
                         <div>
                             <h2>Принять поставку</h2>
                             <p>Укажите фактически полученное</p>
                         </div>
                     </div>
-                    <div class="field-row">
-                        <label>Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
-                        <label>Комментарий<InputText @bind-Value="receiptNote" /></label>
+                    <div class="dona-field-row">
+                        <label class="dona-field">Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                        <label class="dona-field">Комментарий<InputText @bind-Value="receiptNote" /></label>
                     </div>
                     @foreach (var item in purchase.Items.Where(value => value.MissingQuantity > 0))
                     {
@@ -139,18 +139,18 @@
                                 <strong>@item.ProductName</strong>
                                 <small>@VariantLabel(item) · осталось @item.MissingQuantity шт.</small>
                             </div>
-                            <div class="field-row">
-                                <label>Получено<InputNumber @bind-Value="line.ReceivedQuantity" min="0" max="@item.MissingQuantity" /></label>
-                                <label>Из них брак<InputNumber @bind-Value="line.DefectQuantity" min="0" /></label>
+                            <div class="dona-field-row">
+                                <label class="dona-field">Получено<InputNumber @bind-Value="line.ReceivedQuantity" min="0" max="@item.MissingQuantity" /></label>
+                                <label class="dona-field">Из них брак<InputNumber @bind-Value="line.DefectQuantity" min="0" /></label>
                             </div>
                         </article>
                     }
-                    <button type="button" class="inline-primary" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button>
+                    <button type="button" class="dona-btn dona-btn--ghost" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button>
                 </section>
             }
             @if (purchase.Receipts.Count > 0)
             {
-                <section>
+                <section class="dona-section">
                     <h2>История приёмок</h2>
                     <ul class="receipt-history">
                         @foreach (var value in purchase.Receipts.OrderByDescending(item => item.ReceivedAt))
@@ -169,11 +169,11 @@
             <ValidationSummary />
             @if (message is not null)
             {
-                <p class="message @(success ? "success" : null)" role="status">@message</p>
+                <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
             }
-            <div class="actions">
-                <a href="/purchases">Отмена</a>
-                <button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить закупку")</button>
+            <div class="dona-actions">
+                <a class="dona-btn dona-btn--secondary" href="/purchases">Отмена</a>
+                <button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить закупку")</button>
             </div>
         </EditForm>
     }
