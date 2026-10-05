@@ -34,12 +34,14 @@ public sealed class GoogleDrivePersonalBackupService(
     IGoogleAccessTokenProvider tokens,
     GoogleDriveFileClient drive,
     IBackupSnapshotStore store,
+    ILocalImageStore localImages,
     BackupRestoreService restore) : IPersonalCloudBackupService
 {
     private const string ArchivePrefix = "dona-crm-personal-";
     private const string ManualArchivePrefix = "dona-crm-personal-manual-";
     private const string AutomaticArchivePrefix = "dona-crm-personal-auto-";
     private const int AutomaticBackupLimit = 7;
+    private const long MaxArchiveBytes = 50 * 1024 * 1024;
 
     public async Task<IReadOnlyList<PersonalBackupInfo>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -56,9 +58,13 @@ public sealed class GoogleDrivePersonalBackupService(
     {
         await EnsureConnectedAsync(cancellationToken);
         var snapshot = await store.ReadSnapshotAsync(cancellationToken);
+        var images = await BackupArchiveCodec.CollectLocalImagesAsync(snapshot, localImages, cancellationToken);
+        var archive = BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(snapshot), images);
+        if (archive.Length > MaxArchiveBytes)
+            throw new InvalidOperationException("Личная копия с фотографиями превышает 50 МБ. Подключите Google Drive, чтобы хранить фотографии там, или удалите лишние фото.");
         return await UploadAsync(
             ManualArchivePrefix,
-            BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(snapshot)),
+            archive,
             PersonalBackupKind.Manual,
             cancellationToken);
     }

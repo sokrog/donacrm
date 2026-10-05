@@ -4,6 +4,10 @@
 {
     <img src="@source" alt="@Alt" class="@Class" />
 }
+else if (isMissingLocal)
+{
+    <span class="product-image-missing" role="img" aria-label="@Alt" title="Фото хранится на другом устройстве"><OrbitIcon Name="image" /></span>
+}
 
 @code {
     [Parameter] public ProductImage? Image { get; set; }
@@ -13,12 +17,14 @@
 
     private string? source;
     private Guid? resolvedImageId;
+    private bool isMissingLocal;
 
     protected override async Task OnParametersSetAsync()
     {
         if (Image is null)
         {
-            source = FallbackUrl;
+            source = DisplayableOrNull(FallbackUrl);
+            isMissingLocal = false;
             resolvedImageId = null;
             return;
         }
@@ -27,13 +33,25 @@
             return;
 
         resolvedImageId = Image.Id;
+        isMissingLocal = false;
         try
         {
             source = await Resolver.ResolveAsync(Image);
+            isMissingLocal = string.IsNullOrWhiteSpace(source)
+                && Image.Storage == ProductImageStorage.Local
+                && Image.Url.StartsWith(LocalImageKey.UrlPrefix, StringComparison.Ordinal);
         }
         catch
         {
-            source = FallbackUrl;
+            source = DisplayableOrNull(FallbackUrl);
         }
     }
+
+    // local:/drive: - внутренние ссылки, браузер не сможет их показать.
+    private static string? DisplayableOrNull(string? url) =>
+        url is not null && (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            ? url
+            : null;
 }

@@ -5,6 +5,7 @@ using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.Web.Services;
 
+public sealed record BackupImage(string Key, byte[] Content);
 public sealed record BackupDownload(byte[] Content, string FileName, string ContentType = "application/zip");
 public sealed record BackupArchiveInspection(BackupSnapshot Snapshot, int LocalImageCount, long LocalImageBytes);
 public sealed record BackupPreview(DateTimeOffset CreatedAt, int SchemaVersion, int Products, int Purchases, int Sales, int Customers, int Suppliers, int Intermediaries, int Categories, int Collections, int Outfits, int ContentItems, int StockMovements, int LocalImages, long LocalImageBytes, int NewProducts, int UpdatedProducts, int NewPurchases, int UpdatedPurchases, int NewSales, int UpdatedSales);
@@ -71,7 +72,7 @@ public static class BackupSnapshotMapper
     };
 }
 
-public sealed class BackupRestoreService(IBackupSnapshotStore store)
+public sealed class BackupRestoreService(IBackupSnapshotStore store, ILocalImageStore localImages)
 {
     public async Task<BackupPreview> PreviewAsync(byte[] content, CancellationToken cancellationToken = default)
     {
@@ -87,9 +88,15 @@ public sealed class BackupRestoreService(IBackupSnapshotStore store)
         var current = await store.ReadSnapshotAsync(cancellationToken);
         var incoming = BackupSnapshotMapper.ToSyncSnapshot(inspection.Snapshot);
         var preview = CreatePreview(inspection, current, incoming);
+        var currentImages = await BackupArchiveCodec.CollectLocalImagesAsync(current, localImages, cancellationToken);
         var automaticBackup = new BackupDownload(
-            BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(current)),
+            BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(current), currentImages),
             $"dona-crm-before-restore-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.zip");
+        // Байты фотографий записываются до замены данных: если запись не удалась, текущие данные остаются нетронутыми.
+        foreach (var image in BackupArchiveCodec.ReadImages(content))
+            await localImages.SaveAsync(image.Key, image.Content, LocalImageKey.ContentTypeFromKey(image.Key), cancellationToken);
+        // Старые копии хранят фотографии прямо в JSON как data:-ссылки: переносим их в локальное хранилище.
+        await LocalImageMigration.ConvertSnapshotAsync(incoming, localImages, cancellationToken);
         await store.ReplaceSnapshotAsync(incoming, cancellationToken);
         return new BackupRestoreResult(automaticBackup, preview);
     }
@@ -117,7 +124,7 @@ public static class BackupArchiveCodec
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true, MaxDepth = 64 };
 
-    public static byte[] Create(BackupSnapshot snapshot, string? localImagesPath = null)
+    public static byte[] Create(BackupSnapshot snapshot, IEnumerable<BackupImage>? images = null)
     {
         using var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
@@ -129,17 +136,59 @@ public static class BackupArchiveCodec
             using (var writer = new StreamWriter(readme.Open()))
                 writer.Write("Dona CRM backup. Credentials and OAuth tokens are intentionally excluded. Google Drive images remain in Drive; local product images are included in the images folder.");
 
-            if (!string.IsNullOrWhiteSpace(localImagesPath) && Directory.Exists(localImagesPath))
+            foreach (var image in images ?? [])
             {
-                foreach (var file in Directory.EnumerateFiles(localImagesPath, "*", SearchOption.AllDirectories))
-                {
-                    var relative = Path.GetRelativePath(localImagesPath, file).Replace('\\', '/');
-                    archive.CreateEntryFromFile(file, $"images/{relative}", CompressionLevel.Optimal);
-                }
+                LocalImageKey.Validate(image.Key);
+                var entry = archive.CreateEntry($"images/{image.Key}", CompressionLevel.NoCompression);
+                using var stream = entry.Open();
+                stream.Write(image.Content);
             }
         }
 
         return output.ToArray();
+    }
+
+    /// <summary>Читает байты локальных фотографий, на которые ссылается снимок. Отсутствующие на устройстве файлы пропускаются.</summary>
+    public static async Task<IReadOnlyList<BackupImage>> CollectLocalImagesAsync(
+        DonaSyncSnapshot snapshot,
+        ILocalImageStore store,
+        CancellationToken cancellationToken = default)
+    {
+        var images = new List<BackupImage>();
+        foreach (var key in LocalImageKey.CollectReferencedKeys(snapshot).OrderBy(item => item, StringComparer.Ordinal))
+        {
+            var stored = await store.ReadAsync(key, cancellationToken);
+            if (stored is not null)
+                images.Add(new BackupImage(key, stored.Content));
+        }
+        return images;
+    }
+
+    /// <summary>Фотографии из папки images/ архива. Записи с небезопасными или вложенными именами пропускаются.</summary>
+    public static IReadOnlyList<BackupImage> ReadImages(byte[] content)
+    {
+        var result = new List<BackupImage>();
+        try
+        {
+            using var stream = new MemoryStream(content, writable: false);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+            foreach (var entry in archive.Entries)
+            {
+                if (!entry.FullName.StartsWith("images/", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(entry.Name))
+                    continue;
+                if (entry.FullName.Length != "images/".Length + entry.Name.Length || !LocalImageKey.IsValid(entry.Name))
+                    continue;
+                using var input = entry.Open();
+                using var buffer = new MemoryStream();
+                input.CopyTo(buffer);
+                result.Add(new BackupImage(entry.Name, buffer.ToArray()));
+            }
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new InvalidOperationException("Файл не является корректным ZIP-архивом.", exception);
+        }
+        return result;
     }
 
     public static BackupDownload CreateJsonExport(BackupSnapshot snapshot) => new(

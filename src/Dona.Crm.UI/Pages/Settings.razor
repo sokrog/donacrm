@@ -251,7 +251,7 @@ settings.DefaultAnalyticsPeriodDays); settings.StaleInventoryDays = Math.Max(1, 
    RestoreBackupAsync() => await RunAsync(async () =>
    {
        if (backupContent is null) throw new InvalidOperationException("Сначала выберите ZIP-копию."); var result = await
-BackupRestore.RestoreAsync(backupContent); await
+BackupRestore.RestoreAsync(backupContent); await DiscardQueuedUploadsAsync(); await
    BackupFiles!.SaveAutomaticBackupAsync(result.AutomaticBackup); backupContent = null; backupPreview = null;
        confirmRestore = false;
    }, "Данные восстановлены."); private async Task LoadPersonalBackupsAsync() => await RunAsync(async () =>
@@ -266,11 +266,18 @@ BackupRestore.RestoreAsync(backupContent); await
    }, "Личная копия сохранена."); private async Task RestorePersonalBackupAsync(string
    id) => await RunAsync(async () =>
    {
-       var result = await PersonalCloud!.RestoreAsync(id); await
+       var result = await PersonalCloud!.RestoreAsync(id); await DiscardQueuedUploadsAsync(); await
    BackupFiles!.SaveAutomaticBackupAsync(result.AutomaticBackup); await
    PersonalCloud.SaveAutomaticAsync(result.AutomaticBackup); personalBackups = (await
    PersonalCloud.ListAsync()).ToList();
-   }, "Личная копия восстановлена."); private async Task DeletePersonalBackupAsync(string
+   }, "Личная копия восстановлена.");
+    // Очередь могла содержать выгрузку данных до восстановления: сбрасываем её, чтобы она не ушла в Google
+    // без проверки. После сброса автоматическая выгрузка ждёт нового сравнения на странице синхронизации.
+    private async Task DiscardQueuedUploadsAsync()
+    {
+        if (LocalSyncReset is not null) await LocalSyncReset.ResetLocalStateAsync();
+    }
+    private async Task DeletePersonalBackupAsync(string
    id) => await RunAsync(async () =>
    {
        await PersonalCloud!.DeleteAsync(id); deleteBackupId = null; personalBackups = (await

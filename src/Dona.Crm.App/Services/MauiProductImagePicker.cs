@@ -7,10 +7,10 @@ namespace Dona.Crm.App.Services;
 public sealed class MauiProductImagePicker(
     IGoogleConnectionService google,
     IGoogleAccessTokenProvider tokens,
-    GoogleDriveFileClient drive) : IProductImagePicker
+    GoogleDriveFileClient drive,
+    ILocalImageStore localImages) : IProductImagePicker
 {
     private const long MaxImageBytes = 5 * 1024 * 1024;
-    private readonly string imageDirectory = Path.Combine(FileSystem.Current.AppDataDirectory, "product-images");
 
     public async Task<ProductImage?> PickAsync(Guid productId, CancellationToken cancellationToken = default)
     {
@@ -63,9 +63,7 @@ public sealed class MauiProductImagePicker(
         }
 
         var storageKey = $"{productId:N}-{Guid.NewGuid():N}{extension}";
-        Directory.CreateDirectory(imageDirectory);
-        var path = Path.Combine(imageDirectory, storageKey);
-        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+        await localImages.SaveAsync(storageKey, bytes, contentType, cancellationToken);
 
         return new ProductImage
         {
@@ -74,7 +72,7 @@ public sealed class MauiProductImagePicker(
             SizeBytes = buffer.Length,
             Storage = ProductImageStorage.Local,
             StorageKey = storageKey,
-            Url = $"data:{contentType};base64,{Convert.ToBase64String(buffer.GetBuffer(), 0, checked((int)buffer.Length))}"
+            Url = LocalImageKey.ToUrl(storageKey)
         };
     }
 
@@ -93,13 +91,8 @@ public sealed class MauiProductImagePicker(
         if (image.Storage != ProductImageStorage.Local || string.IsNullOrWhiteSpace(image.StorageKey))
             return;
 
-        var fileName = Path.GetFileName(image.StorageKey);
-        var path = Path.GetFullPath(Path.Combine(imageDirectory, fileName));
-        var root = Path.GetFullPath(imageDirectory) + Path.DirectorySeparatorChar;
-        if (!path.StartsWith(root, StringComparison.Ordinal))
-            throw new InvalidDataException("Некорректный путь локального изображения.");
-
-        if (File.Exists(path)) File.Delete(path);
+        var key = LocalImageKey.IsValid(image.StorageKey) ? image.StorageKey : LocalImageKey.Sanitize(image.StorageKey);
+        await localImages.DeleteAsync(key, cancellationToken);
     }
 
     private static string NormalizeContentType(string? contentType, string fileName)
