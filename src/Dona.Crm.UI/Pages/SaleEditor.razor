@@ -45,20 +45,6 @@
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <fieldset disabled="@IsReadOnly">
                 <section>
-                    <h2>Заказ</h2>
-                    <label>
-                        Номер
-                        <InputText @bind-Value="sale.Number" />
-                        <ValidationMessage For="() => sale.Number" />
-                    </label>
-                    <label>Клиент<OrbitSelect TValue="Guid?" @bind-Value="sale.CustomerId" @bind-Value:after="CustomerChanged" Options="@CustomerOptions" Label="Клиент" Searchable="true" /></label>
-                    <div class="field-row">
-                        <label>Доставка<OrbitSelect TValue="DeliveryMethod?" @bind-Value="sale.DeliveryMethod" Options="@DeliveryOptions" Label="Способ доставки" /></label>
-                        <label>Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" /></label>
-                    </div>
-                    <label>Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
-                </section>
-                <section>
                     <div class="section-title">
                         <div>
                             <h2>Товары</h2>
@@ -88,6 +74,10 @@
                 <span>Товары<strong>@Money(sale.SubtotalUzs)</strong></span>
                 <span>Скидка<strong>− @Money(sale.DiscountUzs ?? 0)</strong></span>
                 <span class="total">К оплате<strong>@Money(sale.TotalUzs) UZS</strong></span>
+                @if (IsDraft)
+                {
+                    <label class="quick-method">Оплата при продаже<OrbitSelect TValue="PaymentMethod?" @bind-Value="quickMethod" Options="@QuickPaymentOptions" Label="Способ оплаты" /></label>
+                }
                 @if (!IsNew)
                 {
                     <span>Оплачено<strong>@Money(sale.PaidUzs)</strong></span>
@@ -99,6 +89,22 @@
                     }
                 }
             </section>
+            <fieldset disabled="@IsReadOnly">
+                <section>
+                    <h2>Клиент и доставка</h2>
+                    <label>Клиент<OrbitSelect TValue="Guid?" @bind-Value="sale.CustomerId" @bind-Value:after="CustomerChanged" Options="@CustomerOptions" Label="Клиент" Searchable="true" /></label>
+                    <div class="field-row">
+                        <label>Доставка<OrbitSelect TValue="DeliveryMethod?" @bind-Value="sale.DeliveryMethod" Options="@DeliveryOptions" Label="Способ доставки" /></label>
+                        <label>Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" /></label>
+                    </div>
+                    <label>Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
+                    <label>
+                        Номер продажи
+                        <InputText @bind-Value="sale.Number" />
+                        <ValidationMessage For="() => sale.Number" />
+                    </label>
+                </section>
+            </fieldset>
             @if (!IsNew && sale.Status is not null and not SaleStatus.Draft && sale.BalanceDueUzs > 0)
             {
                 <section>
@@ -198,20 +204,31 @@
                 <p class="message @(success ? "success" : null)" role="status">@message</p>
             }
             <div class="actions">
-                <a href="/sales">Отмена</a>
-                @if (IsNew || sale.Status is null or SaleStatus.Draft)
+                @if (confirm is not null)
                 {
-                    <button type="submit" class="secondary">Черновик</button>
-                    <button type="button" @onclick="ReserveAsync">Зарезервировать</button>
+                    <div class="confirm-box" role="alertdialog">
+                        <span>@(confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят." : "Завершить продажу? Товар спишется со склада.")</span>
+                        <button type="button" class="secondary" disabled="@saving" @onclick="() => confirm = null">Нет</button>
+                        <button type="button"
+                                class="@(confirm == ConfirmKind.Cancel ? "danger" : null)"
+                                disabled="@saving"
+                                @onclick="ConfirmAsync">@(confirm == ConfirmKind.Cancel ? "Да, отменить" : "Да, завершить")</button>
+                    </div>
+                }
+                else if (IsDraft)
+                {
+                    <button type="button" class="primary" disabled="@saving" @onclick="QuickSaleAsync">Продать · @Money(sale.TotalUzs) UZS</button>
+                    <button type="submit" class="secondary" disabled="@saving">Черновик</button>
+                    <button type="button" class="secondary" disabled="@saving" @onclick="ReserveAsync">Зарезервировать</button>
                 }
                 else if (sale.Status is SaleStatus.Reserved or SaleStatus.Paid)
                 {
-                    <button type="button" class="secondary" @onclick="CancelAsync">Отменить заказ</button>
-                    <button type="button" @onclick="CompleteAsync">Завершить продажу</button>
+                    <button type="button" class="secondary danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Cancel">Отменить заказ</button>
+                    <button type="button" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button>
                 }
                 else if (sale.Status == SaleStatus.Shipped)
                 {
-                    <button type="button" @onclick="CompleteAsync">Завершить продажу</button>
+                    <button type="button" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button>
                 }
             </div>
         </EditForm>
@@ -236,7 +253,17 @@
 
     private static readonly SaleStatus[] Flow = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Completed];
 
+    private enum ConfirmKind { Cancel, Complete }
+
+    private ConfirmKind? confirm;
+    private PaymentMethod? quickMethod = PaymentMethod.Cash;
+
     private bool IsNew => Id is null;
+
+    private bool IsDraft => IsNew || sale.Status is null or SaleStatus.Draft;
+
+    private static readonly IReadOnlyList<OrbitSelectOption<PaymentMethod?>> QuickPaymentOptions =
+        Enum.GetValues<PaymentMethod>().Select(value => new OrbitSelectOption<PaymentMethod?>(value, value.Display())).ToList();
 
     private bool IsReadOnly =>
         sale.Status is SaleStatus.Completed or SaleStatus.Cancelled or SaleStatus.Returned or SaleStatus.Shipped;
@@ -283,7 +310,7 @@
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = UserErrors.Describe(ex, "Не удалось загрузить продажу. Попробуйте ещё раз.");
         }
         finally
         {
@@ -367,6 +394,59 @@
             }
         }, "Товар зарезервирован.");
     }
+
+    private async Task QuickSaleAsync()
+    {
+        await RunAsync(async () =>
+        {
+            if (quickMethod is null)
+            {
+                throw new InvalidOperationException("Выберите способ оплаты.");
+            }
+
+            await EnsureUniqueAsync();
+            await EnsurePriceAllowedAsync();
+            await Inventory.ReserveAsync(sale);
+            // From here the reserved sale is already saved; each step below is atomic and leaves it consistent on failure.
+            var wasNew = IsNew;
+            try
+            {
+                if (sale.BalanceDueUzs > 0)
+                {
+                    await Payments.AddAsync(sale, new SalePayment
+                    {
+                        Type = PaymentOperationType.Payment,
+                        Status = PaymentStatus.Completed,
+                        Method = quickMethod,
+                        AmountUzs = sale.BalanceDueUzs
+                    });
+                }
+
+                await Inventory.CompleteAsync(sale);
+                ResetReturn();
+                ResetRefund();
+            }
+            catch (Exception ex)
+            {
+                var done = sale.Payments.Count > 0 ? "Заказ зарезервирован и оплачен" : "Заказ зарезервирован";
+                if (wasNew)
+                {
+                    unsavedGuard?.MarkClean();
+                    Navigation.NavigateTo($"/sales/{sale.Id}");
+                }
+
+                throw new InvalidOperationException($"{done}, но продажа не завершена: {UserErrors.Describe(ex, "не удалось завершить продажу")} Завершите её вручную.");
+            }
+
+            if (wasNew)
+            {
+                unsavedGuard?.MarkClean();
+                Navigation.NavigateTo($"/sales/{sale.Id}");
+            }
+        }, "Продажа завершена: оплата принята, остаток списан.");
+    }
+
+    private Task ConfirmAsync() => confirm == ConfirmKind.Cancel ? CancelAsync() : CompleteAsync();
 
     private Task CancelAsync() => RunAsync(() => Inventory.CancelAsync(sale), "Заказ отменён, резерв снят.");
 
@@ -467,6 +547,7 @@
 
         saving = true;
         message = null;
+        confirm = null;
         try
         {
             await action();
@@ -476,7 +557,7 @@
         }
         catch (Exception ex)
         {
-            message = ex.Message;
+            message = UserErrors.Describe(ex, "Не удалось выполнить действие с продажей. Попробуйте ещё раз.");
             success = false;
             try
             {

@@ -10,18 +10,18 @@
             <small>УПРАВЛЕНИЕ МАГАЗИНОМ</small>
         </a>
         <nav class="orbit-side-nav" aria-label="Навигация рабочего пространства">
-            <NavLink href="/" Match="NavLinkMatch.All"><OrbitIcon Name="home" /><span>Главная</span></NavLink>
-            <NavLink href="/products"><OrbitIcon Name="catalog" /><span>Каталог</span></NavLink>
-            <NavLink href="/sales"><OrbitIcon Name="sales" /><span>Продажи</span></NavLink>
-            <NavLink href="/purchases"><OrbitIcon Name="truck" /><span>Закупки</span></NavLink>
-            <NavLink href="/inventory"><OrbitIcon Name="adjust" /><span>Склад</span></NavLink>
-            <NavLink href="/partners"><OrbitIcon Name="purchases" /><span>Партнёры</span></NavLink>
-            <NavLink href="/marketing"><OrbitIcon Name="marketing" /><span>Маркетинг</span></NavLink>
-            <NavLink href="/analytics"><OrbitIcon Name="analytics" /><span>Аналитика</span></NavLink>
+            <a class="@SideClass("home")" href="/" aria-current="@Current("home")"><OrbitIcon Name="home" /><span>Главная</span></a>
+            <a class="@SideClass("catalog")" href="/products" aria-current="@Current("catalog")"><OrbitIcon Name="catalog" /><span>Каталог</span></a>
+            <a class="@SideClass("sales")" href="/sales" aria-current="@Current("sales")"><OrbitIcon Name="sales" /><span>Продажи</span></a>
+            <a class="@SideClass("purchases")" href="/purchases" aria-current="@Current("purchases")"><OrbitIcon Name="truck" /><span>Закупки</span></a>
+            <a class="@SideClass("inventory")" href="/inventory" aria-current="@Current("inventory")"><OrbitIcon Name="warehouse" /><span>Склад</span></a>
+            <a class="@SideClass("partners")" href="/partners" aria-current="@Current("partners")"><OrbitIcon Name="partners" /><span>Партнёры</span></a>
+            <a class="@SideClass("marketing")" href="/marketing" aria-current="@Current("marketing")"><OrbitIcon Name="marketing" /><span>Маркетинг</span></a>
+            <a class="@SideClass("analytics")" href="/analytics" aria-current="@Current("analytics")"><OrbitIcon Name="analytics" /><span>Аналитика</span></a>
         </nav>
         <nav class="orbit-side-tools" aria-label="Настройки приложения">
-            <NavLink href="/connections"><OrbitIcon Name="cloud" /><span>Подключения</span></NavLink>
-            <NavLink href="/settings"><OrbitIcon Name="settings" /><span>Настройки</span></NavLink>
+            <a class="@SideClass("connections")" href="/connections" aria-current="@Current("connections")"><OrbitIcon Name="cloud" /><span>Подключения</span></a>
+            <a class="@SideClass("settings")" href="/settings" aria-current="@Current("settings")"><OrbitIcon Name="settings" /><span>Настройки</span></a>
         </nav>
     </aside>
 
@@ -33,7 +33,11 @@
             <ErrorContent Context="exception">
                 <section class="page-error" role="alert">
                     <h1>Что-то пошло не так на этой странице</h1>
-                    <p>@exception.Message</p>
+                    <p>Обновите страницу или вернитесь на главную.</p>
+                    <details>
+                        <summary>Подробности</summary>
+                        <p>@exception.Message</p>
+                    </details>
                     <div class="page-error-actions">
                         <button type="button" @onclick="RecoverFromError">Попробовать снова</button>
                         <a href="/">На главную</a>
@@ -46,42 +50,34 @@
     @if (!isFocusedRoute)
     {
         <nav class="orbit-tabs" aria-label="Основная навигация">
-            <NavLink class="orbit-tab" ActiveClass="is-active" href="/" Match="NavLinkMatch.All">
+            <a class="@TabClass("home")" href="/" aria-current="@Current("home")">
                 <OrbitIcon Name="home" />
                 <span>Главная</span>
-            </NavLink>
-            <NavLink class="orbit-tab" ActiveClass="is-active" href="/products">
+            </a>
+            <a class="@TabClass("catalog")" href="/products" aria-current="@Current("catalog")">
                 <OrbitIcon Name="catalog" />
                 <span>Каталог</span>
-            </NavLink>
-            <NavLink class="orbit-tab" ActiveClass="is-active" href="/sales">
+            </a>
+            <a class="@TabClass("sales")" href="/sales" aria-current="@Current("sales")">
                 <OrbitIcon Name="sales" />
                 <span>Продажи</span>
-            </NavLink>
-            <NavLink class="orbit-tab" ActiveClass="is-active" href="/purchases">
+            </a>
+            <a class="@TabClass("purchases")" href="/purchases" aria-current="@Current("purchases")">
                 <OrbitIcon Name="truck" />
                 <span>Закупки</span>
-            </NavLink>
-            <NavLink class="orbit-tab" ActiveClass="is-active" href="/more">
+            </a>
+            <a class="@TabClass("more")" href="/more" aria-current="@Current("more")">
                 <OrbitIcon Name="more" />
                 <span>Ещё</span>
-            </NavLink>
+            </a>
         </nav>
     }
 </div>
 
 @code {
-    private static readonly HashSet<string> PrimaryRoutes =
-    [
-        "/",
-        "/products",
-        "/sales",
-        "/purchases",
-        "/more",
-        "/welcome"
-    ];
-
     private bool isFocusedRoute;
+    private string sidebarSection = "home";
+    private string tabSection = "more";
     private ErrorBoundary? errorBoundary;
 
     protected override void OnInitialized()
@@ -104,11 +100,53 @@
 
     private void RecoverFromError() => errorBoundary?.Recover();
 
+    private string? Current(string key) => key == sidebarSection || key == tabSection ? "page" : null;
+
+    private string SideClass(string key) => key == sidebarSection ? "active" : string.Empty;
+
+    private string TabClass(string key) => key == tabSection ? "orbit-tab is-active" : "orbit-tab";
+
     private void UpdateRouteMode()
     {
         var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
         var path = "/" + relative.Split('?', '#')[0].Trim('/');
-        isFocusedRoute = !PrimaryRoutes.Contains(path);
+        isFocusedRoute = IsEditorRoute(path);
+        sidebarSection = SidebarSectionFor(path);
+        tabSection = TabSectionFor(path);
+    }
+
+    // Панель вкладок скрыта только на формах и редакторах, где нужен весь экран.
+    private static bool IsEditorRoute(string path)
+    {
+        if (path == "/inventory/adjustment/new") return true;
+        var last = path[(path.LastIndexOf('/') + 1)..];
+        return last == "new" || Guid.TryParse(last, out _);
+    }
+
+    private static bool UnderRoute(string path, string root) => path == root || path.StartsWith(root + "/", StringComparison.Ordinal);
+
+    private static string SidebarSectionFor(string path)
+    {
+        if (path == "/" || path == "/attention" || path == "/welcome") return "home";
+        if (UnderRoute(path, "/products")) return "catalog";
+        if (UnderRoute(path, "/sales") || UnderRoute(path, "/customers")) return "sales";
+        if (UnderRoute(path, "/purchases")) return "purchases";
+        if (UnderRoute(path, "/inventory")) return "inventory";
+        if (UnderRoute(path, "/partners")) return "partners";
+        if (UnderRoute(path, "/marketing") || UnderRoute(path, "/collections") || UnderRoute(path, "/outfits") || UnderRoute(path, "/content-plan")) return "marketing";
+        if (UnderRoute(path, "/analytics")) return "analytics";
+        if (UnderRoute(path, "/connections") || UnderRoute(path, "/sync")) return "connections";
+        if (UnderRoute(path, "/settings")) return "settings";
+        return string.Empty;
+    }
+
+    private static string TabSectionFor(string path)
+    {
+        if (path == "/" || path == "/attention" || path == "/welcome") return "home";
+        if (UnderRoute(path, "/products")) return "catalog";
+        if (UnderRoute(path, "/sales") || UnderRoute(path, "/customers")) return "sales";
+        if (UnderRoute(path, "/purchases")) return "purchases";
+        return "more";
     }
 
     public void Dispose() => Navigation.LocationChanged -= LocationChanged;

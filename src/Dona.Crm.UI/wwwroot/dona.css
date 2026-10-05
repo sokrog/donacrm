@@ -459,3 +459,8 @@ input, textarea { caret-color: var(--dona-brand); }
 ::selection { background: var(--dona-brand); color: #fff8fa; }
 .dona-logo { display: block; width: 156px; height: 76px; object-fit: contain; }
 .dona-boot-logo { display: block; width: 220px; height: 110px; object-fit: contain; margin: 0 auto 16px; }
+
+/* Разделы верхнего уровня доступны из боковой панели — стрелка «в меню» нужна только на мобильных. */
+@media (min-width: 900px) {
+    .orbit-back-button--section { display: none !important; }
+}

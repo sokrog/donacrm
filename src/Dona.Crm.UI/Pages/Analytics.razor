@@ -17,7 +17,7 @@
 <div class="analytics-page">
     <header>
         <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
                 <h1>Аналитика</h1>
@@ -228,7 +228,7 @@
         catch (Exception exception)
         {
             loadFailed = true;
-            errorMessage = $"Не удалось загрузить аналитику: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить аналитику. Попробуйте ещё раз.");
         }
         finally
         {
@@ -263,7 +263,7 @@
         }
         catch (Exception exception)
         {
-            errorMessage = $"Не удалось пересчитать аналитику: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось пересчитать аналитику. Попробуйте ещё раз.");
         }
     }
 

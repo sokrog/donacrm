@@ -5,7 +5,16 @@
 
 <PageTitle>Подключения — DONA CRM</PageTitle>
 <div class="connections-page">
-    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><small>Ещё</small><h1>Подключения</h1><p>Данные работают локально и сохраняются в личном аккаунте только после входа.</p></div></div></header>
+    <header>
+        <div class="orbit-secondary-heading">
+            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <div>
+                <small>Ещё</small>
+                <h1>Подключения</h1>
+                <p>Данные работают локально и сохраняются в личном аккаунте только после входа.</p>
+            </div>
+        </div>
+    </header>
 
     @if (loading)
     {
@@ -28,7 +37,16 @@
 
             @if (state.IsConnected && !string.IsNullOrWhiteSpace(state.AccountName ?? state.AccountEmail))
             {
-                <div class="account-row"><InitialBadge Text="@(state.AccountName ?? state.AccountEmail)" Compact="true" /><div><strong>@(state.AccountName ?? state.AccountEmail)</strong>@if (!string.IsNullOrWhiteSpace(state.AccountName) && !string.IsNullOrWhiteSpace(state.AccountEmail)){<small>@state.AccountEmail</small>}</div></div>
+                <div class="account-row">
+                    <InitialBadge Text="@(state.AccountName ?? state.AccountEmail)" Compact="true" />
+                    <div>
+                        <strong>@(state.AccountName ?? state.AccountEmail)</strong>
+                        @if (!string.IsNullOrWhiteSpace(state.AccountName) && !string.IsNullOrWhiteSpace(state.AccountEmail))
+                        {
+                            <small>@state.AccountEmail</small>
+                        }
+                    </div>
+                </div>
             }
 
             <p class="cloud-description">Копии базы и новые фотографии сохраняются в закрытом хранилище текущего Google-аккаунта.</p>
@@ -101,7 +119,7 @@
         if (busy) return;
         busy = true; message = null;
         try { message = await action(); success = true; }
-        catch (Exception exception) { message = exception.Message; success = false; }
+        catch (Exception exception) { message = UserErrors.Describe(exception, "Не удалось выполнить действие с Google. Попробуйте ещё раз."); success = false; }
         finally { busy = false; }
     }
 }

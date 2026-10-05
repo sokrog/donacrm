@@ -5,16 +5,52 @@
 
 <PageTitle>Движения склада — DONA CRM</PageTitle>
 <div class="inventory-page">
-    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><p>Склад</p><h1>Движения</h1></div></div><a href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Корректировка</a></header>
-    @if (isLoading) { <div class="inventory-state">Загружаем журнал…</div> }
-    else if (error is not null) { <div class="inventory-state" role="alert">@error</div> }
-    else if (items.Count == 0) { <div class="inventory-state"><strong>Движений пока нет</strong><p>Они появятся после корректировки, продажи или приёмки закупки.</p></div> }
+    <header>
+        <div class="orbit-secondary-heading">
+            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <div>
+                <p>Склад</p>
+                <h1>Движения</h1>
+            </div>
+        </div>
+        <a href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Корректировка</a>
+    </header>
+    @if (isLoading)
+    {
+        <div class="inventory-state">Загружаем журнал…</div>
+    }
+    else if (error is not null)
+    {
+        <div class="inventory-state" role="alert">@error</div>
+    }
+    else if (items.Count == 0)
+    {
+        <div class="inventory-state">
+            <strong>Движений пока нет</strong>
+            <p>Они появятся после корректировки, продажи или приёмки закупки.</p>
+        </div>
+    }
     else
     {
         <ol class="movement-list">
             @foreach (var item in items.OrderByDescending(value => value.CreatedAt))
             {
-                <li><span class="movement-icon"><OrbitIcon Name="adjust" /></span><div><strong>@item.ProductName</strong><small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small><p>@item.Note</p></div><span class="delta @(item.QuantityDelta > 0 ? "plus" : item.QuantityDelta < 0 ? "minus" : "reserve")"><strong>@QuantityDelta(item.QuantityDelta)</strong>@if (item.ReservedDelta != 0) { <small>Резерв @Signed(item.ReservedDelta)</small> }</span><time datetime="@item.CreatedAt.ToString("O")">@item.CreatedAt.ToLocalTime().ToString("dd.MM · HH:mm")</time></li>
+                <li>
+                    <span class="movement-icon"><OrbitIcon Name="adjust" /></span>
+                    <div>
+                        <strong>@item.ProductName</strong>
+                        <small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small>
+                        <p>@item.Note</p>
+                    </div>
+                    <span class="delta @(item.QuantityDelta > 0 ? "plus" : item.QuantityDelta < 0 ? "minus" : "reserve")">
+                        <strong>@QuantityDelta(item.QuantityDelta)</strong>
+                        @if (item.ReservedDelta != 0)
+                        {
+                            <small>Резерв @Signed(item.ReservedDelta)</small>
+                        }
+                    </span>
+                    <time datetime="@item.CreatedAt.ToString("O")">@item.CreatedAt.ToLocalTime().ToString("dd.MM · HH:mm")</time>
+                </li>
             }
         </ol>
     }
@@ -23,8 +59,29 @@
     private IReadOnlyList<StockMovement> items = [];
     private bool isLoading = true;
     private string? error;
-    protected override async Task OnInitializedAsync() { try { items = await Movements.GetAsync(); } catch (Exception exception) { error = exception.Message; } finally { isLoading = false; } }
-    private static string Variant(StockMovement item) => string.Join(" · ", new[] { item.Color, item.Size }.Where(value => !string.IsNullOrWhiteSpace(value))) is { Length: > 0 } value ? value : item.Sku;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            items = await Movements.GetAsync();
+        }
+        catch (Exception exception)
+        {
+            error = UserErrors.Describe(exception, "Не удалось загрузить движения склада. Попробуйте ещё раз.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static string Variant(StockMovement item) =>
+        string.Join(" · ", new[] { item.Color, item.Size }.Where(value => !string.IsNullOrWhiteSpace(value))) is { Length: > 0 } value
+            ? value
+            : item.Sku;
+
     private static string QuantityDelta(int value) => value == 0 ? "Остаток без изменений" : Signed(value);
+
     private static string Signed(int value) => value > 0 ? $"+{value}" : value.ToString();
 }

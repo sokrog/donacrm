@@ -8,7 +8,7 @@
 <div class="marketing-hub">
     <header>
         <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
                 <h1>Маркетинг</h1>
@@ -31,9 +31,39 @@
             <div class="hub-alert">Просрочено публикаций: @Overdue. Перенесите дату или обновите статус.</div>
         }
         <nav class="hub-list" aria-label="Разделы маркетинга">
-            <a href="/content-plan"><span class="hub-icon content"><OrbitIcon Name="marketing" /></span><span><strong>Контент-план</strong><small>@UpcomingText</small></span><b>@data.ContentPosts.Count<small>публикаций</small></b></a>
-            <a href="/collections"><span class="hub-icon"><OrbitIcon Name="catalog" /></span><span><strong>Коллекции</strong><small>Сезоны, запуски и подборки</small></span><b>@data.Collections.Count<small>коллекций</small></b></a>
-            <a href="/outfits"><span class="hub-icon outfit"><OrbitIcon Name="image" /></span><span><strong>Образы</strong><small>Готовые сочетания товаров</small></span><b>@data.Outfits.Count<small>образов</small></b></a>
+            <a href="/content-plan">
+                <span class="hub-icon content"><OrbitIcon Name="marketing" /></span>
+                <span>
+                    <strong>Контент-план</strong>
+                    <small>@UpcomingText</small>
+                </span>
+                <b>
+                    @data.ContentPosts.Count
+                    <small>публикаций</small>
+                </b>
+            </a>
+            <a href="/collections">
+                <span class="hub-icon"><OrbitIcon Name="catalog" /></span>
+                <span>
+                    <strong>Коллекции</strong>
+                    <small>Сезоны, запуски и подборки</small>
+                </span>
+                <b>
+                    @data.Collections.Count
+                    <small>коллекций</small>
+                </b>
+            </a>
+            <a href="/outfits">
+                <span class="hub-icon outfit"><OrbitIcon Name="image" /></span>
+                <span>
+                    <strong>Образы</strong>
+                    <small>Готовые сочетания товаров</small>
+                </span>
+                <b>
+                    @data.Outfits.Count
+                    <small>образов</small>
+                </b>
+            </a>
         </nav>
     }
 </div>
@@ -67,7 +97,7 @@
         }
         catch (Exception exception)
         {
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить маркетинг. Попробуйте ещё раз.");
         }
         finally
         {

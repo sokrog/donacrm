@@ -12,7 +12,7 @@
 <div class="partners-page">
     <header>
         <div class="orbit-secondary-heading">
-            <a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <a class="orbit-icon-button orbit-back-button orbit-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
                 <h1>Партнёры</h1>
@@ -24,8 +24,14 @@
         }
     </header>
     <div class="partner-tabs" role="group" aria-label="Тип партнёра">
-        <button type="button" class="@(mode == PartnerMode.Supplier ? "active" : null)" aria-pressed="@(mode == PartnerMode.Supplier)" @onclick="() => SwitchMode(PartnerMode.Supplier)">Поставщики <span>@suppliers.Count</span></button>
-        <button type="button" class="@(mode == PartnerMode.Intermediary ? "active" : null)" aria-pressed="@(mode == PartnerMode.Intermediary)" @onclick="() => SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button>
+        <button type="button"
+                class="@(mode == PartnerMode.Supplier ? "active" : null)"
+                aria-pressed="@(mode == PartnerMode.Supplier)"
+                @onclick="() => SwitchMode(PartnerMode.Supplier)">Поставщики <span>@suppliers.Count</span></button>
+        <button type="button"
+                class="@(mode == PartnerMode.Intermediary ? "active" : null)"
+                aria-pressed="@(mode == PartnerMode.Intermediary)"
+                @onclick="() => SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button>
     </div>
     @if (errorMessage is not null && !Editing)
     {
@@ -272,7 +278,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось загрузить партнёров: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить партнёров. Попробуйте ещё раз.");
         }
         finally
         {
@@ -295,7 +301,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось переключить раздел: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось переключить раздел. Попробуйте ещё раз.");
         }
     }
 
@@ -374,7 +380,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось закрыть редактор: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось закрыть редактор. Попробуйте ещё раз.");
         }
     }
 
@@ -404,7 +410,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось сохранить поставщика: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось сохранить поставщика. Попробуйте ещё раз.");
         }
         finally
         {
@@ -430,7 +436,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось сохранить посредника: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось сохранить посредника. Попробуйте ещё раз.");
         }
         finally
         {
@@ -465,7 +471,7 @@
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             confirmDelete = false;
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось удалить поставщика. Попробуйте ещё раз.");
         }
         finally
         {
@@ -500,7 +506,7 @@
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             confirmDelete = false;
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось удалить посредника. Попробуйте ещё раз.");
         }
         finally
         {
