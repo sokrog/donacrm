@@ -27,6 +27,7 @@
     }
 </div>
 @code {
+    [SupplyParameterFromQuery] public Guid? ProductId { get; set; } [SupplyParameterFromQuery] public Guid? VariantId { get; set; }
     private StockAdjustmentRequest model = new(); private IReadOnlyList<Product> products=[]; private UnsavedChangesGuard? unsavedGuard; private bool isLoading=true; private bool saving; private string? error;
     private Product? SelectedProduct => model.ProductId is null ? null : products.FirstOrDefault(item=>item.Id==model.ProductId);
     private ProductVariant? SelectedVariant => model.ProductVariantId is null ? null : SelectedProduct?.Variants.FirstOrDefault(item=>item.Id==model.ProductVariantId);
@@ -34,7 +35,7 @@
     private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions=>[new(null,"Выберите вариант"),..(SelectedProduct?.Variants??[]).Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{VariantName(value)} · остаток {value.Quantity??0}"))];
     private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
     private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0); private string DeltaText => Delta>0?$"+{Delta}":Delta.ToString();
-    protected override async Task OnInitializedAsync(){products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();isLoading=false;}
+    protected override async Task OnInitializedAsync(){products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();if(ProductId is not null&&products.FirstOrDefault(item=>item.Id==ProductId) is{}preset){model.ProductId=preset.Id;if(VariantId is not null&&preset.Variants.Any(item=>item.Id==VariantId)){model.ProductVariantId=VariantId;VariantChanged();}}isLoading=false;}
     private void ProductChanged(){model.ProductVariantId=null;model.NewQuantity=null;}
     private void VariantChanged()=>model.NewQuantity=SelectedVariant?.Quantity;
     private async Task SaveAsync(){saving=true;error=null;try{await Service.AdjustAsync(model);unsavedGuard?.MarkClean();Navigation.NavigateTo("/inventory");}catch(Exception exception){error=exception.Message;}finally{saving=false;}}

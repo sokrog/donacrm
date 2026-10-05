@@ -3,127 +3,96 @@ using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed class SalesInventoryService(ICatalogRepository catalog, ISalesRepository sales, IStockMovementRepository? movements = null)
+public sealed class SalesInventoryService(ICatalogRepository catalog, IInventoryStore store)
 {
-    private static readonly SemaphoreSlim Gate = new(1, 1);
-
-    public async Task ReserveAsync(Sale sale, CancellationToken token = default)
+    public Task ReserveAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
-        await Gate.WaitAsync(token);
-        try
+        using var _ = await InventoryLock.AcquireAsync(token);
+        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "резервирования");
+        var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
+        var before = Snapshot(lines);
+        ApplyReservations(lines);
+        if (sale.Status is null or SaleStatus.Draft) sale.Status = SaleStatus.Reserved;
+        await CommitAsync(sale, lines, before, StockMovementType.Reservation, token);
+    });
+
+    public Task MarkPaidAsync(Sale sale, CancellationToken token = default) =>
+        ChangeActiveStatusAsync(sale, SaleStatus.Paid, [SaleStatus.Reserved, SaleStatus.Paid], "оплаты", token);
+
+    public Task MarkShippedAsync(Sale sale, CancellationToken token = default) =>
+        ChangeActiveStatusAsync(sale, SaleStatus.Shipped, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "отправки", token);
+
+    public Task CancelAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
+    {
+        using var _ = await InventoryLock.AcquireAsync(token);
+        if (sale.Status == SaleStatus.Cancelled) return;
+        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid], "отмены");
+        if (sale.Status is null or SaleStatus.Draft && sale.Items.All(x => x.ReservedQuantity == 0))
         {
-            EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "резервирования");
-            var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
-            var before = Snapshot(lines);
-            ApplyReservations(lines);
-            await SaveProductsAsync(lines, token);
-            if (sale.Status is null or SaleStatus.Draft) sale.Status = SaleStatus.Reserved;
-            await sales.UpsertSaleAsync(sale, token);
-            await RecordAsync(sale, lines, before, StockMovementType.Reservation, token);
-        }
-        finally { Gate.Release(); }
-    }
-
-    public async Task MarkPaidAsync(Sale sale, CancellationToken token = default)
-    {
-        await ChangeActiveStatusAsync(sale, SaleStatus.Paid, [SaleStatus.Reserved, SaleStatus.Paid], "оплаты", token);
-    }
-
-    public async Task MarkShippedAsync(Sale sale, CancellationToken token = default)
-    {
-        await ChangeActiveStatusAsync(sale, SaleStatus.Shipped, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "отправки", token);
-    }
-
-    public async Task CancelAsync(Sale sale, CancellationToken token = default)
-    {
-        await Gate.WaitAsync(token);
-        try
-        {
-            if (sale.Status == SaleStatus.Cancelled) return;
-            EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid], "отмены");
-            if (sale.Status is null or SaleStatus.Draft && sale.Items.All(x => x.ReservedQuantity == 0)) { sale.Status = SaleStatus.Cancelled; await sales.UpsertSaleAsync(sale, token); return; }
-            var lines = await LoadAndValidateAsync(sale, requireStock: false, token);
-            var before = Snapshot(lines);
-            foreach (var line in lines.Where(x => x.Item.ReservedQuantity > 0))
-            {
-                line.Variant.ReservedQuantity = Math.Max(0, line.Variant.ReservedQuantity - line.Item.ReservedQuantity);
-                line.Item.ReservedQuantity = 0;
-            }
-            await SaveProductsAsync(lines, token);
             sale.Status = SaleStatus.Cancelled;
-            await sales.UpsertSaleAsync(sale, token);
-            await RecordAsync(sale, lines, before, StockMovementType.ReservationRelease, token);
+            await store.CommitAsync(InventoryCommit.Create(sales: [sale]), token);
+            return;
         }
-        finally { Gate.Release(); }
-    }
-
-    public async Task CompleteAsync(Sale sale, CancellationToken token = default)
-    {
-        await Gate.WaitAsync(token);
-        try
+        var lines = await LoadAndValidateAsync(sale, requireStock: false, token);
+        var before = Snapshot(lines);
+        foreach (var line in lines.Where(x => x.Item.ReservedQuantity > 0))
         {
-            if (sale.Status == SaleStatus.Completed) return;
-            EnsureStatus(sale, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "завершения");
-            var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
-            var before = Snapshot(lines);
-            foreach (var line in lines)
-            {
-                var reserveDelta = line.RequiredQuantity - line.Item.ReservedQuantity;
-                line.Variant.ReservedQuantity += reserveDelta;
-                if ((line.Variant.Quantity ?? 0) < line.RequiredQuantity) throw new InventoryException($"Недостаточно физического остатка для «{line.Item.ProductName}».");
-                line.Variant.Quantity = (line.Variant.Quantity ?? 0) - line.RequiredQuantity;
-                line.Variant.ReservedQuantity = Math.Max(0, line.Variant.ReservedQuantity - line.RequiredQuantity);
-                line.Item.ReservedQuantity = 0;
-                line.Item.SoldQuantity += line.RequiredQuantity;
-                line.Item.UnitCostUzs ??= line.Product.CostUzs;
-            }
-            await SaveProductsAsync(lines, token);
-            sale.Status = SaleStatus.Completed;
-            await sales.UpsertSaleAsync(sale, token);
-            await RecordAsync(sale, lines, before, StockMovementType.Sale, token);
+            line.Variant.ReservedQuantity = Math.Max(0, line.Variant.ReservedQuantity - line.Item.ReservedQuantity);
+            line.Item.ReservedQuantity = 0;
         }
-        finally { Gate.Release(); }
-    }
+        sale.Status = SaleStatus.Cancelled;
+        await CommitAsync(sale, lines, before, StockMovementType.ReservationRelease, token);
+    });
 
-    public async Task ReturnAsync(Sale sale, CancellationToken token = default)
+    public Task CompleteAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
-        await Gate.WaitAsync(token);
-        try
+        using var _ = await InventoryLock.AcquireAsync(token);
+        if (sale.Status == SaleStatus.Completed) return;
+        EnsureStatus(sale, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "завершения");
+        var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
+        var before = Snapshot(lines);
+        foreach (var line in lines)
         {
-            if (sale.Status == SaleStatus.Returned) return;
-            EnsureStatus(sale, [SaleStatus.Completed], "возврата");
-            var lines = await LoadAndValidateAsync(sale, requireStock: false, token);
-            var before = Snapshot(lines);
-            foreach (var line in lines.Where(x => x.Item.QuantityToReturn > 0))
-            {
-                var delta = line.Item.QuantityToReturn;
-                line.Variant.Quantity = (line.Variant.Quantity ?? 0) + delta;
-                line.Item.ReturnedQuantity += delta;
-            }
-            await SaveProductsAsync(lines, token);
-            sale.Status = SaleStatus.Returned;
-            await sales.UpsertSaleAsync(sale, token);
-            await RecordAsync(sale, lines, before, StockMovementType.Return, token);
+            var reserveDelta = line.RequiredQuantity - line.Item.ReservedQuantity;
+            line.Variant.ReservedQuantity += reserveDelta;
+            if ((line.Variant.Quantity ?? 0) < line.RequiredQuantity) throw new InventoryException($"Недостаточно физического остатка для «{line.Item.ProductName}».");
+            line.Variant.Quantity = (line.Variant.Quantity ?? 0) - line.RequiredQuantity;
+            line.Variant.ReservedQuantity = Math.Max(0, line.Variant.ReservedQuantity - line.RequiredQuantity);
+            line.Item.ReservedQuantity = 0;
+            line.Item.SoldQuantity += line.RequiredQuantity;
+            line.Item.UnitCostUzs ??= line.Product.CostUzs;
         }
-        finally { Gate.Release(); }
-    }
+        sale.Status = SaleStatus.Completed;
+        await CommitAsync(sale, lines, before, StockMovementType.Sale, token);
+    });
 
-    private async Task ChangeActiveStatusAsync(Sale sale, SaleStatus target, SaleStatus?[] allowed, string operation, CancellationToken token)
+    public Task ReturnAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
-        await Gate.WaitAsync(token);
-        try
+        using var _ = await InventoryLock.AcquireAsync(token);
+        if (sale.Status == SaleStatus.Returned) return;
+        EnsureStatus(sale, [SaleStatus.Completed], "возврата");
+        var lines = await LoadAndValidateAsync(sale, requireStock: false, token);
+        var before = Snapshot(lines);
+        foreach (var line in lines.Where(x => x.Item.QuantityToReturn > 0))
         {
-            EnsureStatus(sale, allowed, operation);
-            var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
-            var before = Snapshot(lines);
-            ApplyReservations(lines);
-            await SaveProductsAsync(lines, token);
-            sale.Status = target;
-            await sales.UpsertSaleAsync(sale, token);
-            await RecordAsync(sale, lines, before, StockMovementType.Reservation, token);
+            var delta = line.Item.QuantityToReturn;
+            line.Variant.Quantity = (line.Variant.Quantity ?? 0) + delta;
+            line.Item.ReturnedQuantity += delta;
         }
-        finally { Gate.Release(); }
-    }
+        sale.Status = SaleStatus.Returned;
+        await CommitAsync(sale, lines, before, StockMovementType.Return, token);
+    });
+
+    private Task ChangeActiveStatusAsync(Sale sale, SaleStatus target, SaleStatus?[] allowed, string operation, CancellationToken token) => EntityRollback.RunAsync(sale, async () =>
+    {
+        using var _ = await InventoryLock.AcquireAsync(token);
+        EnsureStatus(sale, allowed, operation);
+        var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
+        var before = Snapshot(lines);
+        ApplyReservations(lines);
+        sale.Status = target;
+        await CommitAsync(sale, lines, before, StockMovementType.Reservation, token);
+    });
 
     private async Task<List<StockLine>> LoadAndValidateAsync(Sale sale, bool requireStock, CancellationToken token)
     {
@@ -161,17 +130,11 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, ISalesRepo
         }
     }
 
-    private async Task SaveProductsAsync(IEnumerable<StockLine> lines, CancellationToken token)
-    {
-        foreach (var product in lines.Select(x => x.Product).DistinctBy(x => x.Id)) await catalog.UpsertProductAsync(product, token);
-    }
-
     private static Dictionary<Guid, (int Quantity, int Reserved)> Snapshot(IEnumerable<StockLine> lines) =>
         lines.DistinctBy(x => x.Variant.Id).ToDictionary(x => x.Variant.Id, x => (x.Variant.Quantity ?? 0, x.Variant.ReservedQuantity));
 
-    private Task RecordAsync(Sale sale, IEnumerable<StockLine> lines, IReadOnlyDictionary<Guid, (int Quantity, int Reserved)> before, StockMovementType type, CancellationToken token)
+    private Task CommitAsync(Sale sale, IEnumerable<StockLine> lines, IReadOnlyDictionary<Guid, (int Quantity, int Reserved)> before, StockMovementType type, CancellationToken token)
     {
-        if (movements is null) return Task.CompletedTask;
         var records = lines.DistinctBy(x => x.Variant.Id).Select(line =>
         {
             var old = before[line.Variant.Id];
@@ -191,7 +154,7 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, ISalesRepo
                 SourceNumber = sale.Number
             };
         }).Where(x => x.QuantityDelta != 0 || x.ReservedDelta != 0).ToList();
-        return movements.AddRangeAsync(records, token);
+        return store.CommitAsync(InventoryCommit.Create(products: lines.Select(x => x.Product).DistinctBy(x => x.Id), sales: [sale], movements: records), token);
     }
 
     private static void EnsureStatus(Sale sale, SaleStatus?[] allowed, string operation)

@@ -18,6 +18,9 @@ select,::deep input,::deep textarea { width:100%; min-width:0; min-height:var(--
 .variant-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:end; gap:9px; padding-top:2px; }
 .variant-row label { min-width:0; }
 .variant-row label:nth-child(3) { grid-column:1; }
+.variant-stock { grid-column:1; display:grid; gap:4px; min-width:0; color:var(--dona-muted); font-size:var(--dona-type-small); }
+.variant-stock a { color:var(--dona-cyan); text-underline-offset:3px; }
+.remove:disabled { opacity:.4; cursor:not-allowed; }
 .remove { width:44px; height:48px; border:1px solid rgba(var(--dona-danger-rgb), 0.25); border-radius:12px; background:rgba(var(--dona-danger-rgb), 0.08); color:var(--dona-danger); font-size:var(--dona-type-title-md); }
 .empty-variants, .save-error, .editor-state { margin:0; color:var(--dona-muted); font-size:var(--dona-type-body-sm); line-height:1.5; }
 .save-error { color:var(--dona-danger); }
@@ -41,6 +44,6 @@ select,::deep input,::deep textarea { width:100%; min-width:0; min-height:var(--
 .form-actions a,.form-actions button { display:flex; min-height:50px; align-items:center; justify-content:center; border-radius:13px; font-weight:700; font-size:var(--dona-type-body-sm); text-decoration:none; }
 .form-actions a { border:1px solid var(--dona-line-strong); color:var(--dona-text); }.form-actions button { border:0; background:linear-gradient(145deg,var(--dona-purple),var(--dona-brand-deep)); color:white; }.form-actions button:disabled { opacity:.6; }
 ::deep .validation-message, ::deep .validation-errors { color:var(--dona-danger); font-size:var(--dona-type-label); }
-@media(min-width:700px){.variant-row{grid-template-columns:repeat(3,minmax(0,1fr)) 44px}.variant-row label:nth-child(3){grid-column:auto}.remove{align-self:end}}
+@media(min-width:700px){.variant-row{grid-template-columns:repeat(3,minmax(0,1fr)) 44px}.variant-row label:nth-child(3){grid-column:auto}.variant-row .variant-stock{grid-column:auto}.remove{align-self:end}}
 @media(min-width:900px){.product-editor-workspace{grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr)}}
 @media(max-width:390px){.field-row,.image-url-add{grid-template-columns:1fr}.image-url-add button{width:100%}.remove{grid-column:2;justify-self:end}.archive-confirm{grid-template-columns:1fr 1fr}.archive-confirm span{grid-column:1/-1}}

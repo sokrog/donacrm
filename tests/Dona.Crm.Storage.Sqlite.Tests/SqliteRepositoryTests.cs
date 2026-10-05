@@ -254,7 +254,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         await catalog.UpsertProductAsync(initial);
         var product = (await catalog.GetProductsAsync()).Single(item => item.Id == initial.Id);
         var variant = Assert.Single(product.Variants);
-        var service = new StockAdjustmentService(catalog, movements, settings, new ProductStatusService());
+        var service = new StockAdjustmentService(catalog, new SqliteInventoryStore(store!), settings, new ProductStatusService());
 
         await service.AdjustAsync(new StockAdjustmentRequest
         {
@@ -288,13 +288,13 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
             Status = SaleStatus.Draft,
             Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 1, UnitPriceUzs = product.SellingPriceUzs }]
         };
-        var inventory = new SalesInventoryService(catalog, sales, movements);
+        var inventory = new SalesInventoryService(catalog, new SqliteInventoryStore(store!));
 
         await inventory.ReserveAsync(sale);
         Assert.Equal(SaleStatus.Reserved, sale.Status);
         Assert.Equal(1, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).ReservedQuantity);
 
-        await new SalesPaymentService(sales).AddAsync(sale, new SalePayment
+        await new SalesPaymentService(new SqliteInventoryStore(store!)).AddAsync(sale, new SalePayment
         {
             Type = PaymentOperationType.Payment,
             Status = PaymentStatus.Completed,
@@ -310,7 +310,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Reservation);
         Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Sale);
 
-        await new SalesReturnService(catalog, sales, movements).CreateAsync(sale, new SaleReturn
+        await new SalesReturnService(catalog, new SqliteInventoryStore(store!)).CreateAsync(sale, new SaleReturn
         {
             Reason = "Не подошёл размер",
             RefundAmountUzs = sale.TotalUzs,
@@ -320,7 +320,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(originalQuantity, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).Quantity);
         Assert.Contains(await movements.GetAsync(), item => item.Type == StockMovementType.Return);
 
-        await new SalesPaymentService(sales).AddAsync(sale, new SalePayment
+        await new SalesPaymentService(new SqliteInventoryStore(store!)).AddAsync(sale, new SalePayment
         {
             Type = PaymentOperationType.Refund,
             Status = PaymentStatus.Completed,
@@ -387,7 +387,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
             ]
         };
         await commerce.UpsertPurchaseAsync(purchase);
-        var service = new PurchaseReceivingService(catalog, commerce, movements, history);
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!));
 
         await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(purchase.Items[0].Id, 2, 1)]);
 
@@ -402,6 +402,115 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(originalQuantity + 2, (await catalog.GetProductAsync(product.Id))!.Variants.Single(item => item.Id == variant.Id).Quantity);
         Assert.Equal(2, (await movements.GetAsync()).Count);
         Assert.Equal(2, (await history.GetAsync()).ProductCosts.Count);
+    }
+
+    [Fact]
+    public async Task Inventory_commit_writes_every_collection_once_and_keeps_existing_order()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var first = CreateProduct(ProductStatus.InStock, 5);
+        var second = CreateProduct(ProductStatus.InStock, 6);
+        await catalog.UpsertProductAsync(first);
+        await catalog.UpsertProductAsync(second);
+        var third = CreateProduct(ProductStatus.InStock, 7);
+        second.Name = "Изменённое имя";
+        var sale = new Sale { Number = "SALE-COMMIT", Status = SaleStatus.Reserved };
+        var purchase = new Purchase { Number = "PO-COMMIT", Status = PurchaseStatus.Received };
+        var movement = new StockMovement { ProductName = "Test", QuantityDelta = 2 };
+        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test" };
+        var rate = new ExchangeRateHistoryEntry { Id = Guid.NewGuid(), RateUzs = 1_800 };
+        var changes = 0;
+        store!.BusinessDataChanged += (_, _) => changes++;
+        var inventory = new SqliteInventoryStore(store);
+
+        await inventory.CommitAsync(InventoryCommit.Create(products: [second, third], sales: [sale], purchases: [purchase], movements: [movement], productCosts: [cost], exchangeRate: rate));
+
+        Assert.Equal(1, changes);
+        var products = await catalog.GetProductsAsync();
+        Assert.Equal([first.Id, second.Id, third.Id], products.Select(item => item.Id).ToArray());
+        Assert.Equal("Изменённое имя", products[1].Name);
+        Assert.Equal("SALE-COMMIT", Assert.Single(await new SqliteSalesRepository(store).GetSalesAsync()).Number);
+        Assert.Equal("PO-COMMIT", Assert.Single(await new SqliteCommerceRepository(store).GetPurchasesAsync()).Number);
+        Assert.Single(await new SqliteStockMovementRepository(store).GetAsync());
+        var history = await new SqlitePurchaseHistoryRepository(store).GetAsync();
+        Assert.Single(history.ProductCosts);
+        Assert.Single(history.ExchangeRates);
+    }
+
+    [Fact]
+    public async Task Inventory_commit_is_idempotent_for_immutable_facts()
+    {
+        var inventory = new SqliteInventoryStore(store!);
+        var movement = new StockMovement { ProductName = "Test", QuantityDelta = 2 };
+        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPriceCny = 10 };
+        var rate = new ExchangeRateHistoryEntry { Id = Guid.NewGuid(), RateUzs = 1_800 };
+        await inventory.CommitAsync(InventoryCommit.Create(movements: [movement], productCosts: [cost], exchangeRate: rate));
+        movement.QuantityDelta = 99;
+        cost.UnitPriceCny = 99;
+
+        await inventory.CommitAsync(InventoryCommit.Create(movements: [movement, new StockMovement { ProductName = "Next", QuantityDelta = 1 }], productCosts: [cost], exchangeRate: rate));
+
+        var movements = await new SqliteStockMovementRepository(store!).GetAsync();
+        Assert.Equal(2, movements.Count);
+        Assert.Equal(2, movements[0].QuantityDelta);
+        var history = await new SqlitePurchaseHistoryRepository(store!).GetAsync();
+        Assert.Equal(10, Assert.Single(history.ProductCosts).UnitPriceCny);
+        Assert.Single(history.ExchangeRates);
+    }
+
+    [Fact]
+    public async Task Inventory_commit_is_all_or_nothing()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var existing = CreateProduct(ProductStatus.InStock, 5);
+        await catalog.UpsertProductAsync(existing);
+        var changes = 0;
+        store!.BusinessDataChanged += (_, _) => changes++;
+        existing.Name = "Не должно сохраниться";
+
+        // Строка без данных нарушает NOT NULL во второй операции пакета.
+        var broken = new AggregateOperation("stock.movements", Guid.NewGuid(), AggregateWriteMode.Upsert, null);
+        await Assert.ThrowsAnyAsync<Exception>(() => store.ApplyAsync([AggregateOperation.Upsert("catalog.products", existing.Id, existing), broken]));
+
+        Assert.Equal(0, changes);
+        Assert.NotEqual("Не должно сохраниться", (await catalog.GetProductAsync(existing.Id))!.Name);
+        Assert.Empty(await new SqliteStockMovementRepository(store).GetAsync());
+    }
+
+    [Fact]
+    public async Task Repository_upsert_touches_only_its_own_row_and_keeps_position()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var first = CreateProduct(ProductStatus.InStock, 1);
+        var second = CreateProduct(ProductStatus.InStock, 2);
+        var third = CreateProduct(ProductStatus.InStock, 3);
+        await catalog.UpsertProductAsync(first);
+        await catalog.UpsertProductAsync(second);
+        await catalog.UpsertProductAsync(third);
+        var connection = new SQLiteAsyncConnection(DatabasePath);
+        try
+        {
+            Task<long> Ticks(Product product) => connection.ExecuteScalarAsync<long>("SELECT UpdatedAtUtcTicks FROM aggregate_records WHERE key = ?", $"catalog.products:{product.Id:N}");
+            var firstBefore = await Ticks(first);
+            var thirdBefore = await Ticks(third);
+            await Task.Delay(20);
+
+            second.Name = "Обновлён";
+            await catalog.UpsertProductAsync(second);
+
+            Assert.Equal(firstBefore, await Ticks(first));
+            Assert.Equal(thirdBefore, await Ticks(third));
+            var products = await catalog.GetProductsAsync();
+            Assert.Equal([first.Id, second.Id, third.Id], products.Select(item => item.Id).ToArray());
+            Assert.Equal("Обновлён", products[1].Name);
+
+            await catalog.DeleteProductAsync(first.Id);
+            var fourth = CreateProduct(ProductStatus.InStock, 4);
+            await catalog.UpsertProductAsync(fourth);
+            Assert.Equal([second.Id, third.Id, fourth.Id], (await catalog.GetProductsAsync()).Select(item => item.Id).ToArray());
+            Assert.Equal(thirdBefore, await Ticks(third));
+        }
+        finally { await connection.CloseAsync(); }
     }
 
     [Fact]
@@ -463,6 +572,20 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(post.Id, Assert.Single(await new SqliteMarketingRepository(store).GetContentPostsAsync()).Id);
         Assert.Equal("CLOUD", (await new SqliteBusinessSettingsRepository(store).GetAsync()).SaleNumberPrefix);
         Assert.Empty(await new SqliteCommerceRepository(store).GetPurchasesAsync());
+    }
+
+    [Fact]
+    public async Task Replacing_snapshot_does_not_raise_business_data_changed()
+    {
+        var changes = 0;
+        store!.BusinessDataChanged += (_, _) => changes++;
+
+        await store.ReplaceSnapshotAsync(new DonaSyncSnapshot
+        {
+            Products = [new Product { Sku = "PULL-1", Name = "Скачанный товар", Status = ProductStatus.InStock }]
+        });
+
+        Assert.Equal(0, changes);
     }
 
     private static Product CreateProduct(ProductStatus status = ProductStatus.InStock, int quantity = 5) => new()

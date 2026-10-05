@@ -110,70 +110,34 @@ public sealed class SqliteBusinessSettingsRepository(SqliteAggregateStore store)
 public sealed class SqliteStockMovementRepository(SqliteAggregateStore store) : IStockMovementRepository
 {
     private const string Movements = "stock.movements";
-    private readonly SemaphoreSlim gate = new(1, 1);
 
     public Task<IReadOnlyList<StockMovement>> GetAsync(CancellationToken cancellationToken = default) =>
         store.ReadCollectionAsync<StockMovement>(Movements, cancellationToken);
 
-    public async Task AddRangeAsync(IEnumerable<StockMovement> movements, CancellationToken cancellationToken = default)
-    {
-        var additions = movements.ToList();
-        if (additions.Count == 0) return;
-
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            var values = (await store.ReadCollectionAsync<StockMovement>(Movements, cancellationToken)).ToList();
-            // Stock movements are immutable facts. Replaying a sync batch must not
-            // turn one sale or receipt into two movements with the same identity.
-            var knownIds = values.Select(item => item.Id).ToHashSet();
-            values.AddRange(additions.Where(item => knownIds.Add(item.Id)));
-            await store.ReplaceCollectionAsync(Movements, values.Select(item => (item.Id, item)), cancellationToken);
-        }
-        finally { gate.Release(); }
-    }
+    // Stock movements are immutable facts. Replaying a sync batch must not
+    // turn one sale or receipt into two movements with the same identity.
+    public Task AddRangeAsync(IEnumerable<StockMovement> movements, CancellationToken cancellationToken = default) =>
+        store.ApplyAsync(movements.Select(item => AggregateOperation.InsertIfMissing(Movements, item.Id, item)), cancellationToken);
 }
 
 public sealed class SqlitePurchaseHistoryRepository(SqliteAggregateStore store) : IPurchaseHistoryRepository
 {
     private const string ProductCosts = "history.product-costs";
     private const string ExchangeRates = "history.exchange-rates";
-    private readonly SemaphoreSlim gate = new(1, 1);
 
-    public async Task<PurchaseHistoryData> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<PurchaseHistoryData> GetAsync(CancellationToken cancellationToken = default) => new()
     {
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            return new PurchaseHistoryData
-            {
-                ProductCosts = (await store.ReadCollectionAsync<ProductCostHistoryEntry>(ProductCosts, cancellationToken)).ToList(),
-                ExchangeRates = (await store.ReadCollectionAsync<ExchangeRateHistoryEntry>(ExchangeRates, cancellationToken)).ToList()
-            };
-        }
-        finally { gate.Release(); }
-    }
+        ProductCosts = (await store.ReadCollectionAsync<ProductCostHistoryEntry>(ProductCosts, cancellationToken)).ToList(),
+        ExchangeRates = (await store.ReadCollectionAsync<ExchangeRateHistoryEntry>(ExchangeRates, cancellationToken)).ToList()
+    };
 
-    public async Task AddAsync(
+    public Task AddAsync(
         IEnumerable<ProductCostHistoryEntry> productCosts,
         ExchangeRateHistoryEntry? exchangeRate,
         CancellationToken cancellationToken = default)
     {
-        var additions = productCosts.ToList();
-        await gate.WaitAsync(cancellationToken);
-        try
-        {
-            var costs = (await store.ReadCollectionAsync<ProductCostHistoryEntry>(ProductCosts, cancellationToken)).ToList();
-            var costIds = costs.Select(item => item.Id).ToHashSet();
-            costs.AddRange(additions.Where(item => costIds.Add(item.Id)));
-
-            var rates = (await store.ReadCollectionAsync<ExchangeRateHistoryEntry>(ExchangeRates, cancellationToken)).ToList();
-            if (exchangeRate is not null && rates.All(item => item.Id != exchangeRate.Id))
-                rates.Add(exchangeRate);
-
-            await store.ReplaceCollectionAsync(ProductCosts, costs.Select(item => (item.Id, item)), cancellationToken);
-            await store.ReplaceCollectionAsync(ExchangeRates, rates.Select(item => (item.Id, item)), cancellationToken);
-        }
-        finally { gate.Release(); }
+        var operations = productCosts.Select(item => AggregateOperation.InsertIfMissing(ProductCosts, item.Id, item)).ToList();
+        if (exchangeRate is not null) operations.Add(AggregateOperation.InsertIfMissing(ExchangeRates, exchangeRate.Id, exchangeRate));
+        return store.ApplyAsync(operations, cancellationToken);
     }
 }

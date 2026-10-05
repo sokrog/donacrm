@@ -19,13 +19,15 @@ builder.Services.AddScoped<IMarketingRepository>(services => services.GetRequire
 builder.Services.AddScoped<IBusinessSettingsRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<IStockMovementRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<IPurchaseHistoryRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
+builder.Services.AddScoped<IInventoryStore>(services => services.GetRequiredService<BrowserCrmRepository>());
 
 builder.Services.AddScoped<BrowserGoogleConnectionService>();
-builder.Services.AddScoped<GoogleSheetsSnapshotClient>();
 builder.Services.AddScoped<GoogleDriveFileClient>();
 builder.Services.AddScoped<GoogleDriveSyncSnapshotClient>();
 builder.Services.AddScoped<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
-builder.Services.AddScoped<IProductImageResolver, GoogleDriveProductImageResolver>();
+builder.Services.AddScoped<ILocalImageStore, BrowserLocalImageStore>();
+builder.Services.AddScoped<IProductImageResolver, ProductImageResolver>();
+builder.Services.AddScoped<LocalImageMigrationService>();
 builder.Services.AddScoped<IGoogleConnectionService>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<IGoogleAccessTokenProvider>(services => services.GetRequiredService<BrowserGoogleConnectionService>());
 builder.Services.AddScoped<BrowserGoogleSyncCheckpointStore>();
@@ -48,6 +50,7 @@ builder.Services.AddScoped<SalesInventoryService>();
 builder.Services.AddScoped<SalesPaymentService>();
 builder.Services.AddScoped<SalesReturnService>();
 builder.Services.AddScoped<PurchaseReceivingService>();
+builder.Services.AddScoped<ProductEditingService>();
 builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<AnalyticsService>();

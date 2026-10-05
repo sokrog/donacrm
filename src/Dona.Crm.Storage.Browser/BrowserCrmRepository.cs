@@ -14,11 +14,14 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     IBusinessSettingsRepository,
     IStockMovementRepository,
     IPurchaseHistoryRepository,
+    IInventoryStore,
     IBackupSnapshotStore
 {
     private const string StorageKey = "dona.crm.browser.snapshot.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly BrowserKeyValueStore store = new(javascript);
+    private bool persistenceRequested;
 
     public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Products;
     public async Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Products.FirstOrDefault(value => value.Id == id);
@@ -82,13 +85,26 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
         if (exchangeRate is not null && snapshot.PurchaseHistory.ExchangeRates.All(value => value.Id != exchangeRate.Id)) snapshot.PurchaseHistory.ExchangeRates.Add(exchangeRate);
     }, cancellationToken);
 
+    public Task CommitAsync(InventoryCommit commit, CancellationToken cancellationToken = default) => MutateAsync(snapshot =>
+    {
+        foreach (var product in commit.Products) Upsert(snapshot.Products, product, value => value.Id);
+        foreach (var sale in commit.Sales) Upsert(snapshot.Sales, sale, value => value.Id);
+        foreach (var purchase in commit.Purchases) Upsert(snapshot.Purchases, purchase, value => value.Id);
+        var movementIds = snapshot.StockMovements.Select(value => value.Id).ToHashSet();
+        snapshot.StockMovements.AddRange(commit.Movements.Where(value => movementIds.Add(value.Id)));
+        var costIds = snapshot.PurchaseHistory.ProductCosts.Select(value => value.Id).ToHashSet();
+        snapshot.PurchaseHistory.ProductCosts.AddRange(commit.ProductCosts.Where(value => costIds.Add(value.Id)));
+        if (commit.ExchangeRate is { } rate && snapshot.PurchaseHistory.ExchangeRates.All(value => value.Id != rate.Id)) snapshot.PurchaseHistory.ExchangeRates.Add(rate);
+    }, cancellationToken);
+
     public Task<DonaSyncSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => LoadAsync(cancellationToken);
     public Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default) => SaveSnapshotAsync(snapshot, cancellationToken);
 
     private async Task<DonaSyncSnapshot> LoadAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StorageKey);
+        await RequestPersistenceAsync();
+        var json = await store.GetAsync(StorageKey, cancellationToken);
         if (!string.IsNullOrWhiteSpace(json)) return JsonSerializer.Deserialize<DonaSyncSnapshot>(json, JsonOptions) ?? CreateInitialSnapshot();
         var initial = CreateInitialSnapshot();
         await SaveSnapshotAsync(initial, cancellationToken);
@@ -98,7 +114,15 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     private async Task SaveSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, StorageKey, JsonSerializer.Serialize(snapshot, JsonOptions));
+        await store.SetAsync(StorageKey, JsonSerializer.Serialize(snapshot, JsonOptions), cancellationToken);
+    }
+
+    private async Task RequestPersistenceAsync()
+    {
+        if (persistenceRequested) return;
+        persistenceRequested = true;
+        try { await javascript.InvokeVoidAsync("donaStore.requestPersistence"); }
+        catch (Exception exception) when (exception is JSException or InvalidOperationException or NotSupportedException) { }
     }
 
     private async Task MutateAsync(Action<DonaSyncSnapshot> mutation, CancellationToken cancellationToken)

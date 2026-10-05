@@ -5,6 +5,28 @@ using SQLite;
 
 namespace Dona.Crm.Storage.Sqlite;
 
+public enum AggregateWriteMode { Upsert, InsertIfMissing, Delete }
+
+/// <summary>Одна строковая операция над коллекцией агрегатов; создаётся фабричными методами.</summary>
+public sealed record AggregateOperation(string Collection, Guid Id, AggregateWriteMode Mode, string? Payload)
+{
+    public static AggregateOperation Upsert<T>(string collection, Guid id, T value) =>
+        new(Validate(collection), id, AggregateWriteMode.Upsert, SqliteAggregateStore.Serialize(value));
+
+    /// <summary>Неизменяемый факт: запись добавляется, только если строки с таким Id ещё нет.</summary>
+    public static AggregateOperation InsertIfMissing<T>(string collection, Guid id, T value) =>
+        new(Validate(collection), id, AggregateWriteMode.InsertIfMissing, SqliteAggregateStore.Serialize(value));
+
+    public static AggregateOperation Delete(string collection, Guid id) =>
+        new(Validate(collection), id, AggregateWriteMode.Delete, null);
+
+    private static string Validate(string collection)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(collection);
+        return collection;
+    }
+}
+
 public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -69,6 +91,78 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
             BusinessDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Применяет набор строковых операций одной транзакцией: либо все изменения сохранены, либо ни одного.
+    /// Существующие строки сохраняют свою позицию, новые добавляются в конец коллекции.
+    /// </summary>
+    public async Task ApplyAsync(IEnumerable<AggregateOperation> operations, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operations);
+        cancellationToken.ThrowIfCancellationRequested();
+        var batch = operations.ToList();
+        if (batch.Count == 0) return;
+
+        var changedBusinessData = false;
+        await writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var connection = await GetDatabaseAsync(cancellationToken);
+            await connection.RunInTransactionAsync(transaction =>
+            {
+                var nextOrder = new Dictionary<string, int>(StringComparer.Ordinal);
+                var changed = false;
+                foreach (var operation in batch)
+                {
+                    var key = CreateKey(operation.Collection, operation.Id);
+                    var existing = transaction.Find<AggregateRecord>(key);
+                    var now = DateTimeOffset.UtcNow.UtcTicks;
+                    var touched = false;
+                    switch (operation.Mode)
+                    {
+                        case AggregateWriteMode.Delete:
+                            touched = existing is not null && transaction.Delete<AggregateRecord>(key) > 0;
+                            break;
+                        case AggregateWriteMode.InsertIfMissing when existing is not null:
+                            break;
+                        default:
+                            if (existing is not null)
+                            {
+                                existing.Payload = operation.Payload!;
+                                existing.UpdatedAtUtcTicks = now;
+                                transaction.Update(existing);
+                            }
+                            else
+                            {
+                                if (!nextOrder.TryGetValue(operation.Collection, out var order))
+                                    order = transaction.ExecuteScalar<int>("SELECT COALESCE(MAX(SortOrder), -1) FROM aggregate_records WHERE collection = ?", operation.Collection) + 1;
+                                nextOrder[operation.Collection] = order + 1;
+                                transaction.Insert(new AggregateRecord { Key = key, Collection = operation.Collection, SortOrder = order, Payload = operation.Payload!, UpdatedAtUtcTicks = now });
+                            }
+                            touched = true;
+                            break;
+                    }
+                    if (touched && IsBusinessCollection(operation.Collection)) changed = true;
+                }
+                changedBusinessData = changed;
+            });
+        }
+        finally
+        {
+            writeGate.Release();
+        }
+
+        if (changedBusinessData)
+            BusinessDataChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal static string Serialize<T>(T value) => JsonSerializer.Serialize(value, JsonOptions);
+
+    /// <summary>
+    /// Atomically replaces all authoritative collections with a snapshot from Google pull or a backup restore.
+    /// Deliberately does NOT raise <see cref="BusinessDataChanged"/>: that event enqueues a Google upload, and the
+    /// replaced data was either just downloaded (pull) or must be reviewed by the user first (restore). The sync status
+    /// is fingerprint based, so it reports local changes against the last synced checkpoint without any queueing.
+    /// </summary>
     public async Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);

@@ -22,7 +22,9 @@ public static class MauiProgram
 #else
 			?? "Production";
 #endif
+		// In a packaged MSIX the working directory is not the install directory.
 		builder.Configuration
+			.SetBasePath(AppContext.BaseDirectory)
 			.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
 			.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
 		builder
@@ -40,11 +42,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton<MauiGoogleConnectionService>();
 		builder.Services.AddSingleton<IGoogleConnectionService>(services => services.GetRequiredService<MauiGoogleConnectionService>());
 		builder.Services.AddSingleton<IGoogleAccessTokenProvider>(services => services.GetRequiredService<MauiGoogleConnectionService>());
-		builder.Services.AddSingleton<GoogleSheetsSnapshotClient>();
 		builder.Services.AddSingleton<GoogleDriveFileClient>();
 		builder.Services.AddSingleton<GoogleDriveSyncSnapshotClient>();
 		builder.Services.AddSingleton<IPersonalCloudBackupService, GoogleDrivePersonalBackupService>();
-		builder.Services.AddSingleton<IProductImageResolver, GoogleDriveProductImageResolver>();
+		builder.Services.AddSingleton<ILocalImageStore>(_ => new FileLocalImageStore(Path.Combine(FileSystem.Current.AppDataDirectory, "product-images")));
+		builder.Services.AddSingleton<IProductImageResolver, ProductImageResolver>();
+		builder.Services.AddSingleton<LocalImageMigrationService>();
 		builder.Services.AddSingleton<MauiGoogleSyncService>();
 		builder.Services.AddSingleton<IGoogleSyncService>(services => services.GetRequiredService<MauiGoogleSyncService>());
 		builder.Services.AddSingleton<ILocalSyncResetService>(services => services.GetRequiredService<MauiGoogleSyncService>());
@@ -88,6 +91,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IStockMovementRepository>(services => services.GetRequiredService<SqliteStockMovementRepository>());
 		builder.Services.AddSingleton<SqlitePurchaseHistoryRepository>();
 		builder.Services.AddSingleton<IPurchaseHistoryRepository>(services => services.GetRequiredService<SqlitePurchaseHistoryRepository>());
+		builder.Services.AddSingleton<SqliteInventoryStore>();
+		builder.Services.AddSingleton<IInventoryStore>(services => services.GetRequiredService<SqliteInventoryStore>());
 		builder.Services.AddSingleton<SqliteSyncStore>();
 		builder.Services.AddSingleton<IBackupSnapshotStore>(services => services.GetRequiredService<SqliteSyncStore>());
 		builder.Services.AddSingleton<BackupRestoreService>();
@@ -103,6 +108,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SalesPaymentService>();
 		builder.Services.AddSingleton<SalesReturnService>();
 		builder.Services.AddSingleton<PurchaseReceivingService>();
+		builder.Services.AddSingleton<ProductEditingService>();
 		builder.Services.AddSingleton<SupplierAnalyticsService>();
 		builder.Services.AddSingleton<IntermediaryAnalyticsService>();
 		builder.Services.AddSingleton<AnalyticsService>();

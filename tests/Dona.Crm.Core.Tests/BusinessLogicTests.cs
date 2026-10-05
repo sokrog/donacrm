@@ -120,10 +120,8 @@ public sealed class PurchaseReceivingServiceTests
         var supplierId = Guid.NewGuid();
         var purchase = new Purchase { Number = "PO-1", SupplierId = supplierId, SupplierName = "1688 Store", CnyRateUzs = 1_800, AgentCommissionPercent = 5, InternationalShippingUzs = 90_000, Items = [item] };
         var catalog = new MemoryCatalog(product);
-        var commerce = new MemoryCommerce();
-        var movements = new MemoryStockMovements();
-        var purchaseHistory = new MemoryPurchaseHistory();
-        var service = new PurchaseReceivingService(catalog, commerce, movements, purchaseHistory);
+        var store = new MemoryInventoryStore();
+        var service = new PurchaseReceivingService(catalog, store);
 
         var firstReceiptId = Guid.NewGuid();
         var first = await service.ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 8, 1)], firstReceiptId);
@@ -142,11 +140,10 @@ public sealed class PurchaseReceivingServiceTests
         Assert.Equal(9, item.StockedQuantity);
         Assert.Equal(PurchaseStatus.Received, purchase.Status);
         Assert.Equal(2, purchase.Receipts.Count);
-        var history = await movements.GetAsync();
-        Assert.Collection(history,
+        Assert.Collection(store.Movements,
             x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(7, x.QuantityDelta); },
             x => { Assert.Equal(StockMovementType.PurchaseReceipt, x.Type); Assert.Equal(2, x.QuantityDelta); });
-        var costs = await purchaseHistory.GetAsync();
+        var costs = store.History;
         Assert.Equal(2, costs.ProductCosts.Count);
         Assert.Equal(2, costs.ExchangeRates.Count);
         Assert.All(costs.ProductCosts, x => { Assert.Equal("TS-1", x.Sku); Assert.Equal("1688 Store", x.SupplierName); Assert.Equal(1_800, x.CnyRateUzs); Assert.True(x.UnitLandedCostUzs > 0); });
@@ -159,14 +156,14 @@ public sealed class PurchaseReceivingServiceTests
     {
         var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 10, ReservedQuantity = 3 };
         var product = new Product { Name = "Худи", Sku = "HD-1", Variants = [variant] };
-        var movements = new MemoryStockMovements();
-        var service = new StockAdjustmentService(new MemoryCatalog(product), movements);
+        var store = new MemoryInventoryStore();
+        var service = new StockAdjustmentService(new MemoryCatalog(product), store);
         var request = new StockAdjustmentRequest { ProductId = product.Id, ProductVariantId = variant.Id, Reason = StockAdjustmentReason.InventoryCount, NewQuantity = 7, Note = "Фактический пересчёт" };
 
         await service.AdjustAsync(request);
 
         Assert.Equal(7, variant.Quantity);
-        var movement = Assert.Single(await movements.GetAsync());
+        var movement = Assert.Single(store.Movements);
         Assert.Equal(-3, movement.QuantityDelta);
         Assert.Equal("Фактический пересчёт", movement.Note);
         request.NewQuantity = 2;
@@ -179,33 +176,6 @@ public sealed class PurchaseReceivingServiceTests
         public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
         public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-    private sealed class MemoryCommerce : ICommerceRepository
-    {
-        public Task<IReadOnlyList<Supplier>> GetSuppliersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
-        public Task UpsertSupplierAsync(Supplier supplier, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteSupplierAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Intermediary>> GetIntermediariesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Intermediary>>([]);
-        public Task UpsertIntermediaryAsync(Intermediary intermediary, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteIntermediaryAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Category>>([]);
-        public Task UpsertCategoryAsync(Category category, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteCategoryAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Purchase>> GetPurchasesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Purchase>>([]);
-        public Task<Purchase?> GetPurchaseAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Purchase?>(null);
-        public Task UpsertPurchaseAsync(Purchase purchase, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-    private sealed class MemoryPurchaseHistory : IPurchaseHistoryRepository
-    {
-        private readonly PurchaseHistoryData _data = new();
-        public Task<PurchaseHistoryData> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(_data);
-        public Task AddAsync(IEnumerable<ProductCostHistoryEntry> productCosts, ExchangeRateHistoryEntry? exchangeRate, CancellationToken cancellationToken = default)
-        {
-            var ids = _data.ProductCosts.Select(x => x.Id).ToHashSet();
-            _data.ProductCosts.AddRange(productCosts.Where(x => ids.Add(x.Id)));
-            if (exchangeRate is not null && _data.ExchangeRates.All(x => x.Id != exchangeRate.Id)) _data.ExchangeRates.Add(exchangeRate);
-            return Task.CompletedTask;
-        }
     }
 }
 
@@ -378,9 +348,8 @@ public sealed class SalesInventoryServiceTests
         var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 3, UnitPriceUzs = 120_000 };
         var sale = new Sale { Number = "SALE-1", Items = [item] };
         var catalog = new SalesMemoryCatalog(product);
-        var sales = new MemorySales();
-        var movements = new MemoryStockMovements();
-        var service = new SalesInventoryService(catalog, sales, movements);
+        var movements = new MemoryInventoryStore();
+        var service = new SalesInventoryService(catalog, movements);
 
         await service.ReserveAsync(sale);
         await service.ReserveAsync(sale);
@@ -399,8 +368,7 @@ public sealed class SalesInventoryServiceTests
         Assert.Equal(10, variant.Quantity);
         Assert.Equal(3, item.ReturnedQuantity);
         Assert.Equal(SaleStatus.Returned, sale.Status);
-        var history = await movements.GetAsync();
-        Assert.Collection(history,
+        Assert.Collection(movements.Movements,
             x => { Assert.Equal(StockMovementType.Reservation, x.Type); Assert.Equal(3, x.ReservedDelta); },
             x => { Assert.Equal(StockMovementType.Sale, x.Type); Assert.Equal(-3, x.QuantityDelta); Assert.Equal(-3, x.ReservedDelta); },
             x => { Assert.Equal(StockMovementType.Return, x.Type); Assert.Equal(3, x.QuantityDelta); });
@@ -412,7 +380,7 @@ public sealed class SalesInventoryServiceTests
         var variant = new ProductVariant { Quantity = 5 };
         var product = new Product { Name = "Сумка", Sku = "BG-2", Variants = [variant] };
         var sale = new Sale { Number = "SALE-2", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2, UnitPriceUzs = 100 }] };
-        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemoryInventoryStore());
 
         await service.ReserveAsync(sale);
         await service.CancelAsync(sale);
@@ -429,7 +397,7 @@ public sealed class SalesInventoryServiceTests
         var variant = new ProductVariant { Color = "Черный", Size = "L", Quantity = 2 };
         var product = new Product { Name = "Худи", Sku = "HD-3", Variants = [variant] };
         var sale = new Sale { Number = "SALE-3", Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 3, UnitPriceUzs = 200 }] };
-        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemoryInventoryStore());
 
         var error = await Assert.ThrowsAsync<InventoryException>(() => service.ReserveAsync(sale));
 
@@ -446,7 +414,7 @@ public sealed class SalesInventoryServiceTests
         var product = new Product { Name = "Ремень", Sku = "BL-1", Variants = [variant] };
         SaleItem Line() => new() { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 1, UnitPriceUzs = 50 };
         var sale = new Sale { Number = "SALE-4", Items = [Line(), Line()] };
-        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemoryInventoryStore());
 
         await Assert.ThrowsAsync<InventoryException>(() => service.ReserveAsync(sale));
         Assert.Equal(0, variant.ReservedQuantity);
@@ -459,7 +427,7 @@ public sealed class SalesInventoryServiceTests
         var product = new Product { Name = "Кепка", Sku = "CP-1", Variants = [variant] };
         var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 2, UnitPriceUzs = 100 };
         var sale = new Sale { Number = "SALE-5", Items = [item] };
-        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemorySales());
+        var service = new SalesInventoryService(new SalesMemoryCatalog(product), new MemoryInventoryStore());
 
         await Assert.ThrowsAsync<SaleTransitionException>(() => service.CompleteAsync(sale));
         await service.ReserveAsync(sale);
@@ -486,8 +454,8 @@ public sealed class SalesInventoryServiceTests
         var product = new Product { Name = "Футболка", Sku = "TS-R", Variants = [variant] };
         var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 3, SoldQuantity = 3, UnitPriceUzs = 100, UnitCostUzs = 40 };
         var sale = new Sale { Number = "SALE-R", Status = SaleStatus.Completed, Items = [item] };
-        var movements = new MemoryStockMovements();
-        var service = new SalesReturnService(new SalesMemoryCatalog(product), new MemorySales(), movements);
+        var movements = new MemoryInventoryStore();
+        var service = new SalesReturnService(new SalesMemoryCatalog(product), movements);
         var first = new SaleReturn { Reason = "Не подошёл размер", RefundAmountUzs = 100, Items = [new SaleReturnItem { SaleItemId = item.Id, Quantity = 1, Disposition = ReturnDisposition.Restock }] };
 
         await service.CreateAsync(sale, first);
@@ -508,7 +476,7 @@ public sealed class SalesInventoryServiceTests
         Assert.Equal(SaleStatus.Returned, sale.Status);
         Assert.Equal(0, sale.NetTotalUzs);
         Assert.Equal(80, sale.CostUzs);
-        var movement = Assert.Single(await movements.GetAsync());
+        var movement = Assert.Single(movements.Movements);
         Assert.Equal(1, movement.QuantityDelta);
         Assert.Equal("SaleReturn", movement.SourceType);
     }
@@ -517,7 +485,7 @@ public sealed class SalesInventoryServiceTests
     public async Task Multiple_payments_close_debt_and_money_refund_tracks_return_document()
     {
         var sale = new Sale { Number = "SALE-P", Status = SaleStatus.Reserved, Items = [new SaleItem { ProductName = "Худи", Quantity = 3, UnitPriceUzs = 100 }] };
-        var service = new SalesPaymentService(new MemorySales());
+        var service = new SalesPaymentService(new MemoryInventoryStore());
         var first = new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, Method = PaymentMethod.Payme, AmountUzs = 100 };
 
         await service.AddAsync(sale, first);
@@ -558,16 +526,6 @@ public sealed class SalesInventoryServiceTests
         public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
         public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-
-    private sealed class MemorySales : ISalesRepository
-    {
-        public Task<IReadOnlyList<Customer>> GetCustomersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Customer>>([]);
-        public Task UpsertCustomerAsync(Customer customer, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Sale>>([]);
-        public Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Sale?>(null);
-        public Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
 
@@ -932,13 +890,6 @@ public sealed class SaleDiscountCalculatorTests
         Assert.Equal(100_000m, SaleDiscountCalculator.NormalizeAmount(100_000m, 150_000m));
 }
 
-internal sealed class MemoryStockMovements : IStockMovementRepository
-{
-    private readonly List<StockMovement> _items = [];
-    public Task<IReadOnlyList<StockMovement>> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StockMovement>>(_items);
-    public Task AddRangeAsync(IEnumerable<StockMovement> movements, CancellationToken cancellationToken = default) { _items.AddRange(movements); return Task.CompletedTask; }
-}
-
 #if LEGACY_WEB_TESTS
 public sealed class LoadingStateTests
 {
@@ -1044,31 +995,6 @@ public sealed class GoogleSyncSnapshotTests
 
 public sealed class GoogleSyncPushTests
 {
-    [Fact]
-    public void Mapper_preserves_nested_business_rows_and_existing_sheet_contract()
-    {
-        var product = new Product { Name = "Dress", Variants = [new ProductVariant { Color = "Black", Size = "M", Quantity = 2 }] };
-        var sale = new Sale { Number = "SALE-1", Payments = [new SalePayment { AmountUzs = 125_000, Status = PaymentStatus.Completed }] };
-        var collection = new ProductCollection { Name = "Summer", Images = [new ProductImage { FileName = "collection.webp", IsMain = true }] };
-        var outfit = new Outfit { Name = "Evening", Images = [new ProductImage { FileName = "outfit.webp", IsMain = true }] };
-        var snapshot = new DonaSyncSnapshot
-        {
-            Products = [product],
-            Sales = [sale],
-            Marketing = new MarketingData { Collections = [collection], Outfits = [outfit] }
-        };
-
-        var sheets = GoogleSyncSheetMapper.Map(snapshot);
-
-        Assert.Equal(27, sheets.Count);
-        Assert.Equal(sheets.Count, sheets.Select(value => value.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Equal(product.Id.ToString(), sheets.Single(value => value.Title == "ProductVariants").Rows.Single()[1]);
-        Assert.Equal(sale.Id.ToString(), sheets.Single(value => value.Title == "Payments").Rows.Single()[1]);
-        Assert.Equal(collection.Id.ToString(), sheets.Single(value => value.Title == "CollectionImages").Rows.Single()[1]);
-        Assert.Equal(outfit.Id.ToString(), sheets.Single(value => value.Title == "OutfitImages").Rows.Single()[1]);
-        Assert.Equal("PurchaseCurrencyCode", sheets.Single(value => value.Title == "Products").Headers[^1]);
-    }
-
 #if LEGACY_WEB_TESTS
     [Fact]
     public void Atomic_update_covers_the_full_existing_grid_to_clear_stale_rows()
