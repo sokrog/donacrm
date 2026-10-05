@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Globalization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 #if !WINDOWS
 using Microsoft.Maui.DevFlow.Agent;
@@ -15,6 +16,7 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
+		CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("ru-RU");
 		var builder = MauiApp.CreateBuilder();
 		var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
 #if DEBUG

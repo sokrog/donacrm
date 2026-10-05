@@ -6,7 +6,16 @@
 
 <PageTitle>Синхронизация — DONA CRM</PageTitle>
 <div class="sync-page">
-    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/connections" aria-label="Вернуться к подключениям"><OrbitIcon Name="back" /></a><div><small>Подключения</small><h1>Синхронизация</h1><p>Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p></div></div></header>
+    <header>
+        <div class="orbit-secondary-heading">
+            <a class="orbit-icon-button orbit-back-button" href="/connections" aria-label="Вернуться к подключениям"><OrbitIcon Name="back" /></a>
+            <div>
+                <small>Подключения</small>
+                <h1>Синхронизация</h1>
+                <p>Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
+            </div>
+        </div>
+    </header>
 
     @if (loading)
     {
@@ -18,11 +27,21 @@
     }
     else
     {
-        <section class="direction-card"><span><OrbitIcon Name="cloud" /></span><div><strong>@Platform.StorageTitle ↔ личное облако Google</strong><small>Сначала сравнение, затем выбранное направление</small></div></section>
+        <section class="direction-card">
+            <span><OrbitIcon Name="cloud" /></span>
+            <div>
+                <strong>@Platform.StorageTitle ↔ личное облако Google</strong>
+                <small>Сначала сравнение, затем выбранное направление</small>
+            </div>
+        </section>
 
         @if (preview is null)
         {
-            <section class="sync-intro"><h2>Безопасный предварительный просмотр</h2><p>Приложение прочитает скрытую папку приложения в вашем Google Drive и покажет только количество записей. Локальные данные останутся без изменений.</p><button disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button></section>
+            <section class="sync-intro">
+                <h2>Безопасный предварительный просмотр</h2>
+                <p>Приложение прочитает скрытую папку приложения в вашем Google Drive и покажет только количество записей. Локальные данные останутся без изменений.</p>
+                <button disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button>
+            </section>
         }
         else
         {
@@ -32,30 +51,63 @@
             <section class="section-list" aria-label="Сравнение разделов">
                 @foreach (var syncSection in preview.Sections)
                 {
-                    <div><span><strong>@syncSection.Title</strong><small>Локально @syncSection.LocalCount · Google @syncSection.GoogleCount</small></span><b class="@(syncSection.LocalCount == syncSection.GoogleCount ? "same" : null)">@(syncSection.LocalCount == syncSection.GoogleCount ? "Совпадает" : "Отличается")</b></div>
+                    <div>
+                        <span>
+                            <strong>@syncSection.Title</strong>
+                            <small>Локально @syncSection.LocalCount · Google @syncSection.GoogleCount</small>
+                        </span>
+                        <b class="@(syncSection.LocalCount == syncSection.GoogleCount ? "same" : null)">@(syncSection.LocalCount == syncSection.GoogleCount ? "Совпадает" : "Отличается")</b>
+                    </div>
                 }
             </section>
-            <p class="captured">@(HasGoogleSnapshot ? $"Снимок личного облака: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}" : "Снимок личного облака ещё не создан. Первая отправка создаст его; загрузка пока недоступна.")</p>
+            <p class="captured">
+                @(HasGoogleSnapshot
+                    ? $"Снимок личного облака: {preview.CapturedAt.ToLocalTime():dd.MM.yyyy HH:mm}"
+                    : "Снимок личного облака ещё не создан. Первая отправка создаст его; загрузка пока недоступна.")
+            </p>
 
             @if (!confirmPull && !confirmPush)
             {
                 <button class="refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
-                <div class="sync-actions"><button class="secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button><button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button></div>
+                <div class="sync-actions">
+                    <button class="secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
+                    <button class="primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>
+                </div>
             }
             else if (confirmPull)
             {
-                <section class="confirm-card"><strong>Заменить локальный снимок?</strong><p>Товары, закупки, продажи, маркетинг и настройки в @Platform.StorageTitle.ToLowerInvariant() будут заменены данными из Google.</p><div><button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button></div></section>
+                <section class="confirm-card">
+                    <strong>Заменить локальный снимок?</strong>
+                    <p>Товары, закупки, продажи, маркетинг и настройки в @Platform.StorageTitle.ToLowerInvariant() будут заменены данными из Google.</p>
+                    <div>
+                        <button disabled="@busy" @onclick="() => confirmPull = false">Отмена</button>
+                        <button class="danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button>
+                    </div>
+                </section>
             }
             else
             {
-                <section class="confirm-card push"><strong>Заменить данные в личном облаке Google?</strong><p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию снимка, чтобы не перезаписать изменения с другого устройства.</p><div><button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button><button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button></div></section>
+                <section class="confirm-card push">
+                    <strong>Заменить данные в личном облаке Google?</strong>
+                    <p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию снимка, чтобы не перезаписать изменения с другого устройства.</p>
+                    <div>
+                        <button disabled="@busy" @onclick="() => confirmPush = false">Отмена</button>
+                        <button class="danger" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button>
+                    </div>
+                </section>
             }
         }
 
         @if (message is not null) { <p class="sync-message @(success ? "success" : null)" role="status">@message</p> }
         @if (retryOperation is not null)
         {
-            <section class="retry-card"><span><strong>Предыдущая отправка не подтверждена</strong><small>@retryOperation.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm") · сохранён точный снимок</small></span><button disabled="@busy" @onclick="RetryAsync">Повторить</button></section>
+            <section class="retry-card">
+                <span>
+                    <strong>Предыдущая отправка не подтверждена</strong>
+                    <small>@retryOperation.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm") · сохранён точный снимок</small>
+                </span>
+                <button disabled="@busy" @onclick="RetryAsync">Повторить</button>
+            </section>
         }
     }
 </div>
@@ -63,12 +115,15 @@
 <style>
     .refresh-action { display:block; margin:11px auto 0; border:0; background:transparent; color:var(--dona-muted); font-size:var(--dona-type-caption); text-decoration:underline; text-underline-offset:3px }
     .confirm-card.push { border-color:rgba(98,220,235,.22) }
-    .confirm-card.push .danger { background:rgba(98,220,235,.12); color:var(--dona-cyan) }
+    .confirm-card.push .danger { background:rgba(98,220,235,.12); color:var(--dona-success) }
     .retry-card { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:13px; padding:13px; border:1px solid rgba(255,190,100,.2); border-radius:16px; background:rgba(24,17,34,.78) }
     .retry-card strong, .retry-card small { display:block }
     .retry-card strong { font-size:var(--dona-type-caption) }
     .retry-card small { margin-top:4px; color:var(--dona-muted); font-size:var(--dona-type-micro) }
-    .retry-card button { min-height:40px; padding:0 13px; border:1px solid var(--dona-line-strong); border-radius:11px; background:transparent; color:var(--dona-text); font-size:var(--dona-type-caption); font-weight:700 }
+    .retry-card button {
+        min-height:40px; padding:0 13px; border:1px solid var(--dona-line-strong); border-radius:11px;
+        background:transparent; color:var(--dona-text); font-size:var(--dona-type-caption); font-weight:700
+    }
 </style>
 
 @code {
@@ -130,7 +185,7 @@
         if (busy) return;
         busy = true; message = null;
         try { message = await action(); success = true; }
-        catch (Exception exception) { message = exception.Message; success = false; }
+        catch (Exception exception) { message = UserErrors.Describe(exception, "Не удалось выполнить синхронизацию. Попробуйте ещё раз."); success = false; }
         finally { busy = false; }
     }
 }

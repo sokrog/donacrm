@@ -145,7 +145,7 @@
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = UserErrors.Describe(ex, "Не удалось загрузить публикацию. Попробуйте ещё раз.");
         }
         finally
         {
@@ -184,7 +184,7 @@
         }
         catch (Exception ex)
         {
-            message = ex.Message;
+            message = UserErrors.Describe(ex, "Не удалось сохранить публикацию. Попробуйте ещё раз.");
         }
         finally
         {
@@ -209,7 +209,7 @@
         }
         catch (Exception ex)
         {
-            message = ex.Message;
+            message = UserErrors.Describe(ex, "Не удалось удалить публикацию. Попробуйте ещё раз.");
             confirmDelete = false;
         }
         finally

@@ -172,7 +172,7 @@
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = UserErrors.Describe(ex, "Не удалось загрузить данные. Попробуйте ещё раз.");
         }
         finally
         {
@@ -262,7 +262,7 @@
         }
         catch (Exception ex)
         {
-            saveError = ex.Message;
+            saveError = UserErrors.Describe(ex, "Не удалось сохранить. Попробуйте ещё раз.");
         }
         finally
         {
@@ -295,7 +295,7 @@
         }
         catch (Exception ex)
         {
-            saveError = ex.Message;
+            saveError = UserErrors.Describe(ex, "Не удалось удалить. Попробуйте ещё раз.");
             confirmDelete = false;
         }
         finally

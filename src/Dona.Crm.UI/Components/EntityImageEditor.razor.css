@@ -59,7 +59,7 @@ label {
     min-height: var(--dona-control-height);
     border-color: rgba(var(--dona-success-rgb), 0.24);
     background: rgba(var(--dona-success-rgb), 0.08);
-    color: var(--dona-cyan);
+    color: var(--dona-success);
 }
 
 .entity-images__grid {
@@ -92,7 +92,7 @@ label {
     cursor:zoom-in;
 }
 
-.entity-image-preview-button:focus-visible { outline:2px solid var(--dona-cyan); outline-offset:-3px; }
+.entity-image-preview-button:focus-visible { outline:2px solid var(--dona-brand); outline-offset:-3px; }
 
 .entity-image-lightbox {
     position:fixed;
@@ -128,7 +128,7 @@ label {
 
 .entity-images__item button.selected {
     background: rgba(var(--dona-success-rgb), 0.08);
-    color: var(--dona-cyan);
+    color: var(--dona-success);
 }
 
 .entity-images__item button.delete {
@@ -143,8 +143,7 @@ label {
     font-size: var(--dona-type-small);
     line-height: 1.45;
 }
-
-.entity-images__message { color: var(--dona-cyan); }
+.entity-images__message { color: var(--dona-success); }
 .entity-images__message.error { color: var(--dona-danger); }
 
 @media (max-width: 390px) {

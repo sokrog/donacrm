@@ -209,8 +209,8 @@ public sealed class GoogleDriveFileClient(HttpClient http)
         value.GetProperty("id").GetString() ?? throw new InvalidOperationException("Google Drive не вернул ID файла."),
         value.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty,
         value.TryGetProperty("mimeType", out var mimeType) ? mimeType.GetString() ?? string.Empty : string.Empty,
-        value.TryGetProperty("size", out var size) && long.TryParse(size.ToString(), out var parsedSize) ? parsedSize : 0,
-        value.TryGetProperty("modifiedTime", out var modifiedTime) && DateTimeOffset.TryParse(modifiedTime.GetString(), out var parsedModifiedAt)
+        value.TryGetProperty("size", out var size) && long.TryParse(size.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedSize) ? parsedSize : 0,
+        value.TryGetProperty("modifiedTime", out var modifiedTime) && DateTimeOffset.TryParse(modifiedTime.GetString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedModifiedAt)
             ? parsedModifiedAt
             : null,
         etag);

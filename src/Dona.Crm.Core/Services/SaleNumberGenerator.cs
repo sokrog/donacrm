@@ -13,8 +13,8 @@ public static partial class SaleNumberGenerator
 
     public static string Generate(IEnumerable<Sale> existingSales, string? prefix, DateTimeOffset now)
     {
-        var stem = $"{NormalizePrefix(prefix)}-{now:yyyyMMdd}-";
-        var last = existingSales.Select(x => x.Number).Where(x => x.StartsWith(stem, StringComparison.OrdinalIgnoreCase)).Select(x => int.TryParse(x[stem.Length..], out var value) ? value : 0).DefaultIfEmpty().Max();
+        var stem = $"{NormalizePrefix(prefix)}-{now.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture)}-";
+        var last = existingSales.Select(x => x.Number).Where(x => x.StartsWith(stem, StringComparison.OrdinalIgnoreCase)).Select(x => int.TryParse(x[stem.Length..], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : 0).DefaultIfEmpty().Max();
         return $"{stem}{last + 1:D3}";
     }
 

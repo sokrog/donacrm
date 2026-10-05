@@ -36,7 +36,16 @@
         <ul class="attention-list">
             @foreach (var item in items)
             {
-                <li><a href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span><strong>@item.Title</strong><small>@item.Detail</small></span><span class="chevron" aria-hidden="true">›</span></a></li>
+                <li>
+                    <a href="@item.Href">
+                        <span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span>
+                        <span>
+                            <strong>@item.Title</strong>
+                            <small>@item.Detail</small>
+                        </span>
+                        <span class="chevron" aria-hidden="true">›</span>
+                    </a>
+                </li>
             }
         </ul>
     }
@@ -75,12 +84,12 @@
             }
             catch (Exception exception)
             {
-                items.Insert(0, new("cloud", "magenta", "Не удалось проверить Google", exception.Message, "/connections"));
+                items.Insert(0, new("cloud", "magenta", "Не удалось проверить Google", UserErrors.Describe(exception, "Не удалось проверить Google. Попробуйте ещё раз."), "/connections"));
             }
         }
         catch (Exception exception)
         {
-            error = exception.Message;
+            error = UserErrors.Describe(exception, "Не удалось загрузить список внимания. Попробуйте ещё раз.");
         }
         finally
         {
@@ -98,7 +107,10 @@
             yield return new("truck", "cyan", purchase.Number, $"Ожидается поставка · осталось {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
         foreach (var post in posts.Where(post => post.Status is not ContentStatus.Published and not ContentStatus.Cancelled && post.ScheduledAt?.Date < DateTime.Today))
             yield return new("calendar", "magenta", post.Title, $"Публикация просрочена с {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
-        foreach (var post in posts.Where(post => post.Status is not ContentStatus.Published and not ContentStatus.Cancelled && post.ScheduledAt?.Date >= DateTime.Today && post.ScheduledAt?.Date <= DateTime.Today.AddDays(settings.ContentPlanningHorizonDays)))
+        foreach (var post in posts.Where(post =>
+            post.Status is not ContentStatus.Published and not ContentStatus.Cancelled
+            && post.ScheduledAt?.Date >= DateTime.Today
+            && post.ScheduledAt?.Date <= DateTime.Today.AddDays(settings.ContentPlanningHorizonDays)))
             yield return new("calendar", "cyan", post.Title, $"Публикация запланирована на {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
         foreach (var product in snapshot.ProductsWithoutImages)
             yield return new("image", "magenta", product.Name, "Добавьте фотографию товара", "/products");

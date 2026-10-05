@@ -51,7 +51,7 @@
             await SettingsRepository.SaveAsync(settings);
             Navigation.NavigateTo("/products", replace: true);
         }
-        catch (Exception exception) { error = exception.Message; }
+        catch (Exception exception) { error = UserErrors.Describe(exception, "Не удалось завершить настройку. Попробуйте ещё раз."); }
         finally { saving = false; }
     }
 

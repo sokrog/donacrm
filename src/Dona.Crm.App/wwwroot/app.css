@@ -31,7 +31,7 @@ h1:focus {
     border-radius: 16px;
     background: rgba(var(--dona-success-rgb), 0.08);
     color: var(--dona-success);
-    font-size: .78rem;
+    font-size: .8rem;
     font-weight: 800;
     letter-spacing: .08em;
 }
@@ -53,7 +53,7 @@ h1:focus {
 
 .app-boot small {
     color: var(--dona-muted);
-    font-size: .78rem;
+    font-size: .8rem;
 }
 
 @keyframes app-boot-spin {

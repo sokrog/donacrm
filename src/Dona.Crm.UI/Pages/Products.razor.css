@@ -2,11 +2,11 @@
 .catalog-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .catalog-header p { margin: 0 0 4px; color: var(--dona-brand); font-size: var(--dona-type-small); font-weight: 700; letter-spacing: .1em; }
 h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; }
-.add-button { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 17px; background: linear-gradient(145deg, var(--dona-purple), var(--dona-brand-deep)); color: white; font-size: var(--dona-type-page-title); text-decoration: none; box-shadow: 0 10px 28px rgba(var(--dona-brand-rgb), 0.28); }
+.add-button { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 17px; background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep)); color: white; font-size: var(--dona-type-page-title); text-decoration: none; box-shadow: 0 10px 28px rgba(var(--dona-brand-rgb), 0.28); }
 .search-box label { display: block; margin: 0 0 8px; color: var(--dona-muted); font-size: var(--dona-type-small); }
 .search-box input { width: 100%; min-height: 50px; border: 1px solid var(--dona-line-strong); border-radius: 15px; padding: 0 15px; background: var(--dona-surface); color: var(--dona-text); font: inherit; }
-.search-box input:focus { outline: 3px solid rgba(var(--dona-success-rgb), 0.35); border-color: var(--dona-cyan); }
-.catalog-filters{display:flex;width:calc(100% + var(--dona-page-inline));gap:8px;overflow-x:auto;margin-top:12px;margin-right:calc(var(--dona-page-inline) * -1);padding:2px var(--dona-page-inline) 7px 0;scrollbar-width:thin;scrollbar-color:rgba(var(--dona-brand-rgb), 0.48) transparent;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x}.catalog-filters button{flex:0 0 auto;min-height:44px;border:1px solid var(--dona-line);border-radius:999px;padding:0 13px;background:var(--dona-surface);color:var(--dona-muted);font:inherit;font-size:var(--dona-type-small);font-weight:700}.catalog-filters button.active{border-color:rgba(var(--dona-success-rgb), 0.35);background:rgba(var(--dona-success-rgb), 0.1);color:var(--dona-cyan)}.catalog-filters::-webkit-scrollbar{height:5px}.catalog-filters::-webkit-scrollbar-thumb{border-radius:999px;background:rgba(var(--dona-brand-rgb), 0.48)}
+.search-box input:focus { outline: 3px solid rgba(var(--dona-brand-rgb), .55); border-color: var(--dona-brand); }
+.catalog-filters{display:flex;width:calc(100% + var(--dona-page-inline));gap:8px;overflow-x:auto;margin-top:12px;margin-right:calc(var(--dona-page-inline) * -1);padding:2px var(--dona-page-inline) 7px 0;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x}.catalog-filters button{flex:0 0 auto;min-height:44px;border:1px solid var(--dona-line);border-radius:999px;padding:0 13px;background:var(--dona-surface);color:var(--dona-muted);font:inherit;font-size:var(--dona-type-small);font-weight:700}.catalog-filters::-webkit-scrollbar{display:none}.catalog-filters button.active{border-color:var(--dona-brand);background:var(--dona-brand);color:#fff8fa}
 .catalog-filters .reset{margin-left:auto}.catalog-sort{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,220px);align-items:center;gap:12px;margin-top:12px;color:var(--dona-muted);font-size:var(--dona-type-small)}@media(max-width:390px){.catalog-sort{grid-template-columns:1fr;gap:7px}}
 .catalog-tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:12px; }
 .catalog-tools a { display:flex; min-height:58px; align-items:center; gap:9px; border:1px solid var(--dona-line); border-radius:15px; padding:9px 11px; background:var(--dona-surface); color:var(--dona-text); text-decoration:none; }
@@ -23,10 +23,10 @@ h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; 
 .product-info strong, .product-info small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-info strong { font-size: var(--dona-type-body); }
 .product-info small { margin: 4px 0 7px; color: var(--dona-muted); font-size: var(--dona-type-label); }
-.product-info .product-issues{margin:6px 0 0;color:var(--dona-amber);font-size:var(--dona-type-caption)}
+.product-info .product-issues{margin:6px 0 0;color:var(--dona-warning);font-size:var(--dona-type-caption)}
 .status { display: inline-block; border-radius: 20px; padding: 3px 7px; background: rgba(var(--dona-brand-rgb), 0.12); color: var(--dona-brand); font-size: var(--dona-type-caption); }
-.status.ok { color: var(--dona-cyan); background: rgba(var(--dona-success-rgb), 0.09); }
-.status.warning { color: var(--dona-amber); background: rgba(var(--dona-warning-rgb), 0.09); }
+.status.ok { color: var(--dona-success); background: rgba(var(--dona-success-rgb), 0.09); }
+.status.warning { color: var(--dona-warning); background: rgba(var(--dona-warning-rgb), 0.09); }
 .status.danger { color: var(--dona-danger); background: rgba(var(--dona-danger-rgb), 0.09); }
 .product-numbers { min-width: 74px; text-align: right; }
 .product-numbers strong, .product-numbers small, .product-numbers span { display: block; }
@@ -35,5 +35,5 @@ h1 { margin: 0; font-size: var(--dona-type-page-title); letter-spacing: -.04em; 
 .product-numbers span { margin-top: 10px; color: var(--dona-muted); font-size: var(--dona-type-small); }
 .catalog-state { margin-top: 18px; border: 1px solid var(--dona-line); border-radius: 18px; padding: 20px; background: var(--dona-surface); color: var(--dona-muted); font-size: var(--dona-type-body); }
 .catalog-state p { margin: 7px 0 14px; line-height: 1.5; }
-.catalog-state button { min-height: 44px; border: 0; border-radius: 12px; padding: 0 16px; background: var(--dona-purple); color: white; font-weight: 700; }
+.catalog-state button { min-height: 44px; border: 0; border-radius: 12px; padding: 0 16px; background: var(--dona-brand); color: white; font-weight: 700; }
 @media (max-width: 370px) { .product-card { grid-template-columns: 48px minmax(0,1fr); } .product-visual { width:48px; height:48px; } .product-numbers { grid-column: 2; display:flex; gap:5px; align-items:baseline; text-align:left; } .product-numbers span { margin:0 0 0 auto; } }

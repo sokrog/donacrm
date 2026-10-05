@@ -115,7 +115,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось загрузить клиентов: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить клиентов. Попробуйте ещё раз.");
         }
         finally
         {
@@ -162,7 +162,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось закрыть редактор: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось закрыть редактор. Попробуйте ещё раз.");
         }
     }
 
@@ -191,7 +191,7 @@
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            errorMessage = $"Не удалось сохранить клиента: {exception.Message}";
+            errorMessage = UserErrors.Describe(exception, "Не удалось сохранить клиента. Попробуйте ещё раз.");
         }
         finally
         {
@@ -226,7 +226,7 @@
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             confirmDelete = false;
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось удалить клиента. Попробуйте ещё раз.");
         }
         finally
         {

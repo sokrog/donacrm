@@ -1,8 +1,11 @@
+using System.Globalization;
 using Dona.Crm.Storage.Browser;
 using Dona.Crm.UI.Components;
 using Dona.Crm.Web.Services;
 using Dona.Crm.Web.Storage;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("ru-RU");
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<Routes>("#app");

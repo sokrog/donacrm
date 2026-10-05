@@ -108,7 +108,7 @@
         catch (Exception exception)
         {
             hasError = true;
-            message = exception.Message;
+            message = UserErrors.Describe(exception, "Не удалось добавить фотографию. Попробуйте другой файл.");
         }
         finally
         {

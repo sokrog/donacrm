@@ -8,36 +8,112 @@
 
 <PageTitle>Корректировка склада — DONA CRM</PageTitle>
 <div class="adjust-page">
-    <header><a class="orbit-icon-button orbit-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a><div><p>Склад</p><h1>Корректировка</h1></div></header>
-    @if (isLoading) { <div class="adjust-state">Загружаем остатки…</div> }
-    else if (products.Count == 0) { <div class="adjust-state"><strong>Нет товаров с вариантами</strong><p>Сначала добавьте товар и хотя бы один вариант.</p><a href="/products/new">Добавить товар</a></div> }
+    <header>
+        <a class="orbit-icon-button orbit-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a>
+        <div>
+            <p>Склад</p>
+            <h1>Корректировка</h1>
+        </div>
+    </header>
+    @if (isLoading)
+    {
+        <div class="adjust-state">Загружаем остатки…</div>
+    }
+    else if (products.Count == 0)
+    {
+        <div class="adjust-state">
+            <strong>Нет товаров с вариантами</strong>
+            <p>Сначала добавьте товар и хотя бы один вариант.</p>
+            <a href="/products/new">Добавить товар</a>
+        </div>
+    }
     else
     {
-        <EditForm Model="model" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" />
-            <section><h2>Фактический остаток</h2>
+        <EditForm Model="model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <section>
+                <h2>Фактический остаток</h2>
                 <label>Товар<OrbitSelect TValue="Guid?" @bind-Value="model.ProductId" @bind-Value:after="ProductChanged" Options="@ProductOptions" Label="Товар" Searchable="true" /></label>
                 <label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="model.ProductVariantId" @bind-Value:after="VariantChanged" Options="@VariantOptions" Label="Вариант" Disabled="@(SelectedProduct is null)" /></label>
-                <div class="quantity-grid"><div><span>Сейчас</span><strong>@(SelectedVariant?.Quantity ?? 0) ед.</strong><small>резерв @(SelectedVariant?.ReservedQuantity ?? 0)</small></div><label>Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label></div>
-                @if (SelectedVariant is not null && model.NewQuantity is not null) { <div class="preview"><span>Изменение</span><strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@DeltaText ед.</strong></div> }
+                <div class="quantity-grid">
+                    <div>
+                        <span>Сейчас</span>
+                        <strong>@(SelectedVariant?.Quantity ?? 0) ед.</strong>
+                        <small>резерв @(SelectedVariant?.ReservedQuantity ?? 0)</small>
+                    </div>
+                    <label>Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label>
+                </div>
+                @if (SelectedVariant is not null && model.NewQuantity is not null)
+                {
+                    <div class="preview">
+                        <span>Изменение</span>
+                        <strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@DeltaText ед.</strong>
+                    </div>
+                }
             </section>
-            <section><h2>Причина</h2><label>Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label><label>Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label></section>
-            <ValidationSummary />@if(error is not null){<p class="adjust-error" role="alert">@error</p>}
+            <section>
+                <h2>Причина</h2>
+                <label>Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label>
+                <label>Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label>
+            </section>
+            <ValidationSummary />
+            @if(error is not null)
+            {
+                <p class="adjust-error" role="alert">@error</p>
+            }
             <div class="actions"><a href="/inventory">Отмена</a><button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button></div>
         </EditForm>
     }
 </div>
 @code {
-    [SupplyParameterFromQuery] public Guid? ProductId { get; set; } [SupplyParameterFromQuery] public Guid? VariantId { get; set; }
-    private StockAdjustmentRequest model = new(); private IReadOnlyList<Product> products=[]; private UnsavedChangesGuard? unsavedGuard; private bool isLoading=true; private bool saving; private string? error;
+    [SupplyParameterFromQuery] public Guid? ProductId { get; set; }
+    [SupplyParameterFromQuery] public Guid? VariantId { get; set; }
+    private StockAdjustmentRequest model = new();
+    private IReadOnlyList<Product> products=[];
+    private UnsavedChangesGuard? unsavedGuard;
+    private bool isLoading=true;
+    private bool saving;
+    private string? error;
     private Product? SelectedProduct => model.ProductId is null ? null : products.FirstOrDefault(item=>item.Id==model.ProductId);
     private ProductVariant? SelectedVariant => model.ProductVariantId is null ? null : SelectedProduct?.Variants.FirstOrDefault(item=>item.Id==model.ProductVariantId);
     private IReadOnlyList<OrbitSelectOption<Guid?>> ProductOptions=>[new(null,"Выберите товар"),..products.Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{value.Name} · {value.Sku}"))];
-    private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions=>[new(null,"Выберите вариант"),..(SelectedProduct?.Variants??[]).Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{VariantName(value)} · остаток {value.Quantity??0}"))];
+    private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions=>
+    [
+        new(null,"Выберите вариант"),
+        ..(SelectedProduct?.Variants??[]).Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{VariantName(value)} · остаток {value.Quantity??0}"))
+    ];
     private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
-    private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0); private string DeltaText => Delta>0?$"+{Delta}":Delta.ToString();
-    protected override async Task OnInitializedAsync(){products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();if(ProductId is not null&&products.FirstOrDefault(item=>item.Id==ProductId) is{}preset){model.ProductId=preset.Id;if(VariantId is not null&&preset.Variants.Any(item=>item.Id==VariantId)){model.ProductVariantId=VariantId;VariantChanged();}}isLoading=false;}
-    private void ProductChanged(){model.ProductVariantId=null;model.NewQuantity=null;}
+    private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0);
+    private string DeltaText => Delta>0?$"+{Delta}":Delta.ToString();
+    protected override async Task OnInitializedAsync(){
+        products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();
+        if(ProductId is not null&&products.FirstOrDefault(item=>item.Id==ProductId) is{}preset){
+            model.ProductId=preset.Id;
+            if(VariantId is not null&&preset.Variants.Any(item=>item.Id==VariantId)){
+                model.ProductVariantId=VariantId;
+                VariantChanged();
+            }
+        }
+        isLoading=false;
+    }
+    private void ProductChanged(){
+        model.ProductVariantId=null;
+        model.NewQuantity=null;
+    }
     private void VariantChanged()=>model.NewQuantity=SelectedVariant?.Quantity;
-    private async Task SaveAsync(){saving=true;error=null;try{await Service.AdjustAsync(model);unsavedGuard?.MarkClean();Navigation.NavigateTo("/inventory");}catch(Exception exception){error=exception.Message;}finally{saving=false;}}
+    private async Task SaveAsync(){
+        saving=true;
+        error=null;
+        try{
+            await Service.AdjustAsync(model);
+            unsavedGuard?.MarkClean();
+            Navigation.NavigateTo("/inventory");
+        }catch(Exception exception){
+            error=UserErrors.Describe(exception, "Не удалось провести корректировку. Попробуйте ещё раз.");
+        }finally{
+            saving=false;
+        }
+    }
     private static string VariantName(ProductVariant variant)=>string.Join(" · ",new[]{variant.Color,variant.Size}.Where(value=>!string.IsNullOrWhiteSpace(value))) is {Length:>0} value?value:"Без названия";
 }

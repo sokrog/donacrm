@@ -121,7 +121,7 @@
         }
         catch (Exception exception)
         {
-            errorMessage = exception.Message;
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить контент-план. Попробуйте ещё раз.");
         }
         finally
         {

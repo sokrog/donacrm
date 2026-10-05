@@ -23,6 +23,7 @@
     --dona-danger-rgb: 175, 24, 62;
     --dona-overlay: rgba(56, 21, 35, .42);
     --dona-shadow: rgba(99, 6, 37, .09);
+    --dona-sidebar: #f9dfe7;
     --dona-space: var(--dona-bg);
     --dona-space-2: var(--dona-surface-soft);
     --dona-panel: var(--dona-surface);
@@ -38,15 +39,15 @@
     --dona-field-gap: 8px;
     --dona-control-height: 50px;
     --dona-root-font-size: 16px;
-    --dona-type-micro: .58rem;
-    --dona-type-caption: .63rem;
-    --dona-type-label: .68rem;
-    --dona-type-small: .72rem;
-    --dona-type-body-sm: .78rem;
-    --dona-type-body: .82rem;
-    --dona-type-subtitle: .95rem;
-    --dona-type-body-lg: 1.06rem;
-    --dona-type-title-sm: 1.22rem;
+    --dona-type-micro: .75rem;
+    --dona-type-caption: .78rem;
+    --dona-type-label: .8rem;
+    --dona-type-small: .84rem;
+    --dona-type-body-sm: .9rem;
+    --dona-type-body: .95rem;
+    --dona-type-subtitle: 1.02rem;
+    --dona-type-body-lg: 1.12rem;
+    --dona-type-title-sm: 1.25rem;
     --dona-type-title-md: 1.4rem;
     --dona-type-title-lg: 1.5rem;
     --dona-type-page-title: 1.7rem;
@@ -109,9 +110,9 @@ input, select, textarea {
 input::placeholder, textarea::placeholder { color: var(--dona-muted); }
 
 :where(input, select, textarea):focus-visible {
-    outline: 3px solid rgba(var(--dona-success-rgb), 0.3);
+    outline: 3px solid rgba(var(--dona-brand-rgb), .55);
     outline-offset: 1px;
-    border-color: var(--dona-cyan) !important;
+    border-color: var(--dona-brand) !important;
 }
 
 button {
@@ -165,7 +166,7 @@ select.adjust-select {
 .more-list .sale-icon svg { width: 21px; }
 
 :where(button, a):focus-visible {
-    outline: 3px solid var(--dona-cyan);
+    outline: 3px solid var(--dona-brand);
     outline-offset: 2px;
 }
 
@@ -418,7 +419,7 @@ select.adjust-select {
 
 @media (min-width: 900px) {
     :root {
-        --dona-root-font-size: 18px;
+        --dona-root-font-size: 17px;
         --dona-page-inline: 32px;
         --dona-page-block: 30px;
         --dona-section-gap: 20px;
