@@ -17,7 +17,7 @@
 
 .orbit-initial-badge.cyan {
     background: rgba(var(--dona-success-rgb), 0.1);
-    color: var(--dona-cyan);
+    color: var(--dona-success);
 }
 
 .orbit-initial-badge.round {

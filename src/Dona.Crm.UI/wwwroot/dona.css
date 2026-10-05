@@ -24,9 +24,7 @@
     --dona-overlay: rgba(56, 21, 35, .42);
     --dona-shadow: rgba(99, 6, 37, .09);
     --dona-sidebar: #f9dfe7;
-    --dona-space: var(--dona-bg);
-    --dona-space-2: var(--dona-surface-soft);
-    --dona-panel: var(--dona-surface);
+    /* legacy aliases — still used by Home/OrbitSelect */
     --dona-panel-solid: var(--dona-surface);
     --dona-purple: var(--dona-brand);
     --dona-magenta: var(--dona-rose);
@@ -64,7 +62,7 @@ html, body, #app {
 }
 
 html {
-    background: var(--dona-space);
+    background: var(--dona-bg);
     font-size: var(--dona-root-font-size);
 }
 
@@ -96,7 +94,7 @@ button, a, input, select, textarea {
 }
 
 input, select, textarea {
-    accent-color: var(--dona-purple);
+    accent-color: var(--dona-brand);
 }
 
 @media (max-width: 899px) {
@@ -194,7 +192,7 @@ select.adjust-select {
     height: 52px !important;
     border: 0 !important;
     border-radius: 17px !important;
-    background: linear-gradient(145deg, var(--dona-purple), var(--dona-brand-deep)) !important;
+    background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep)) !important;
     box-shadow: 0 10px 28px rgba(var(--dona-brand-rgb), 0.28);
     color: white !important;
 }
@@ -276,7 +274,7 @@ select.adjust-select {
 }
 
 .orbit-kpis.orbit-kpis > article:is(.warning, .debt) > strong {
-    color: var(--dona-amber);
+    color: var(--dona-warning);
 }
 
 .orbit-search-label {
@@ -358,7 +356,7 @@ select.adjust-select {
 
 .placeholder-kicker {
     margin: 0 0 8px;
-    color: var(--dona-cyan);
+    color: var(--dona-brand);
     font-size: var(--dona-type-body-sm);
     font-weight: 700;
     letter-spacing: .1em;
@@ -372,7 +370,7 @@ select.adjust-select {
     padding: 0 18px;
     border: 1px solid var(--dona-line-strong);
     border-radius: 14px;
-    background: var(--dona-panel);
+    background: var(--dona-surface);
     color: var(--dona-text);
     text-decoration: none;
 }
@@ -385,7 +383,7 @@ select.adjust-select {
     border: 1px solid rgba(var(--dona-success-rgb), 0.2);
     border-radius: 12px;
     background: rgba(var(--dona-success-rgb), 0.07);
-    color: var(--dona-cyan);
+    color: var(--dona-success);
     font-size: var(--dona-type-small);
     font-weight: 700;
     text-decoration: none;
