@@ -8,13 +8,6 @@
     }
 }
 
-.attention-page .heading-note {
-    display: block;
-    margin-top: 5px;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-}
-
 .summary {
     margin: 0 0 var(--dona-space-3);
     color: var(--dona-muted);
@@ -58,21 +51,6 @@
     color: var(--dona-muted);
     font-size: var(--dona-type-caption);
     line-height: 1.4;
-}
-
-.attention-icon.amber {
-    background: rgba(var(--dona-warning-rgb), .1);
-    color: var(--dona-warning);
-}
-
-.attention-icon.cyan {
-    background: rgba(var(--dona-success-rgb), .09);
-    color: var(--dona-success);
-}
-
-.attention-icon.magenta {
-    background: rgba(var(--dona-brand-rgb), .1);
-    color: var(--dona-rose);
 }
 
 .attention-icon ::deep svg {

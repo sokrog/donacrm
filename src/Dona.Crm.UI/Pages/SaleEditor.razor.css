@@ -1,20 +1,9 @@
-.dona-heading h1 {
-    margin: 0;
-    font-size: var(--dona-type-title-sm);
-}
-
 fieldset {
     display: grid;
     gap: var(--dona-section-gap);
     margin: 0;
     padding: 0;
     border: 0;
-}
-
-::deep .validation-errors {
-    margin: 0;
-    color: var(--dona-danger);
-    font-size: var(--dona-type-label);
 }
 
 /* Workflow stepper */
@@ -48,12 +37,6 @@ fieldset {
     border-color: rgba(var(--dona-brand-rgb), .45);
     background: rgba(var(--dona-brand-rgb), .14);
     color: var(--dona-brand);
-}
-
-.empty-items {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-small);
 }
 
 /* Sale line */
@@ -146,6 +129,3 @@ fieldset {
     color: var(--dona-muted);
     font-size: var(--dona-type-caption);
 }
-
-/* needs global component: .dona-confirm > .dona-btn sizing */
-.dona-confirm > .dona-btn { flex: 1 1 120px; }

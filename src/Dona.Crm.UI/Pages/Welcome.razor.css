@@ -30,22 +30,7 @@
     letter-spacing: -.035em;
 }
 
-.intro {
-    margin: var(--dona-space-3) 0 var(--dona-space-6);
-    color: var(--dona-muted);
-    font-size: var(--dona-type-body-sm);
-    line-height: 1.5;
-}
-
 .skip {
     display: block;
-    min-height: 48px;
     margin: var(--dona-space-3) auto 0;
-    border: 0;
-    background: transparent;
-    color: var(--dona-muted);
-    font: inherit;
-    font-size: var(--dona-type-label);
-    text-decoration: underline;
-    text-underline-offset: 3px;
 }

@@ -12,7 +12,7 @@
             <div>
                 <p>Подключения</p>
                 <h1 class="dona-title">Синхронизация</h1>
-                <p class="heading-note">Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
+                <p class="dona-note dona-note--sm">Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
             </div>
         </div>
     </header>
@@ -28,7 +28,7 @@
     else
     {
         <section class="dona-card direction-card">
-            <span class="dona-icon-tile"><OrbitIcon Name="cloud" /></span>
+            <span class="dona-icon-tile dona-icon-tile--success"><OrbitIcon Name="cloud" /></span>
             <div>
                 <strong>@Platform.StorageTitle ↔ личное облако Google</strong>
                 <small>Сначала сравнение, затем выбранное направление</small>
@@ -68,7 +68,7 @@
 
             @if (!confirmPull && !confirmPush)
             {
-                <button class="refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
+                <button class="dona-btn dona-btn--link dona-btn--muted refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
                 <div class="sync-actions">
                     <button class="dona-btn dona-btn--secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
                     <button class="dona-btn dona-btn--primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>

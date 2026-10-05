@@ -49,18 +49,6 @@ h1:focus {
     .app-boot-spinner { animation: none; }
 }
 
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid var(--dona-success);
-}
-
-.invalid {
-    outline: 1px solid var(--dona-danger);
-}
-
-.validation-message {
-    color: var(--dona-danger);
-}
-
 #blazor-error-ui {
     position: fixed;
     right: 1rem;

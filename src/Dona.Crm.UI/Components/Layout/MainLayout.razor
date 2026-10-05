@@ -3,13 +3,13 @@
 @inject NavigationManager Navigation
 @inject LocalImageMigrationService ImageMigration
 
-<div class="orbit-shell @(isFocusedRoute ? "is-focused-route" : null)">
-    <aside class="orbit-sidebar">
-        <a class="orbit-brand" href="/" aria-label="DONA — главная">
+<div class="shell @(isFocusedRoute ? "is-focused-route" : null)">
+    <aside class="sidebar">
+        <a class="brand" href="/" aria-label="DONA — главная">
             <img class="dona-logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" />
             <small>УПРАВЛЕНИЕ МАГАЗИНОМ</small>
         </a>
-        <nav class="orbit-side-nav" aria-label="Навигация рабочего пространства">
+        <nav class="side-nav" aria-label="Навигация рабочего пространства">
             <a class="@SideClass("home")" href="/" aria-current="@Current("home")"><OrbitIcon Name="home" /><span>Главная</span></a>
             <a class="@SideClass("catalog")" href="/products" aria-current="@Current("catalog")"><OrbitIcon Name="catalog" /><span>Каталог</span></a>
             <a class="@SideClass("sales")" href="/sales" aria-current="@Current("sales")"><OrbitIcon Name="sales" /><span>Продажи</span></a>
@@ -19,19 +19,19 @@
             <a class="@SideClass("marketing")" href="/marketing" aria-current="@Current("marketing")"><OrbitIcon Name="marketing" /><span>Маркетинг</span></a>
             <a class="@SideClass("analytics")" href="/analytics" aria-current="@Current("analytics")"><OrbitIcon Name="analytics" /><span>Аналитика</span></a>
         </nav>
-        <nav class="orbit-side-tools" aria-label="Настройки приложения">
+        <nav class="side-tools" aria-label="Настройки приложения">
             <a class="@SideClass("connections")" href="/connections" aria-current="@Current("connections")"><OrbitIcon Name="cloud" /><span>Подключения</span></a>
             <a class="@SideClass("settings")" href="/settings" aria-current="@Current("settings")"><OrbitIcon Name="settings" /><span>Настройки</span></a>
         </nav>
     </aside>
 
-    <main class="orbit-main">
+    <main class="main">
         <ErrorBoundary @ref="errorBoundary">
             <ChildContent>
                 @Body
             </ChildContent>
             <ErrorContent Context="exception">
-                <section class="page-error" role="alert">
+                <section class="dona-state dona-state--error page-error" role="alert">
                     <h1>Что-то пошло не так на этой странице</h1>
                     <p>Обновите страницу или вернитесь на главную.</p>
                     <details>
@@ -39,8 +39,8 @@
                         <p>@exception.Message</p>
                     </details>
                     <div class="page-error-actions">
-                        <button type="button" @onclick="RecoverFromError">Попробовать снова</button>
-                        <a href="/">На главную</a>
+                        <button type="button" class="dona-btn dona-btn--primary" @onclick="RecoverFromError">Попробовать снова</button>
+                        <a class="dona-btn dona-btn--secondary" href="/">На главную</a>
                     </div>
                 </section>
             </ErrorContent>
@@ -49,7 +49,7 @@
 
     @if (!isFocusedRoute)
     {
-        <nav class="orbit-tabs" aria-label="Основная навигация">
+        <nav class="tabs" aria-label="Основная навигация">
             <a class="@TabClass("home")" href="/" aria-current="@Current("home")">
                 <OrbitIcon Name="home" />
                 <span>Главная</span>
@@ -104,7 +104,7 @@
 
     private string SideClass(string key) => key == sidebarSection ? "active" : string.Empty;
 
-    private string TabClass(string key) => key == tabSection ? "orbit-tab is-active" : "orbit-tab";
+    private string TabClass(string key) => key == tabSection ? "tab is-active" : "tab";
 
     private void UpdateRouteMode()
     {

@@ -31,7 +31,7 @@
         </section>
         @if (OverdueCount > 0)
         {
-            <div class="purchase-alert" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>
+            <div class="dona-alert dona-alert--warning" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>
         }
         <div class="purchase-tools">
             <input class="dona-input" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" />

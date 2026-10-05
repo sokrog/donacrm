@@ -38,7 +38,7 @@
         {
             <div class="dona-state dona-state--error" role="alert">@errorMessage</div>
         }
-        <div class="period-tabs" role="group" aria-label="Период аналитики">
+        <div class="dona-tabs" role="group" aria-label="Период аналитики">
             <button class="@(period == 7 ? "active" : null)" @onclick="() => SetPeriod(7)">7 дней</button>
             <button class="@(period == 30 ? "active" : null)" @onclick="() => SetPeriod(30)">30 дней</button>
             <button class="@(period == 90 ? "active" : null)" @onclick="() => SetPeriod(90)">90 дней</button>
@@ -66,7 +66,7 @@
             </div>
             @if (report.Daily.Count == 0)
             {
-                <p class="empty-chart">Нет завершённых продаж за период.</p>
+                <p class="dona-empty">Нет завершённых продаж за период.</p>
             }
             else
             {
@@ -117,7 +117,7 @@
             {
                 @if (profit.Content.Count == 0)
                 {
-                    <p class="empty-chart">Нет опубликованного контента с продажами.</p>
+                    <p class="dona-empty">Нет опубликованного контента с продажами.</p>
                 }
                 else
                 {
@@ -136,7 +136,7 @@
             {
                 @if (CurrentRows.Count == 0)
                 {
-                    <p class="empty-chart">Недостаточно данных для рейтинга.</p>
+                    <p class="dona-empty">Недостаточно данных для рейтинга.</p>
                 }
                 else
                 {

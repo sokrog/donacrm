@@ -1,19 +1,7 @@
-.heading-note {
-    margin: 6px 0 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-label);
-    line-height: 1.45;
-}
-
 .direction-card {
     display: flex;
     align-items: center;
     gap: var(--dona-space-3);
-}
-
-.direction-card .dona-icon-tile {
-    background: rgba(var(--dona-success-rgb), .09);
-    color: var(--dona-success);
 }
 
 .direction-card strong,
@@ -125,12 +113,6 @@
 .refresh-action {
     display: block;
     margin: var(--dona-space-3) auto 0;
-    border: 0;
-    background: transparent;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-    text-decoration: underline;
-    text-underline-offset: 3px;
 }
 
 .sync-actions {

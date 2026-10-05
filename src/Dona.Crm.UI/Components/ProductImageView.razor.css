@@ -21,6 +21,6 @@ img.entity-image-preview {
     min-width: 0;
     min-height: 2.5rem;
     aspect-ratio: 4 / 5;
-    background: rgba(127, 127, 127, .12);
-    color: rgba(127, 127, 127, .85);
+    background: var(--dona-surface-soft);
+    color: var(--dona-muted);
 }

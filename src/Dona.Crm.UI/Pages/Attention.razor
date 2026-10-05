@@ -14,7 +14,7 @@
     <header class="dona-page-header">
         <div class="dona-heading">
             <a class="dona-icon-button dona-back-button" href="/" aria-label="Вернуться на главную"><OrbitIcon Name="back" /></a>
-            <div><p>Главная</p><h1 class="dona-title">Внимание</h1><small class="heading-note">Актуальные задачи на этом устройстве</small></div>
+            <div><p>Главная</p><h1 class="dona-title">Внимание</h1><p class="dona-note dona-note--sm">Актуальные задачи на этом устройстве</p></div>
         </div>
     </header>
 
@@ -38,7 +38,7 @@
             {
                 <li>
                     <a href="@item.Href">
-                        <span class="dona-icon-tile attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span>
+                        <span class="dona-icon-tile attention-icon@(item.Tone.Length > 0 ? " dona-icon-tile--" + item.Tone : "")"><OrbitIcon Name="@item.Icon" /></span>
                         <span>
                             <strong>@item.Title</strong>
                             <small>@item.Detail</small>
@@ -78,13 +78,13 @@
                 var connection = await Google.GetStateAsync();
                 var sync = await Sync.GetStatusAsync();
                 if (sync.State is GoogleSyncState.Conflict or GoogleSyncState.Error)
-                    items.Insert(0, new("cloud", "magenta", "Разрешите конфликт синхронизации", sync.Error ?? "Синхронизация требует действия", "/sync"));
+                    items.Insert(0, new("cloud", "rose", "Разрешите конфликт синхронизации", sync.Error ?? "Синхронизация требует действия", "/sync"));
                 else if (connection.IsConnected && sync.State == GoogleSyncState.Pending)
-                    items.Add(new("sync", "cyan", "Есть локальные изменения", "Откройте синхронизацию, чтобы сравнить и отправить данные", "/sync"));
+                    items.Add(new("sync", "success", "Есть локальные изменения", "Откройте синхронизацию, чтобы сравнить и отправить данные", "/sync"));
             }
             catch (Exception exception)
             {
-                items.Insert(0, new("cloud", "magenta", "Не удалось проверить Google", UserErrors.Describe(exception, "Не удалось проверить Google. Попробуйте ещё раз."), "/connections"));
+                items.Insert(0, new("cloud", "rose", "Не удалось проверить Google", UserErrors.Describe(exception, "Не удалось проверить Google. Попробуйте ещё раз."), "/connections"));
             }
         }
         catch (Exception exception)
@@ -102,18 +102,18 @@
         foreach (var product in snapshot.LowStockProducts)
             yield return new("catalog", "", product.Name, $"Осталось {product.Quantity} ед. на складе", "/products");
         foreach (var sale in snapshot.SalesWithDebt)
-            yield return new("clock", "amber", sale.Number, $"{sale.CustomerName ?? "Клиент"} · долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
+            yield return new("clock", "warning", sale.Number, $"{sale.CustomerName ?? "Клиент"} · долг {Money(sale.BalanceDueUzs)} UZS", "/sales");
         foreach (var purchase in snapshot.DuePurchases)
-            yield return new("truck", "cyan", purchase.Number, $"Ожидается поставка · осталось {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
+            yield return new("truck", "success", purchase.Number, $"Ожидается поставка · осталось {purchase.Items.Sum(item => item.MissingQuantity)} ед.", "/purchases");
         foreach (var post in posts.Where(post => post.Status is not ContentStatus.Published and not ContentStatus.Cancelled && post.ScheduledAt?.Date < DateTime.Today))
-            yield return new("calendar", "magenta", post.Title, $"Публикация просрочена с {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
+            yield return new("calendar", "rose", post.Title, $"Публикация просрочена с {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
         foreach (var post in posts.Where(post =>
             post.Status is not ContentStatus.Published and not ContentStatus.Cancelled
             && post.ScheduledAt?.Date >= DateTime.Today
             && post.ScheduledAt?.Date <= DateTime.Today.AddDays(settings.ContentPlanningHorizonDays)))
-            yield return new("calendar", "cyan", post.Title, $"Публикация запланирована на {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
+            yield return new("calendar", "success", post.Title, $"Публикация запланирована на {post.ScheduledAt!.Value:dd.MM}", "/content-plan");
         foreach (var product in snapshot.ProductsWithoutImages)
-            yield return new("image", "magenta", product.Name, "Добавьте фотографию товара", "/products");
+            yield return new("image", "rose", product.Name, "Добавьте фотографию товара", "/products");
     }
 
     private static string Money(decimal value) => value.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));

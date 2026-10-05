@@ -18,7 +18,7 @@
         </div>
         <a class="dona-icon-button dona-add-button" href="@($"/{Kind}/new")" aria-label="@AddLabel"><OrbitIcon Name="plus" /></a>
     </header>
-    <p class="intro">@(IsCollections ? "Группируйте товары по сезону, стилю или запуску." : "Собирайте готовые сочетания и сразу считайте их стоимость.")</p>
+    <p class="dona-note dona-note--intro">@(IsCollections ? "Группируйте товары по сезону, стилю или запуску." : "Собирайте готовые сочетания и сразу считайте их стоимость.")</p>
     @if(isLoading)
     {
         <div class="dona-state">Загружаем…</div>
@@ -55,7 +55,7 @@
                             <strong>@item.Name</strong>
                             <small>@Meta(item)</small>
                         </span>
-                        <span class="count">@item.Products.Count<br/><small>тов.</small></span>
+                        <span class="dona-list-row__value">@item.Products.Count<small>тов.</small></span>
                     </a>
                 </li>
             }
@@ -68,7 +68,7 @@
             {
                 <li>
                     <a class="dona-list-row" href="/outfits/@item.Id">
-                        <span class="dona-icon-tile item-magenta">
+                        <span class="dona-icon-tile dona-icon-tile--rose">
                             @if(item.PrimaryImage is not null)
                             {
                                 <ProductImageView Image="@item.PrimaryImage" Alt="" />
@@ -82,7 +82,7 @@
                             <strong>@item.Name</strong>
                             <small>@(string.IsNullOrWhiteSpace(item.Occasion)?item.Status.Display():item.Occasion)</small>
                         </span>
-                        <span class="price">@Money(item.TotalPriceUzs)<br/><small>UZS</small></span>
+                        <span class="dona-list-row__value">@Money(item.TotalPriceUzs)<small>UZS</small></span>
                     </a>
                 </li>
             }

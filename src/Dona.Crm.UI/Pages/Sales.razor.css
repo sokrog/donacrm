@@ -19,11 +19,7 @@
 }
 
 .sale-row em {
-    display: block;
-    margin-top: var(--dona-space-1);
-    color: var(--dona-brand);
     font-size: var(--dona-type-caption);
-    font-style: normal;
 }
 
 .sale-row em.complete {
@@ -32,17 +28,6 @@
 
 .sale-row em.closed {
     color: var(--dona-muted);
-}
-
-.sale-total {
-    text-align: right;
-    font-size: var(--dona-type-body);
-    font-weight: var(--dona-weight-strong);
-}
-
-.sale-total small {
-    font-size: var(--dona-type-micro);
-    font-weight: var(--dona-weight-regular);
 }
 
 .sale-total em {

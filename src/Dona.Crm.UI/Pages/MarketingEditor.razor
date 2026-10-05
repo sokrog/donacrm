@@ -67,7 +67,7 @@
                 </div>
                 @if (ItemCount == 0)
                 {
-                    <p class="empty-items">Товары ещё не добавлены.</p>
+                    <p class="dona-empty">Товары ещё не добавлены.</p>
                 }
                 else if (IsCollection)
                 {
@@ -98,11 +98,11 @@
             }
             @if (!IsNew)
             {
-                <button type="button" class="delete-toggle" @onclick="() => confirmDelete = true">Удалить @(IsCollection ? "коллекцию" : "образ")</button>
+                <button type="button" class="dona-btn dona-btn--link dona-btn--danger delete-toggle" @onclick="() => confirmDelete = true">Удалить @(IsCollection ? "коллекцию" : "образ")</button>
             }
             @if (confirmDelete)
             {
-                <div class="dona-confirm confirm-box">
+                <div class="dona-confirm dona-confirm--boxed">
                     <span>Удалить без возможности восстановления?</span>
                     <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
                     <button type="button" class="dona-btn dona-btn--danger" @onclick="DeleteAsync">Удалить</button>

@@ -37,7 +37,7 @@ else
                     <h2>Склад</h2>
                     <p>Статусы и доступный остаток</p>
                 </div>
-            </div><label class="dona-field toggle-row">
+            </div><label class="dona-field dona-toggle">
             <InputCheckbox @bind-Value="settings.AutoUpdateStockStatus" /><span><strong>Автоматические статусы
             товара</strong><small>Обновлять статус по фактическому остатку</small></span>
         </label>
@@ -46,7 +46,7 @@ else
         </label><label class="dona-field">При нулевом остатке
         <OrbitSelect TValue="ProductStatus" @bind-Value="settings.ZeroStockStatus"
                      Options="@ZeroStockStatusOptions" Label="Статус при нулевом остатке" />
-    </label></div><label class="dona-field toggle-row">
+    </label></div><label class="dona-field dona-toggle">
     <InputCheckbox @bind-Value="settings.CountReservedAsUnavailable" /><span><strong>Вычитать
     резерв</strong><small>Зарезервированные единицы недоступны для новой продажи</small></span>
 </label><button type="button" class="dona-btn dona-btn--ghost" disabled="@saving"
@@ -58,7 +58,7 @@ else
             <h2>Планирование</h2>
             <p>Периоды, предупреждения и номера</p>
         </div>
-    </div><label class="dona-field toggle-row">
+    </div><label class="dona-field dona-toggle">
     <InputCheckbox @bind-Value="settings.PreventSalesBelowCost" /><span><strong>Запрещать продажу ниже
     себестоимости</strong><small>По умолчанию включено; отключите только для осознанной
     распродажи</small></span>
@@ -84,7 +84,7 @@ else
             <p>Личное хранилище и фотографии</p>
         </div>
     </div>
-    <p class="field-note">Войдите в аккаунт, чтобы сохранять личные копии базы и новые фотографии в закрытом
+    <p class="dona-note dona-note--sm">Войдите в аккаунт, чтобы сохранять личные копии базы и новые фотографии в закрытом
         хранилище Google.</p><a class="dona-btn dona-btn--ghost" href="/connections">Открыть подключения →</a>
     </section>
     @if (BackupFiles is not null)
@@ -96,7 +96,7 @@ else
                     <p>Восстановление локальных данных из ZIP</p>
                 </div>
             </div>
-            <p class="field-note">Перед заменой DONA CRM создаст автоматическую ZIP-копию текущих данных. Хранятся
+            <p class="dona-note dona-note--sm">Перед заменой DONA CRM создаст автоматическую ZIP-копию текущих данных. Хранятся
                 последние семь копий.</p><button type="button" class="dona-btn dona-btn--ghost" disabled="@saving"
                                                  @onclick="SelectBackupAsync">Выбрать ZIP-копию</button><button type="button" class="dona-btn dona-btn--ghost"
                                                                                disabled="@saving" @onclick="ExportDataJsonAsync">Скачать данные JSON</button>@if (backupPreview is not
@@ -127,7 +127,7 @@ else
                                 <p>Версии в скрытой папке аккаунта</p>
                             </div>
                         </div>
-                        <p class="field-note">Ручные копии хранятся, пока вы сами их не удалите. Автоматически сохраняются последние
+                        <p class="dona-note dona-note--sm">Ручные копии хранятся, пока вы сами их не удалите. Автоматически сохраняются последние
                             семь копий перед восстановлением.</p>
                             <div class="personal-cloud-actions">
                                 <button type="button" class="dona-btn dona-btn--ghost" disabled="@saving" @onclick="CreatePersonalBackupAsync">Создать личную копию</button>
@@ -162,7 +162,7 @@ else
                             }
                             else
                             {
-                                <p class="field-note">Личных копий пока нет.</p>
+                                <p class="dona-note dona-note--sm">Личных копий пока нет.</p>
                             }
                             </section>
                         }
@@ -173,7 +173,7 @@ else
                                     <p>Удаление данных только с этого устройства</p>
                                 </div>
                             </div>
-                            <p class="field-note">Товары, документы, остатки и настройки будут удалены. Личные ZIP-копии в Google Drive
+                            <p class="dona-note dona-note--sm">Товары, документы, остатки и настройки будут удалены. Личные ZIP-копии в Google Drive
                                 останутся, но Google будет отключён на этом устройстве.</p>@if(!confirmClear){
                                 <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirmClear = true">Очистить
                                     локальные
@@ -181,14 +181,14 @@ else
                                 }else
                                 {
 
-                                    <div class="clear-confirm"><strong>Это действие нельзя
-                                        отменить.</strong><label class="dona-field"><span>Введите <b>УДАЛИТЬ</b> для подтверждения</span>
+                                    <div class="dona-confirm dona-confirm--boxed"><p><strong>Это действие нельзя
+                                        отменить.</strong></p><label class="dona-field"><span>Введите <b>УДАЛИТЬ</b> для подтверждения</span>
                                         <InputText @bind-Value="clearConfirmation" autocomplete="off" />
                                     </label>
-                                    <div><button type="button" class="dona-btn dona-btn--secondary" disabled="@saving"
+                                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving"
                                                      @onclick="CancelClear">Отмена</button><button type="button" class="dona-btn dona-btn--danger"
                                                                                   disabled="@(saving || clearConfirmation != "УДАЛИТЬ")" @onclick="ClearLocalDataAsync">Удалить
-                                        данные</button></div>
+                                        данные</button>
                                     </div>
                                 }
                             </section>

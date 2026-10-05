@@ -34,11 +34,11 @@
         </section>
         @if (OverdueCount > 0)
         {
-            <div class="content-alert overdue" role="status">Просрочено публикаций: @OverdueCount.</div>
+            <div class="dona-alert dona-alert--danger" role="status">Просрочено публикаций: @OverdueCount.</div>
         }
         else if (UpcomingCount > 0)
         {
-            <div class="content-alert" role="status">В ближайшие @settings.ContentPlanningHorizonDays дней: @UpcomingCount публикаций.</div>
+            <div class="dona-alert dona-alert--warning" role="status">В ближайшие @settings.ContentPlanningHorizonDays дней: @UpcomingCount публикаций.</div>
         }
         <div class="content-tools">
             <input class="dona-input" aria-label="Поиск публикаций" placeholder="Тема, коллекция или образ" @bind="query" @bind:event="oninput" />
@@ -134,8 +134,8 @@
 
     private static string DateClass(ContentPost value) =>
         value.Status is not ContentStatus.Published and not ContentStatus.Cancelled && value.ScheduledAt?.Date < DateTime.Today
-            ? "overdue"
-            : value.Status == ContentStatus.Published ? "published" : string.Empty;
+            ? "dona-icon-tile--danger"
+            : value.Status == ContentStatus.Published ? "dona-icon-tile--success" : string.Empty;
 
     private static string Association(ContentPost value) =>
         string.Join(" · ", new[] { value.CollectionName, value.OutfitName }.Where(text => !string.IsNullOrWhiteSpace(text))) is { Length: > 0 } text

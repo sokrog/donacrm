@@ -6,11 +6,4 @@ html { min-width: 320px; }
 #blazor-error-ui a { color:var(--dona-success); }
 @media (min-width: 900px) {
     body { background-attachment:fixed; }
-    .orbit-home { width:min(100%,1180px) !important; max-width:1180px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }
-}
-
-@media (min-width: 1400px) {
-    :where(.catalog-page,.marketing-page,.marketing-hub,.content-page) { max-width:1320px !important; }
-    .product-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
-    .content-page .content-list { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }

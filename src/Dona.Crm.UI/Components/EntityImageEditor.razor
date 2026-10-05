@@ -3,19 +3,19 @@
 @inject IProductImagePicker ImagePicker
 @implements IAsyncDisposable
 
-<div class="entity-images" role="group" aria-labelledby="@headingId">
-    <div class="entity-images__heading">
+<div class="dona-section entity-images" role="group" aria-labelledby="@headingId">
+    <div class="dona-section-title">
         <h2 id="@headingId">Фотографии</h2>
         <button type="button" disabled="@(busy || Images.Count >= MaxImages)" @onclick="PickAsync">
-            @if (!busy) { <OrbitIcon Name="plus" Class="orbit-inline-icon" /> }
+            @if (!busy) { <OrbitIcon Name="plus" Class="dona-inline-icon" /> }
             @(busy ? "Открываем…" : "Выбрать")
         </button>
     </div>
     <div class="entity-images__url">
-        <label>Добавить по ссылке
+        <label class="dona-field">Добавить по ссылке
             <InputText @bind-Value="imageUrl" inputmode="url" placeholder="https://…/photo.jpg" />
         </label>
-        <button type="button" disabled="@(busy || Images.Count >= MaxImages || string.IsNullOrWhiteSpace(imageUrl))" @onclick="AddUrlAsync">Добавить</button>
+        <button type="button" class="dona-btn dona-btn--ghost" disabled="@(busy || Images.Count >= MaxImages || string.IsNullOrWhiteSpace(imageUrl))" @onclick="AddUrlAsync">Добавить</button>
     </div>
     @if (Images.Count == 0)
     {
@@ -40,9 +40,9 @@
     }
     @if (preview is not null)
     {
-        <div class="entity-image-lightbox" role="presentation" @onclick="ClosePreview">
-            <section role="dialog" aria-modal="true" aria-label="Полноэкранный просмотр фотографии" @onclick:stopPropagation="true" @onkeydown="PreviewKeyDown" tabindex="-1">
-                <button type="button" class="entity-image-lightbox__close" aria-label="Закрыть просмотр" @onclick="ClosePreview"><OrbitIcon Name="close" /></button>
+        <div class="dona-modal dona-modal--viewer" role="presentation" @onclick="ClosePreview">
+            <section class="entity-image-lightbox" role="dialog" aria-modal="true" aria-label="Полноэкранный просмотр фотографии" @onclick:stopPropagation="true" @onkeydown="PreviewKeyDown" tabindex="-1">
+                <button type="button" class="dona-icon-button dona-icon-button--round entity-image-lightbox__close" aria-label="Закрыть просмотр" @onclick="ClosePreview"><OrbitIcon Name="close" /></button>
                 <ProductImageView Image="@preview" FallbackUrl="@preview.Url" Class="entity-image-lightbox__image" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {preview.SortOrder + 1}")" />
             </section>
         </div>

@@ -23,7 +23,7 @@
             <button class="dona-icon-button dona-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
         }
     </header>
-    <div class="partner-tabs" role="group" aria-label="Тип партнёра">
+    <div class="dona-tabs" role="group" aria-label="Тип партнёра">
         <button type="button"
                 class="@(mode == PartnerMode.Supplier ? "active" : null)"
                 aria-pressed="@(mode == PartnerMode.Supplier)"
@@ -47,9 +47,9 @@
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
-                <div class="dona-section-title form-heading">
+                <div class="dona-section-title">
                     <div>
-                        <p>Поставщик</p>
+                        <p class="dona-eyebrow">Поставщик</p>
                         <h2>@(isNew ? "Новая карточка" : editingSupplier.Name)</h2>
                     </div>
                     <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
@@ -77,7 +77,7 @@
                 <div class="dona-actions">
                     @if (confirmDelete)
                     {
-                        <div class="dona-confirm">
+                        <div class="dona-confirm dona-confirm--boxed">
                             <span>Удалить поставщика? История закупок сохранится.</span>
                             <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
                             <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteSupplierAsync">Да, удалить</button>
@@ -99,9 +99,9 @@
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
-                <div class="dona-section-title form-heading">
+                <div class="dona-section-title">
                     <div>
-                        <p>Посредник</p>
+                        <p class="dona-eyebrow">Посредник</p>
                         <h2>@(isNew ? "Новая карточка" : editingIntermediary.Name)</h2>
                     </div>
                     <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
@@ -130,7 +130,7 @@
                     <label class="dona-field">Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label>
                 </div>
                 <label class="dona-field">Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label>
-                <label class="dona-field toggle-row">
+                <label class="dona-field dona-toggle">
                     <InputCheckbox @bind-Value="editingIntermediary.OfficialImport" />
                     <span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span>
                 </label>
@@ -142,7 +142,7 @@
                 <div class="dona-actions">
                     @if (confirmDelete)
                     {
-                        <div class="dona-confirm">
+                        <div class="dona-confirm dona-confirm--boxed">
                             <span>Удалить посредника? История закупок сохранится.</span>
                             <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
                             <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteIntermediaryAsync">Да, удалить</button>
@@ -184,7 +184,7 @@
                                     <small>@SupplierMeta(value)</small>
                                     <em>@Contact(value.Contact, value.WeChat)</em>
                                 </span>
-                                <b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b>
+                                <span class="dona-list-row__value">@Score(actual?.ReliabilityScore)<small>надёжность</small></span>
                             </button>
                         </li>
                     }
@@ -208,13 +208,13 @@
                         var actual = IntermediaryActual(value.Id);
                         <li>
                             <button type="button" class="dona-list-row" @onclick="() => EditIntermediary(value)">
-                                <InitialBadge Text="@value.Name" Variant="cyan" />
+                                <InitialBadge Text="@value.Name" Variant="success" />
                                 <span>
                                     <strong>@value.Name</strong>
                                     <small>@IntermediaryMeta(value)</small>
                                     <em>@Contact(value.ContactName, value.Telegram, value.Phone)</em>
                                 </span>
-                                <b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b>
+                                <span class="dona-list-row__value">@Score(actual?.ReliabilityScore)<small>надёжность</small></span>
                             </button>
                         </li>
                     }

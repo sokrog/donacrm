@@ -27,13 +27,6 @@
     --dona-shadow: rgba(99, 6, 37, .09);
     --dona-sidebar: #f9dfe7;
 
-    /* legacy aliases — still used by Home/OrbitSelect */
-    --dona-panel-solid: var(--dona-surface);
-    --dona-purple: var(--dona-brand);
-    --dona-magenta: var(--dona-rose);
-    --dona-cyan: var(--dona-success);
-    --dona-amber: var(--dona-warning);
-
     /* spacing scale (4px grid) */
     --dona-space-1: 4px;
     --dona-space-2: 8px;

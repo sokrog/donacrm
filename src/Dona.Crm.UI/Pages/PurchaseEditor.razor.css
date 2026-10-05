@@ -1,14 +1,3 @@
-.dona-heading h1 {
-    margin: 0;
-    font-size: var(--dona-type-title-sm);
-}
-
-::deep .validation-errors {
-    margin: 0;
-    color: var(--dona-danger);
-    font-size: var(--dona-type-label);
-}
-
 /* Purchase stage stepper */
 .purchase-flow {
     display: grid;
@@ -79,12 +68,6 @@
     padding-top: var(--dona-space-3);
 }
 
-.empty-items {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-small);
-}
-
 .received-note {
     border-radius: var(--dona-radius-sm);
     padding: 9px;
@@ -126,15 +109,6 @@
     font-size: var(--dona-type-body-sm);
     text-align: right;
 }
-
-/* needs global component: boxed .dona-confirm and .dona-confirm > .dona-btn sizing */
-.confirm-box {
-    border: 1px solid rgba(var(--dona-danger-rgb), .22);
-    border-radius: var(--dona-radius-md);
-    padding: var(--dona-space-2);
-}
-
-.dona-confirm > .dona-btn { flex: 1 1 120px; }
 
 @media (max-width: 390px) {
     .cost-grid, .line-fields { grid-template-columns: 1fr; }

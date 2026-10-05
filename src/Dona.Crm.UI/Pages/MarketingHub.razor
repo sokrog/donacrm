@@ -15,32 +15,32 @@
             </div>
         </div>
     </header>
-    <p class="hub-intro">Подготовка ассортимента и публикаций в одном месте.</p>
+    <p class="dona-note dona-note--intro">Подготовка ассортимента и публикаций в одном месте.</p>
     @if (loading)
     {
         <div class="dona-state">Загружаем маркетинг…</div>
     }
     else if (errorMessage is not null)
     {
-        <div class="dona-state dona-state--error hub-alert" role="alert">Не удалось загрузить маркетинг: @errorMessage</div>
+        <div class="dona-alert dona-alert--danger" role="alert">Не удалось загрузить маркетинг: @errorMessage</div>
     }
     else
     {
         @if (Overdue > 0)
         {
-            <div class="dona-state dona-state--error hub-alert">Просрочено публикаций: @Overdue. Перенесите дату или обновите статус.</div>
+            <div class="dona-alert dona-alert--danger">Просрочено публикаций: @Overdue. Перенесите дату или обновите статус.</div>
         }
         <nav class="hub-list" aria-label="Разделы маркетинга">
             <a class="dona-list-row" href="/content-plan">
-                <span class="dona-icon-tile hub-content"><OrbitIcon Name="marketing" /></span>
+                <span class="dona-icon-tile dona-icon-tile--success"><OrbitIcon Name="marketing" /></span>
                 <span>
                     <strong>Контент-план</strong>
                     <small>@UpcomingText</small>
                 </span>
-                <b>
+                <span class="dona-list-row__value">
                     @data.ContentPosts.Count
                     <small>публикаций</small>
-                </b>
+                </span>
             </a>
             <a class="dona-list-row" href="/collections">
                 <span class="dona-icon-tile"><OrbitIcon Name="catalog" /></span>
@@ -48,21 +48,21 @@
                     <strong>Коллекции</strong>
                     <small>Сезоны, запуски и подборки</small>
                 </span>
-                <b>
+                <span class="dona-list-row__value">
                     @data.Collections.Count
                     <small>коллекций</small>
-                </b>
+                </span>
             </a>
             <a class="dona-list-row" href="/outfits">
-                <span class="dona-icon-tile hub-outfit"><OrbitIcon Name="image" /></span>
+                <span class="dona-icon-tile dona-icon-tile--rose"><OrbitIcon Name="image" /></span>
                 <span>
                     <strong>Образы</strong>
                     <small>Готовые сочетания товаров</small>
                 </span>
-                <b>
+                <span class="dona-list-row__value">
                     @data.Outfits.Count
                     <small>образов</small>
-                </b>
+                </span>
             </a>
         </nav>
     }

@@ -43,12 +43,10 @@ input, select, textarea {
     accent-color: var(--dona-brand);
 }
 
-/* iOS zooms into inputs below 16px */
+/* iOS zooms into inputs below 16px. The :not() chain keeps specificity above control rules in components/pages. */
 @media (max-width: 899px) {
-    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-    select,
-    textarea {
-        font-size: 1rem !important; /* legacy: scoped control rules set smaller sizes; remove when they are gone */
+    :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+        font-size: 1rem;
     }
 }
 
@@ -57,7 +55,13 @@ input::placeholder, textarea::placeholder { color: var(--dona-muted); }
 :where(input, select, textarea):focus-visible {
     outline: 3px solid rgba(var(--dona-brand-rgb), .55);
     outline-offset: 1px;
-    border-color: var(--dona-brand) !important; /* legacy: scoped control borders have higher specificity */
+}
+
+/* Specificity deliberately above plain control rules (.dona-search input, scoped component inputs) */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    border-color: var(--dona-brand);
 }
 
 button {

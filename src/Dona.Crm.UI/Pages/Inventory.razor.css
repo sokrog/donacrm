@@ -17,15 +17,6 @@
     background: var(--dona-surface);
 }
 
-.movement-icon {
-    width: 44px;
-    height: 44px;
-}
-
-.movement-icon ::deep svg {
-    width: 21px;
-}
-
 .movement-list strong,
 .movement-list small {
     display: block;

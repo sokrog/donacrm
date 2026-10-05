@@ -1,16 +1,9 @@
+/* long post titles truncate instead of wrapping */
 .dona-heading h1 {
     overflow: hidden;
     max-width: 340px;
-    margin: 0;
-    font-size: var(--dona-type-title-sm);
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-::deep .validation-errors {
-    margin: 0;
-    color: var(--dona-danger);
-    font-size: var(--dona-type-label);
 }
 
 /* section-title trailing counter */
@@ -33,20 +26,5 @@ details summary {
 
 details .dona-field { margin-top: var(--dona-space-3); }
 
-.association-note {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-    line-height: 1.45;
-}
+.linked { color: var(--dona-success); }
 
-.association-note.linked { color: var(--dona-success); }
-
-/* needs global component: boxed .dona-confirm and .dona-confirm > .dona-btn sizing */
-.confirm-box {
-    border: 1px solid rgba(var(--dona-danger-rgb), .28);
-    border-radius: var(--dona-radius-md);
-    padding: 10px;
-}
-
-.dona-confirm > .dona-btn { flex: 1; }

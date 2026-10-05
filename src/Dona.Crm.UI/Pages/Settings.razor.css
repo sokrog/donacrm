@@ -14,43 +14,6 @@
     font-weight: var(--dona-weight-strong);
 }
 
-.toggle-row {
-    grid-template-columns: 48px 1fr;
-    align-items: center;
-    border: 1px solid var(--dona-line);
-    border-radius: var(--dona-radius-md);
-    padding: var(--dona-space-2);
-}
-
-.toggle-row ::deep input {
-    width: 26px;
-    min-height: 26px;
-}
-
-.toggle-row span,
-.toggle-row strong,
-.toggle-row small {
-    display: block;
-}
-
-.toggle-row strong {
-    color: var(--dona-text);
-    font-size: var(--dona-type-small);
-}
-
-.toggle-row small {
-    margin-top: var(--dona-space-1);
-    font-size: var(--dona-type-caption);
-    line-height: 1.4;
-}
-
-.field-note {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-    line-height: 1.45;
-}
-
 .personal-cloud-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -109,30 +72,6 @@
 .danger-zone {
     border-color: rgba(var(--dona-danger-rgb), .28);
     background: linear-gradient(135deg, rgba(var(--dona-danger-rgb), .06), var(--dona-surface) 45%);
-}
-
-.clear-confirm {
-    display: grid;
-    gap: var(--dona-space-3);
-    border: 1px solid rgba(var(--dona-danger-rgb), .28);
-    border-radius: var(--dona-radius-md);
-    padding: var(--dona-space-3);
-    background: var(--dona-surface);
-}
-
-.clear-confirm strong {
-    color: var(--dona-danger);
-    font-size: var(--dona-type-small);
-}
-
-.clear-confirm label b {
-    color: var(--dona-text);
-}
-
-.clear-confirm > div {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--dona-space-2);
 }
 
 @media (max-width: 390px) {

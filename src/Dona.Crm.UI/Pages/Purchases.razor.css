@@ -2,17 +2,6 @@
     margin-bottom: var(--dona-space-3);
 }
 
-.purchase-alert {
-    margin-bottom: var(--dona-space-3);
-    border: 1px solid rgba(var(--dona-warning-rgb), .24);
-    border-radius: var(--dona-radius-md);
-    padding: var(--dona-space-3);
-    background: rgba(var(--dona-warning-rgb), .08);
-    color: var(--dona-warning);
-    font-size: var(--dona-type-label);
-    line-height: 1.45;
-}
-
 .purchase-tools {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);

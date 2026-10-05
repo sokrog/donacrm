@@ -21,7 +21,7 @@
     </header>
 
     @if (isLoading) { <div class="dona-state" role="status">Загружаем товар…</div> }
-    else if (errorMessage is not null) { <div class="dona-state dona-state--error" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a class="state-link" href="/products">В каталог</a></div> }
+    else if (errorMessage is not null) { <div class="dona-state dona-state--error" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a href="/products">В каталог</a></div> }
     else
     {
         <EditForm class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
@@ -72,7 +72,7 @@
                     <h2 id="variants">Варианты и остатки</h2>
                     <button type="button" @onclick="AddVariant"><OrbitIcon Name="plus" Class="dona-inline-icon" />Добавить</button>
                 </div>
-                @if (model.Variants.Count == 0) { <p class="empty-variants">Добавьте цвет, размер и количество.</p> }
+                @if (model.Variants.Count == 0) { <p class="dona-empty">Добавьте цвет, размер и количество.</p> }
                 @foreach (var variant in model.Variants)
                 {
                     <div class="variant-row" @key="variant.Id">
@@ -102,7 +102,7 @@
             {
                 @if (confirmArchive)
                 {
-                    <div class="dona-confirm confirm-box" role="group" aria-label="Подтверждение архивирования">
+                    <div class="dona-confirm dona-confirm--boxed" role="group" aria-label="Подтверждение архивирования">
                         <span>Убрать товар из активного каталога?</span>
                         <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmArchive = false">Нет</button>
                         <button type="button" class="dona-btn dona-btn--danger" @onclick="ArchiveAsync">Да, в архив</button>
@@ -110,7 +110,7 @@
                 }
                 else
                 {
-                    <button type="button" class="archive-toggle" @onclick="() => confirmArchive = true">Переместить товар в архив</button>
+                    <button type="button" class="dona-btn dona-btn--link dona-btn--danger archive-toggle" @onclick="() => confirmArchive = true">Переместить товар в архив</button>
                 }
             }
             <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/products">Отмена</a><button type="submit" class="dona-btn dona-btn--primary" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button></div>

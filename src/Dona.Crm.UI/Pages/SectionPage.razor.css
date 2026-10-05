@@ -1,10 +1,11 @@
-.more-intro {
-    margin: var(--dona-space-2) 0 var(--dona-space-5);
-    color: var(--dona-muted);
-    font-size: var(--dona-type-body-sm);
-}
-
 .more-list {
     display: grid;
     gap: var(--dona-space-3);
+}
+
+@media (min-width: 900px) {
+    .more-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--dona-card-gap);
+    }
 }

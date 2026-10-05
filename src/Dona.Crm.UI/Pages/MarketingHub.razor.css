@@ -1,17 +1,3 @@
-.hub-intro {
-    margin: var(--dona-space-2) 0 var(--dona-space-5);
-    color: var(--dona-muted);
-    font-size: var(--dona-type-small);
-    line-height: 1.5;
-}
-
-.hub-alert {
-    margin-bottom: var(--dona-space-3);
-    padding: var(--dona-space-3);
-    font-size: var(--dona-type-label);
-    line-height: 1.45;
-}
-
 .hub-list {
     display: grid;
     gap: var(--dona-space-3);
@@ -24,24 +10,3 @@
     }
 }
 
-.hub-content {
-    background: rgba(var(--dona-success-rgb), .09);
-    color: var(--dona-success);
-}
-
-.hub-outfit {
-    background: rgba(var(--dona-brand-rgb), .09);
-    color: var(--dona-rose);
-}
-
-.hub-list b {
-    color: var(--dona-text);
-    font-size: var(--dona-type-body);
-    text-align: right;
-}
-
-.hub-list b small {
-    margin-top: 3px;
-    font-size: var(--dona-type-micro);
-    font-weight: var(--dona-weight-regular);
-}

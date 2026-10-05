@@ -4,14 +4,13 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
 
 1. `tokens.css` - all custom properties (colour, space, radius, weight, shadow, layout, type).
 2. `base.css` - reset, html/body, fonts, headings, focus, reduced motion.
-3. `layout.css` - `.dona-page`, `.dona-stack`, `.dona-page-header` (+ a marked LEGACY block of old page-class rules).
-4. `components.css` - global `dona-*` components (+ a marked LEGACY block for `orbit-*` aliases that need `!important`).
-5. `pages.css` - temporary page-specific leftovers; move into scoped files, then delete.
+3. `layout.css` - `.dona-page` (+ `--wide` / `--form`, incl. the 1400px wide step), `.dona-stack`, `.dona-page-header`.
+4. `components.css` - global `dona-*` components.
 
 ## Naming
 - `dona-*` = global, defined here. Modifiers BEM-style: `dona-btn--primary`.
 - Unprefixed class names = scoped, in the component's `.razor.css`.
-- `orbit-*` = legacy aliases; removed in wave 4.
+- `orbit-*` = scoped class names inside the Orbit* components (OrbitSelect, OrbitDatePicker, InitialBadge); never used as global utilities.
 
 ## Rules
 - Do: scoped CSS handles layout of one page only; use tokens (`var(--dona-space-4)`, `var(--dona-radius-md)`); reuse `dona-*` for anything on 2+ pages.
@@ -36,7 +35,7 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
   <div class="dona-search"><label for="q">Поиск</label><input id="q" /></div>
   <div class="dona-chips"><button class="active">Все</button><button>Мало</button></div>
   <section class="dona-kpis dona-kpis--3">
-    <article class="dona-kpi"><span>Выручка</span><strong>10 000 ₽</strong></article>
+    <article class="dona-kpi"><span>Выручка</span><strong>10 000 UZS</strong></article>
   </section>
   <a class="dona-list-row" href="/x"><span class="dona-icon-tile">…</span><span><strong>Имя</strong><small>Описание</small></span><b>›</b></a>
   <p class="dona-state">Пусто</p>   <!-- dona-state--error -->
@@ -56,4 +55,50 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
   </div>
 </form>
 ```
-Also: `dona-card`, `dona-confirm`, `dona-badge` (`--ok/--warning/--danger`), `dona-btn--ghost/--block/--icon`, `dona-back-button`, `dona-heading`.
+
+### More components
+```html
+<div class="dona-tabs"><button class="active">Поставщики <span>3</span></button><button>Посредники</button></div>
+<div class="dona-alert dona-alert--warning">Проверьте…</div>   <!-- --danger -->
+<p class="dona-note dona-note--intro">Подзаголовок страницы</p>  <!-- dona-note--sm = hint under a field -->
+<p class="dona-empty">Пока ничего нет.</p>
+<label class="dona-field dona-toggle"><input type="checkbox" /><span><strong>Заголовок</strong><small>Пояснение</small></span></label>
+<button class="dona-btn dona-btn--link dona-btn--danger">Архивировать</button>   <!-- --muted for grey links -->
+
+<button class="dona-list-row" type="button">                                     <!-- <a> or <button> -->
+  <span class="dona-icon-tile dona-icon-tile--success">…</span>                  <!-- --sm --lg; tones --success --danger --warning --rose -->
+  <span><strong>Имя</strong><small>Описание</small><em>Акцент</em></span>
+  <span class="dona-list-row__value">12<small>заказов</small></span>             <!-- right-aligned value + caption -->
+</button>
+
+<div class="dona-confirm dona-confirm--boxed">                                   <!-- danger-tinted box; plain .dona-confirm inside .dona-actions -->
+  <span>Удалить?</span><button class="dona-btn dona-btn--secondary">Нет</button><button class="dona-btn dona-btn--danger">Да</button>
+</div>
+<div class="dona-section-title"><div><p class="dona-eyebrow">Поставщик</p><h2>Карточка</h2></div></div>
+```
+
+### Action bar (`dona-actions`)
+Buttons must be direct children. With one or two buttons they share a row (the primary gets twice the room). With three or more the primary goes first on its own full-width row (`:has(> :nth-child(3))`). Sticky above the tab bar on mobile, static on desktop; min button height 48px.
+
+### Other rules
+- Editor headings: plain `<h1>` inside `.dona-heading` gets the editor size (title-md); list pages use `<h1 class="dona-title">`.
+- Blazor output is styled globally: `.validation-message`, `.validation-errors`, `.valid.modified`, `.invalid`.
+- Also: `dona-card`, `dona-badge` (`--ok/--warning/--danger`), `dona-btn--ghost/--block/--icon`, `dona-back-button`, `dona-heading`.
+
+### Modal, select trigger, round icon button
+```html
+<div class="dona-modal" role="presentation" @onclick="Close">                   <!-- --alert (z 700, confirmations), --viewer (z 1000, no blur) -->
+  <section class="dona-modal__dialog" role="dialog" aria-modal="true" @onclick:stopPropagation="true">   <!-- --sm = 390px, default 430px -->
+    <header class="dona-modal__header">
+      <div><small class="dona-modal__eyebrow">Выбор значения</small><h2 class="dona-modal__title">Заголовок</h2></div>
+      <button type="button" class="dona-modal__close" aria-label="Закрыть"><OrbitIcon Name="close" /></button>
+    </header>
+    <div class="dona-modal__body">…scrolls…</div>
+    <div class="dona-modal__footer"><button class="dona-btn dona-btn--primary">Готово</button></div>
+  </section>
+</div>
+
+<button type="button" class="dona-select-trigger dona-select-trigger--empty"><span>Не выбрано</span><OrbitIcon Name="down" /></button>   <!-- --accent = brand-coloured icon -->
+<a class="dona-icon-button dona-icon-button--round" href="/x"><OrbitIcon Name="bell" /></a>                                                <!-- 48px circle; position: relative for badges -->
+```
+The modal is centred at every width. Component-specific rules (OrbitSelect desktop popover, date grid, lightbox image sizing) stay in the component's scoped CSS and are layered on top of these classes.

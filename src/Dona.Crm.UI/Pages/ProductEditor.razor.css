@@ -1,17 +1,3 @@
-.dona-heading h1 {
-    margin: 0;
-    font-size: var(--dona-type-title-md);
-    letter-spacing: -.03em;
-}
-
-::deep .validation-errors {
-    margin: 0;
-    color: var(--dona-danger);
-    font-size: var(--dona-type-label);
-}
-
-.state-link { color: var(--dona-brand); }
-
 .product-editor-workspace, .product-editor-primary, .product-editor-secondary {
     display: grid;
     min-width: 0;
@@ -60,13 +46,6 @@
     cursor: not-allowed;
 }
 
-.empty-variants {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-body-sm);
-    line-height: 1.5;
-}
-
 .store-link {
     justify-self: start;
     color: var(--dona-brand);
@@ -77,24 +56,7 @@
 
 .archive-toggle {
     justify-self: start;
-    min-height: var(--dona-tap);
-    border: 0;
-    padding: 0 var(--dona-space-1);
-    background: transparent;
-    color: var(--dona-danger);
-    font-size: var(--dona-type-small);
-    text-decoration: underline;
-    text-underline-offset: 3px;
 }
-
-/* needs global component: boxed .dona-confirm and .dona-confirm > .dona-btn sizing */
-.confirm-box {
-    border: 1px solid rgba(var(--dona-danger-rgb), .24);
-    border-radius: var(--dona-radius-lg);
-    padding: 10px var(--dona-space-3);
-}
-
-.dona-confirm > .dona-btn { flex: 1 1 100px; }
 
 @media (min-width: 700px) {
     .variant-row { grid-template-columns: repeat(3, minmax(0, 1fr)) var(--dona-tap); }

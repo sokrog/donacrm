@@ -1,20 +1,8 @@
-.heading-note {
-    margin: 6px 0 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-label);
-    line-height: 1.45;
-}
-
 .local-card {
     display: grid;
     grid-template-columns: 46px minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--dona-space-3);
-}
-
-.provider-local {
-    background: rgba(var(--dona-success-rgb), .09);
-    color: var(--dona-success);
 }
 
 .provider-google {

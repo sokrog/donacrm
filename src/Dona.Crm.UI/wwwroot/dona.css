@@ -3,9 +3,8 @@
  * Entry point only - no rules live here. Layers, in order:
  *   styles/tokens.css      design tokens (colour, space, radius, weight, shadow, type)
  *   styles/base.css        reset, document defaults, headings, focus, motion
- *   styles/layout.css      .dona-page / .dona-stack / .dona-page-header (+ LEGACY page-class block)
+ *   styles/layout.css      .dona-page / .dona-stack / .dona-page-header
  *   styles/components.css  shared global components (.dona-btn, .dona-card, .dona-field ...)
- *   styles/pages.css       temporary page-specific leftovers (to be moved into scoped files)
  *
  * Rules:
  *   - Scoped *.razor.css: layout of that page/component only; tokens only (no hex, no raw
@@ -17,4 +16,3 @@
 @import url("styles/base.css");
 @import url("styles/layout.css");
 @import url("styles/components.css");
-@import url("styles/pages.css");

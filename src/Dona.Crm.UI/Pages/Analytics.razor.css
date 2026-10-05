@@ -2,38 +2,6 @@
     margin-bottom: var(--dona-space-4);
 }
 
-.period-tabs {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--dona-space-1);
-    margin-bottom: var(--dona-space-2);
-    border: 1px solid var(--dona-line);
-    border-radius: var(--dona-radius-md);
-    padding: var(--dona-space-1);
-    background: var(--dona-surface-soft);
-}
-
-.period-tabs button {
-    min-height: 42px;
-    border: 0;
-    border-radius: var(--dona-radius-sm);
-    background: transparent;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-    font-weight: var(--dona-weight-strong);
-}
-
-.period-tabs button.active {
-    background: rgba(var(--dona-brand-rgb), .17);
-    color: var(--dona-brand);
-}
-
-@media (max-width: 390px) {
-    .period-tabs button {
-        font-size: var(--dona-type-micro);
-    }
-}
-
 .custom-period {
     margin-bottom: var(--dona-space-3);
     border: 1px solid var(--dona-line);
@@ -60,12 +28,6 @@
 
 .negative {
     color: var(--dona-danger);
-}
-
-.empty-chart {
-    margin: 0;
-    color: var(--dona-muted);
-    font-size: var(--dona-type-small);
 }
 
 .daily-chart {

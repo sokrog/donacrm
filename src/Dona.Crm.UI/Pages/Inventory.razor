@@ -36,7 +36,7 @@
             @foreach (var item in items.OrderByDescending(value => value.CreatedAt))
             {
                 <li>
-                    <span class="dona-icon-tile movement-icon"><OrbitIcon Name="adjust" /></span>
+                    <span class="dona-icon-tile dona-icon-tile--sm"><OrbitIcon Name="adjust" /></span>
                     <div>
                         <strong>@item.ProductName</strong>
                         <small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small>

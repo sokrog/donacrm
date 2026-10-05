@@ -12,14 +12,14 @@
 
 <PageTitle>Главная — DONA CRM</PageTitle>
 
-<div class="orbit-home" aria-busy="@isLoading">
-    <div class="home-brand"><img src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /><span class="home-slogan">Ваш магазин. Всё под рукой.</span></div>
-    <header class="home-header">
+<div class="dona-page dona-page--wide home" aria-busy="@isLoading">
+    <div class="home-brand"><img src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /></div>
+    <header class="dona-page-header home-header">
         <div>
-            <p class="eyebrow">@DateLabel</p>
-            <h1>@Greeting</h1>
+            <p class="dona-eyebrow">@DateLabel</p>
+            <h1 class="dona-title">@Greeting</h1>
         </div>
-        <a class="icon-button attention-shortcut" href="/attention" aria-label="Открыть раздел «Внимание»">
+        <a class="dona-icon-button dona-icon-button--round" href="/attention" aria-label="Открыть раздел «Внимание»">
             <OrbitIcon Name="bell" />
             @if (!isLoading && attentionTotal > 0) { <span class="attention-badge" aria-label="@attentionTotal сигналов">@attentionTotal</span> }
         </a>
@@ -27,17 +27,17 @@
 
     <div class="connection-row">
         <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>
-        <a class="sync-shortcut" href="@SyncHref" aria-label="Открыть синхронизацию Google" title="Синхронизация Google">
+        <a class="dona-icon-button dona-icon-button--round sync-shortcut" href="@SyncHref" aria-label="Открыть синхронизацию Google" title="Синхронизация Google">
             <OrbitIcon Name="cloud" />
         </a>
     </div>
 
     @if (errorMessage is not null)
     {
-        <section class="state-card" role="alert">
+        <section class="dona-state dona-state--error" role="alert">
             <strong>Не удалось прочитать локальные данные</strong>
             <p>@errorMessage</p>
-            <button type="button" @onclick="LoadAsync">Повторить</button>
+            <button type="button" class="dona-btn dona-btn--primary" @onclick="LoadAsync">Повторить</button>
         </section>
     }
     else if (isLoading)
@@ -59,10 +59,10 @@
                 </div>
             </article>
 
-            <div class="signal-strip" aria-label="Ключевые показатели">
-                <article class="signal"><span>Доступный остаток</span><strong>@availableQuantity ед.</strong></article>
-                <article class="signal"><span>Входящие закупки</span><strong>@incomingQuantity ед.</strong></article>
-                <article class="signal debt"><span>Долг клиентов</span><strong>@Money(customerDebt) UZS</strong></article>
+            <div class="dona-kpis dona-kpis--3 signal-strip" aria-label="Ключевые показатели">
+                <article class="dona-kpi"><span>Доступный остаток</span><strong>@availableQuantity ед.</strong></article>
+                <article class="dona-kpi"><span>Входящие закупки</span><strong>@incomingQuantity ед.</strong></article>
+                <article class="dona-kpi debt"><span>Долг клиентов</span><strong>@Money(customerDebt) UZS</strong></article>
             </div>
         </div>
 
@@ -75,14 +75,14 @@
                 </div>
                 @if (attentionItems.Count == 0)
                 {
-                    <p class="empty-state">Сейчас всё спокойно — срочных сигналов нет.</p>
+                    <p class="dona-state">Сейчас всё спокойно — срочных сигналов нет.</p>
                 }
                 else
                 {
                     <ul class="attention-list">
                         @foreach (var item in attentionItems)
                         {
-                            <li><a class="attention-item" href="@item.Href"><span class="attention-icon @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span>@item.Text</span><span class="chevron" aria-hidden="true">›</span></a></li>
+                            <li><a class="dona-list-row" href="@item.Href"><span class="dona-icon-tile @item.Tone"><OrbitIcon Name="@item.Icon" /></span><span>@item.Text</span><b aria-hidden="true">›</b></a></li>
                         }
                     </ul>
                 }
@@ -92,10 +92,10 @@
                 <section aria-labelledby="actions-heading">
                     <div class="section-heading"><h2 id="actions-heading">Быстрые действия</h2></div>
                     <div class="actions-grid">
-                        <a class="action" href="/products/new"><span class="action-icon"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
-                        <a class="action" href="/sales/new"><span class="action-icon"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
-                        <a class="action" href="/purchases/new"><span class="action-icon"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
-                        <a class="action" href="/inventory/adjustment/new"><span class="action-icon"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
+                        <a class="action" href="/products/new"><span class="dona-icon-tile"><OrbitIcon Name="catalog" /></span><span>Добавить товар</span></a>
+                        <a class="action" href="/sales/new"><span class="dona-icon-tile"><OrbitIcon Name="sales" /></span><span>Создать продажу</span></a>
+                        <a class="action" href="/purchases/new"><span class="dona-icon-tile"><OrbitIcon Name="truck" /></span><span>Создать закупку</span></a>
+                        <a class="action" href="/inventory/adjustment/new"><span class="dona-icon-tile"><OrbitIcon Name="adjust" /></span><span>Изменить остаток</span></a>
                     </div>
                 </section>
 
@@ -103,7 +103,7 @@
                     <div class="section-heading"><h2 id="activity-heading">Последняя активность</h2></div>
                     @if (activityItems.Count == 0)
                     {
-                        <p class="empty-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
+                        <p class="dona-state">Операций пока нет. Начните с продажи или корректировки остатка.</p>
                     }
                     else
                     {
@@ -240,13 +240,13 @@
             yield return new("catalog", string.Empty, $"{product.Name} — осталось {product.Quantity} ед.", $"/products/{product.Id}");
 
         foreach (var sale in snapshot.SalesWithDebt)
-            yield return new("clock", "amber", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", $"/sales/{sale.Id}");
+            yield return new("clock", "warning", $"{sale.Number} · {sale.CustomerName ?? "клиент"} — долг {Money(sale.BalanceDueUzs)} UZS", $"/sales/{sale.Id}");
 
         foreach (var purchase in snapshot.DuePurchases)
-            yield return new("truck", "cyan", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", $"/purchases/{purchase.Id}");
+            yield return new("truck", "success", $"{purchase.Number} — ожидается, {purchase.Items.Sum(item => item.MissingQuantity)} ед.", $"/purchases/{purchase.Id}");
 
         foreach (var product in snapshot.ProductsWithoutImages)
-            yield return new("image", "magenta", $"{product.Name} — нет фотографии", $"/products/{product.Id}");
+            yield return new("image", "rose", $"{product.Name} — нет фотографии", $"/products/{product.Id}");
     }
 
     private static IEnumerable<ActivityItem> BuildActivity(HomeDashboardSnapshot snapshot)

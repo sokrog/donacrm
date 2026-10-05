@@ -10,22 +10,7 @@
     list-style: none;
 }
 
-.customer-list button {
-    width: 100%;
-    font: inherit;
-    text-align: left;
-}
-
 .customer-list strong {
     font-size: var(--dona-type-body);
 }
 
-.customer-list b {
-    color: var(--dona-text);
-    font-size: var(--dona-type-body-sm);
-    text-align: right;
-}
-
-.customer-list b small {
-    font-weight: var(--dona-weight-regular);
-}

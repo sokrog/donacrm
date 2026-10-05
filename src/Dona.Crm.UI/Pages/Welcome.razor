@@ -14,7 +14,7 @@
         <img class="welcome-logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" />
         <p class="dona-eyebrow">Ваш магазин начинается здесь</p>
         <h1 id="welcome-title">Начнём с первого товара</h1>
-        <p class="intro">Три поля — и каталог готов к работе. Остальное можно заполнить позже.</p>
+        <p class="dona-note dona-note--intro">Три поля — и каталог готов к работе. Остальное можно заполнить позже.</p>
         <EditForm class="dona-stack" Model="model" OnValidSubmit="FinishAsync">
             <DataAnnotationsValidator />
             <label class="dona-field">Главная валюта<OrbitSelect TValue="string" @bind-Value="model.CurrencyCode" Options="@CurrencyOptions" Label="Главная валюта" /></label>
@@ -23,7 +23,7 @@
             @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
             <button class="dona-btn dona-btn--primary dona-btn--block" disabled="@saving">@(saving ? "Сохраняем…" : "Создать товар")</button>
         </EditForm>
-        <button class="skip" type="button" disabled="@saving" @onclick="SkipAsync">Продолжить без товара</button>
+        <button class="dona-btn dona-btn--link dona-btn--muted skip" type="button" disabled="@saving" @onclick="SkipAsync">Продолжить без товара</button>
     </section>
 </div>
 

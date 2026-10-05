@@ -1,113 +1,13 @@
-.orbit-select-trigger {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    min-height: var(--dona-control-height);
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    border: 1px solid var(--dona-line-strong);
-    border-radius: 12px;
-    padding: 0 12px;
-    background: var(--dona-field);
-    color: var(--dona-text);
-    font: inherit;
-    font-size: var(--dona-type-body-sm);
-    text-align: left;
-}
-
-.orbit-select-trigger.empty { color: var(--dona-muted); }
-.orbit-select-trigger:disabled { cursor: not-allowed; opacity: .55; }
-.orbit-select-trigger:focus-visible { outline: 3px solid rgba(var(--dona-brand-rgb), .55); border-color: var(--dona-brand); }
-.orbit-select-trigger ::deep svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--dona-muted); }
-
-.orbit-select-overlay {
-    position: fixed;
-    z-index: 600;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    min-width: 0;
-    min-height: 0;
-    padding:
-        max(16px, env(safe-area-inset-top))
-        max(16px, env(safe-area-inset-right))
-        max(16px, env(safe-area-inset-bottom))
-        max(16px, env(safe-area-inset-left));
-    background: var(--dona-overlay);
-    backdrop-filter: blur(10px);
-    overscroll-behavior: contain;
-}
-
-.orbit-select-dialog {
-    display: flex;
-    width: min(100%, 430px);
-    max-width: 100%;
-    max-height: min(100%, 680px);
-    flex-direction: column;
-    gap: 13px;
-    overflow: hidden;
-    border: 1px solid var(--dona-line-strong);
-    border-radius: 22px;
-    padding: 16px;
-    background: var(--dona-surface);
-    box-shadow: 0 28px 80px var(--dona-overlay);
-}
-
-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-header small {
-    display: block;
-    margin-bottom: 3px;
-    color: var(--dona-cyan);
-    font-size: var(--dona-type-micro);
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}
-
-h2 { margin: 0; font-size: var(--dona-type-subtitle); }
-
-.close {
-    display: grid;
-    width: 44px;
-    height: 44px;
-    flex: 0 0 44px;
-    place-items: center;
-    border: 1px solid var(--dona-line);
-    border-radius: 12px;
-    padding: 0;
-    background: transparent;
-    color: var(--dona-muted);
-}
-
-.close ::deep svg { width: 22px; height: 22px; }
-
 .orbit-select-search {
     width: 100%;
     min-height: 48px;
     border: 1px solid var(--dona-line-strong);
-    border-radius: 12px;
-    padding: 0 12px;
+    border-radius: var(--dona-radius-md);
+    padding: 0 var(--dona-space-3);
     background: var(--dona-field);
     color: var(--dona-text);
     font: inherit;
     font-size: var(--dona-type-body-sm);
-}
-
-.orbit-select-options {
-    display: grid;
-    flex: 1 1 auto;
-    gap: 5px;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
 }
 
 .orbit-select-options > button {
@@ -115,10 +15,10 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
     min-height: 54px;
     grid-template-columns: minmax(0, 1fr) 22px;
     align-items: center;
-    gap: 10px;
+    gap: var(--dona-space-2);
     border: 1px solid transparent;
-    border-radius: 12px;
-    padding: 8px 10px 8px 12px;
+    border-radius: var(--dona-radius-md);
+    padding: var(--dona-space-2) var(--dona-space-2) var(--dona-space-2) var(--dona-space-3);
     background: transparent;
     color: var(--dona-text);
     text-align: left;
@@ -126,19 +26,30 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
 
 .orbit-select-options > button:hover,
 .orbit-select-options > button:focus-visible {
-    background: rgba(var(--dona-brand-rgb), 0.045);
+    background: rgba(var(--dona-brand-rgb), .06);
 }
 
 .orbit-select-options > button.selected {
-    border-color: rgba(var(--dona-success-rgb), 0.24);
-    background: rgba(var(--dona-success-rgb), 0.08);
+    border-color: rgba(var(--dona-brand-rgb), .28);
+    background: rgba(var(--dona-brand-rgb), .1);
 }
 
 .orbit-select-options span,
 .orbit-select-options strong,
-.orbit-select-options small { display: block; min-width: 0; }
-.orbit-select-options strong { font-size: var(--dona-type-body-sm); }
-.orbit-select-options small { margin-top: 3px; color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.orbit-select-options small {
+    display: block;
+    min-width: 0;
+}
+
+.orbit-select-options strong {
+    font-size: var(--dona-type-body-sm);
+}
+
+.orbit-select-options small {
+    margin-top: var(--dona-space-1);
+    color: var(--dona-muted);
+    font-size: var(--dona-type-caption);
+}
 
 .orbit-select-options i {
     width: 18px;
@@ -148,35 +59,15 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
 }
 
 .orbit-select-options button.selected i {
-    border: 5px solid var(--dona-cyan);
+    border: 5px solid var(--dona-brand);
 }
 
 .orbit-select-empty {
     margin: 0;
-    padding: 18px 10px;
+    padding: var(--dona-space-4) var(--dona-space-2);
     color: var(--dona-muted);
     font-size: var(--dona-type-body-sm);
     text-align: center;
-}
-
-.orbit-select-footer {
-    flex: 0 0 auto;
-    border-top: 1px solid var(--dona-line);
-    padding-top: 12px;
-}
-
-@media (max-width: 430px) {
-    .orbit-select-overlay {
-        padding:
-            max(12px, env(safe-area-inset-top))
-            max(12px, env(safe-area-inset-right))
-            max(12px, env(safe-area-inset-bottom))
-            max(12px, env(safe-area-inset-left));
-    }
-
-    .orbit-select-dialog {
-        border-radius: 20px;
-    }
 }
 
 /* Desktop: anchored popover under the trigger (position computed by orbitModal.openSelect, fixed so parents cannot clip it). */
@@ -196,13 +87,21 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
         width: var(--select-width, 260px);
         max-width: calc(100vw - 16px);
         max-height: var(--select-max, 320px);
-        gap: 8px;
-        border-radius: 14px;
-        padding: 8px;
-        box-shadow: 0 14px 40px var(--dona-shadow);
+        gap: var(--dona-space-2);
+        border-radius: var(--dona-radius-md);
+        padding: var(--dona-space-2);
+        box-shadow: var(--dona-shadow-sm);
     }
 
-    .orbit-select-dialog > header { display: none; }
-    .orbit-select-search { min-height: 40px; }
-    .orbit-select-options > button { min-height: 44px; }
+    .orbit-select-dialog > header {
+        display: none;
+    }
+
+    .orbit-select-search {
+        min-height: 40px;
+    }
+
+    .orbit-select-options > button {
+        min-height: 44px;
+    }
 }

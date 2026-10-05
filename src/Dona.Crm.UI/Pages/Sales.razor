@@ -83,7 +83,7 @@
                             <small>@(string.IsNullOrWhiteSpace(sale.CustomerName)?"Без клиента":sale.CustomerName) · @sale.Status.Display()</small>
                             <em class="@StatusClass(sale.Status)">@sale.TotalQuantity ед.</em>
                         </span>
-                        <span class="sale-total">
+                        <span class="dona-list-row__value sale-total">
                             @Money(sale.NetTotalUzs)
                             <small>UZS</small>
                             @if(sale.BalanceDueUzs>0)

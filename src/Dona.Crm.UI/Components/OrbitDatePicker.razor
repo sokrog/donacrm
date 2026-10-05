@@ -1,15 +1,15 @@
 @using System.Globalization
 
-<button type="button" class="date-trigger @(Value is null ? "empty" : null)" @onclick="Open" aria-haspopup="dialog">
+<button type="button" class="dona-select-trigger dona-select-trigger--accent @(Value is null ? "dona-select-trigger--empty" : null)" @onclick="Open" aria-haspopup="dialog">
     <span>@(Value?.ToString("dd MMMM yyyy", CultureInfo.GetCultureInfo("ru-RU")) ?? Placeholder)</span><OrbitIcon Name="calendar" />
 </button>
 
 @if (open)
 {
     <OrbitModalLock>
-        <div class="date-overlay" role="presentation" @onclick="Close">
-            <section class="date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
-                <header><button class="orbit-icon-button" type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth"><OrbitIcon Name="back" /></button><strong>@MonthTitle</strong><button class="orbit-icon-button" type="button" aria-label="Следующий месяц" @onclick="NextMonth"><OrbitIcon Name="forward" /></button></header>
+        <div class="dona-modal" role="presentation" @onclick="Close">
+            <section class="dona-modal__dialog dona-modal__dialog--sm date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+                <header><button class="dona-icon-button" type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth"><OrbitIcon Name="back" /></button><strong>@MonthTitle</strong><button class="dona-icon-button" type="button" aria-label="Следующий месяц" @onclick="NextMonth"><OrbitIcon Name="forward" /></button></header>
                 <div class="weekdays" aria-hidden="true">@foreach(var day in weekdays){<span>@day</span>}</div>
                 <div class="days">
                     @foreach (var day in CalendarDays)
@@ -17,7 +17,7 @@
                         <button type="button" class="@DayClass(day)" disabled="@(day is null)" @onclick="() => SelectAsync(day)">@(day?.Day)</button>
                     }
                 </div>
-                <footer><button type="button" class="clear" @onclick="ClearAsync">Очистить</button><button type="button" @onclick="SelectTodayAsync">Сегодня</button><button type="button" class="close" @onclick="Close">Готово</button></footer>
+                <footer class="dona-modal__footer"><button type="button" class="clear" @onclick="ClearAsync">Очистить</button><button type="button" @onclick="SelectTodayAsync">Сегодня</button><button type="button" class="close" @onclick="Close">Готово</button></footer>
             </section>
         </div>
     </OrbitModalLock>
