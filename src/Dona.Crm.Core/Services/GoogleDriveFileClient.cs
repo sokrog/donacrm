@@ -202,8 +202,7 @@ public sealed class GoogleDriveFileClient(HttpClient http)
     {
         if (response.IsSuccessStatusCode)
             return;
-        var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-        throw new InvalidOperationException($"{message}: {detail}");
+        throw await GoogleErrorMessages.CreateExceptionAsync(response, message, cancellationToken);
     }
 
     private static GoogleDriveFile ParseFile(JsonElement value, string? etag = null) => new(

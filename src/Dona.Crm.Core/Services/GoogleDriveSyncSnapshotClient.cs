@@ -9,7 +9,7 @@ public sealed class GoogleDriveSyncSnapshotClient(GoogleDriveFileClient drive)
     private const string ContentType = "application/json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<GoogleSyncEnvelope> ReadAsync(string _, string accessToken, CancellationToken cancellationToken = default)
+    public async Task<GoogleSyncEnvelope> ReadAsync(string accessToken, CancellationToken cancellationToken = default)
     {
         var files = (await drive.ListAppDataAsync(FileName, accessToken, cancellationToken))
             .Where(file => string.Equals(file.Name, FileName, StringComparison.OrdinalIgnoreCase))
@@ -24,7 +24,7 @@ public sealed class GoogleDriveSyncSnapshotClient(GoogleDriveFileClient drive)
         return envelope with { RemoteId = metadata.Id, RemoteETag = metadata.ETag };
     }
 
-    public async Task WriteAsync(string _, string accessToken, GoogleSyncEnvelope envelope, CancellationToken cancellationToken = default)
+    public async Task WriteAsync(string accessToken, GoogleSyncEnvelope envelope, CancellationToken cancellationToken = default)
     {
         var content = JsonSerializer.SerializeToUtf8Bytes(envelope with { RemoteId = null, RemoteETag = null }, JsonOptions);
         if (string.IsNullOrWhiteSpace(envelope.RemoteId))

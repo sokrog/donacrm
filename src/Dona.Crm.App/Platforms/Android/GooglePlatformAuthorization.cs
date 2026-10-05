@@ -17,9 +17,8 @@ public sealed class GooglePlatformAuthorization : IGooglePlatformAuthorization
     [
         "openid",
         "email",
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/drive.appdata"
+        "https://www.googleapis.com/auth/drive.appdata",
+        "https://www.googleapis.com/auth/drive.file"
     ];
 
     public bool RequiresClientId => false;

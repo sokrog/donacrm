@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Dona.Crm.Web.Services;
 
 namespace Dona.Crm.App.Services;
 
@@ -9,11 +10,11 @@ internal static class GoogleOAuthPkce
     internal const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     internal const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     internal const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
-    internal const string Scopes = "openid profile email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata";
+    internal const string Scopes = "openid email profile https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file";
     private static readonly string[] RequiredDataScopes =
     [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive.appdata",
+        "https://www.googleapis.com/auth/drive.file"
     ];
 
     public static string CreateVerifier() => Base64Url(RandomNumberGenerator.GetBytes(64));
@@ -114,7 +115,9 @@ internal static class GoogleOAuthPkce
             if (content.Contains("client_secret is missing", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     "Этот OAuth-клиент Google требует Client Secret. Вставьте его из JSON OAuth-клиента в настройках подключения и повторите вход.");
-            throw new InvalidOperationException($"Google OAuth вернул ошибку: {content}");
+            throw new GoogleApiException(
+                GoogleErrorMessages.Describe(response.StatusCode, content, "Google OAuth вернул ошибку"),
+                response.StatusCode);
         }
 
         using var document = JsonDocument.Parse(content);
@@ -146,12 +149,7 @@ internal static class GoogleOAuthPkce
         if (missing.Length == 0)
             return;
 
-        var permissions = new List<string>();
-        if (missing.Contains("https://www.googleapis.com/auth/spreadsheets", StringComparer.Ordinal))
-            permissions.Add("Google Таблицы");
-        if (missing.Contains("https://www.googleapis.com/auth/drive", StringComparer.Ordinal))
-            permissions.Add("Google Drive");
         throw new InvalidOperationException(
-            $"Google не выдал обязательные разрешения: {string.Join(" и ", permissions)}. Повторите вход и отметьте оба разрешения на экране Google.");
+            "Google не выдал обязательные разрешения Google Drive (данные приложения и файлы приложения). Повторите вход и отметьте все запрошенные разрешения на экране Google.");
     }
 }

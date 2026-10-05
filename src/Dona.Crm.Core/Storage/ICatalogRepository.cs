@@ -16,10 +16,3 @@ public sealed class StorageOptions
     public string Provider { get; set; } = "LocalJson";
     public string DataFile { get; set; } = "data/catalog.json";
 }
-
-public sealed class GoogleSheetsOptions
-{
-    public const string SectionName = "GoogleSheets";
-    public string SpreadsheetId { get; set; } = string.Empty;
-    public string CredentialsPath { get; set; } = "credentials/google-service-account.json";
-}

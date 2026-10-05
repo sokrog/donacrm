@@ -44,7 +44,6 @@ public sealed class GoogleSyncOperation
 }
 
 public sealed record GoogleSyncPushRequest(
-    string SpreadsheetId,
     Guid OperationId,
     string ExpectedGoogleVersion,
     string LocalVersion,

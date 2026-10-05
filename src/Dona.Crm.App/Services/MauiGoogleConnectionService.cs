@@ -11,28 +11,30 @@ public sealed class MauiGoogleConnectionService(
     ISecureValueStore secure,
     IGooglePlatformAuthorization authorization) : IGoogleConnectionService, IGoogleAccessTokenProvider
 {
-    private const string SpreadsheetKey = "google.spreadsheet";
-    private const string DriveFolderKey = "google.drive-folder";
     private const string AccountKey = "google.account";
     private const string AccountNameKey = "google.account-name";
     private const string ConnectedKey = "google.connected";
     private const string AccessTokenKey = "google.access-token";
     private const string RefreshTokenKey = "google.refresh-token";
     private const string ExpiresAtKey = "google.expires-at";
-    private const string SpreadsheetNameKey = "google.spreadsheet-name";
-    private const string DriveFolderNameKey = "google.drive-folder-name";
     private const string LastCheckedKey = "google.last-checked";
+    private static readonly string[] LegacyPreferenceKeys =
+    [
+        "google.spreadsheet",
+        "google.drive-folder",
+        "google.spreadsheet-name",
+        "google.drive-folder-name"
+    ];
 
     public async Task<GoogleConnectionState> GetStateAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        RemoveLegacyPreferences();
         return new GoogleConnectionState(
             ReadSettings(),
             string.Equals(await secure.GetAsync(ConnectedKey), "true", StringComparison.Ordinal),
             await secure.GetAsync(AccountKey),
             await secure.GetAsync(AccountNameKey),
-            Preferences.Default.Get<string?>(SpreadsheetNameKey, null),
-            Preferences.Default.Get<string?>(DriveFolderNameKey, null),
             ReadDate(LastCheckedKey));
     }
 
@@ -41,12 +43,6 @@ public sealed class MauiGoogleConnectionService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var normalized = Normalize(settings);
-        Preferences.Default.Set(SpreadsheetKey, normalized.SpreadsheetId);
-        if (normalized.DriveFolderId is null)
-            Preferences.Default.Remove(DriveFolderKey);
-        else
-            Preferences.Default.Set(DriveFolderKey, normalized.DriveFolderId);
         ClearCheckDetails();
         return await GetStateAsync(cancellationToken);
     }
@@ -70,8 +66,6 @@ public sealed class MauiGoogleConnectionService(
         var settings = ReadSettings();
         EnsureConfigured(settings);
         var token = await GetAccessTokenAsync(settings, cancellationToken);
-        Preferences.Default.Remove(SpreadsheetNameKey);
-        Preferences.Default.Remove(DriveFolderNameKey);
 
         var user = await GetGoogleAsync<UserInfoResponse>(
             "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -167,43 +161,7 @@ public sealed class MauiGoogleConnectionService(
     {
         if (response.IsSuccessStatusCode)
             return;
-        var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-        try
-        {
-            using var json = JsonDocument.Parse(detail);
-            detail = json.RootElement.TryGetProperty("error_description", out var description)
-                ? description.GetString()
-                : json.RootElement.TryGetProperty("error", out var error) &&
-                  error.ValueKind == JsonValueKind.Object &&
-                  error.TryGetProperty("message", out var message)
-                    ? message.GetString()
-                    : detail;
-        }
-        catch (JsonException)
-        {
-        }
-        if (detail?.Contains("insufficient authentication scopes", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            throw new InvalidOperationException(
-                $"{prefix}: аккаунт не выдал разрешение Google Таблицы. Повторите вход и отметьте разрешения для Google Таблиц и Google Drive.");
-        }
-        throw new InvalidOperationException($"{prefix}: {detail ?? response.ReasonPhrase}");
-    }
-
-    private static GoogleConnectionSettings Normalize(GoogleConnectionSettings settings)
-    {
-        var rawSpreadsheet = settings.SpreadsheetId?.Trim() ?? string.Empty;
-        var spreadsheet = string.IsNullOrWhiteSpace(rawSpreadsheet) ? string.Empty : GoogleResourceIds.Spreadsheet(rawSpreadsheet);
-        if (!string.IsNullOrWhiteSpace(rawSpreadsheet) && string.IsNullOrWhiteSpace(spreadsheet))
-            throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
-        var folder = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
-        if (folder == string.Empty)
-            throw new InvalidOperationException("Укажите корректную ссылку или ID папки Google Drive.");
-        return new GoogleConnectionSettings(
-            spreadsheet,
-            folder,
-            settings.OAuthClientId?.Trim(),
-            settings.OAuthClientSecret?.Trim());
+        throw await GoogleErrorMessages.CreateExceptionAsync(response, prefix, cancellationToken);
     }
 
     private void EnsureConfigured(GoogleConnectionSettings settings)
@@ -216,18 +174,17 @@ public sealed class MauiGoogleConnectionService(
         }
     }
 
-    private static GoogleConnectionSettings ReadSettings() => new(
-        Preferences.Default.Get(SpreadsheetKey, string.Empty),
-        Preferences.Default.Get<string?>(DriveFolderKey, null));
+    private static GoogleConnectionSettings ReadSettings() => new();
 
     private static DateTimeOffset? ReadDate(string key) =>
         DateTimeOffset.TryParse(Preferences.Default.Get<string?>(key, null), out var value) ? value : null;
 
-    private static void ClearCheckDetails()
+    private static void ClearCheckDetails() => Preferences.Default.Remove(LastCheckedKey);
+
+    private static void RemoveLegacyPreferences()
     {
-        Preferences.Default.Remove(SpreadsheetNameKey);
-        Preferences.Default.Remove(DriveFolderNameKey);
-        Preferences.Default.Remove(LastCheckedKey);
+        foreach (var key in LegacyPreferenceKeys)
+            Preferences.Default.Remove(key);
     }
 
     private sealed record UserInfoResponse(

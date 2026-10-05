@@ -88,7 +88,7 @@ public sealed class MauiGoogleSyncService(
         {
             var remote = await GetRemoteAsync(cancellationToken);
             if (!string.Equals(remote.Version, expectedGoogleVersion, StringComparison.Ordinal))
-                throw new GoogleSyncConflictException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
+                throw new GoogleSyncConflictException("Данные в Google Drive изменились после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
             await local.ReplaceAsync(remote.Snapshot, cancellationToken);
             await operations.ClearPendingAsync(cancellationToken);
             var applied = await local.ReadAsync(cancellationToken);
@@ -141,7 +141,7 @@ public sealed class MauiGoogleSyncService(
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
         try
         {
-            var current = await remote.ReadAsync(state.Settings.SpreadsheetId, token, cancellationToken);
+            var current = await remote.ReadAsync(token, cancellationToken);
             if (string.Equals(current.Version, operation.LocalVersion, StringComparison.Ordinal))
             {
                 var alreadyApplied = new GoogleSyncPushResult(
@@ -158,11 +158,10 @@ public sealed class MauiGoogleSyncService(
             }
 
             if (!string.Equals(current.Version, operation.ExpectedGoogleVersion, StringComparison.Ordinal))
-                throw new GoogleSyncConflictException("Google-таблица изменилась после сравнения. Обновите сравнение и проверьте данные ещё раз.");
+                throw new GoogleSyncConflictException("Данные Google Drive изменились после сравнения. Обновите сравнение и проверьте данные ещё раз.");
 
             var appliedAt = DateTimeOffset.UtcNow;
             await remote.WriteAsync(
-                state.Settings.SpreadsheetId,
                 token,
                 current with { Version = operation.LocalVersion, CapturedAt = appliedAt, Snapshot = operation.Snapshot },
                 cancellationToken);
@@ -202,7 +201,7 @@ public sealed class MauiGoogleSyncService(
         var state = await connection.GetStateAsync(cancellationToken);
         if (!state.IsConnected) throw new InvalidOperationException("Сначала войдите в Google в разделе «Подключения».");
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
-        return await remote.ReadAsync(state.Settings.SpreadsheetId, token, cancellationToken);
+        return await remote.ReadAsync(token, cancellationToken);
     }
 
     private static GoogleSyncPreview Preview(DonaSyncSnapshot localSnapshot, GoogleSyncEnvelope remote) => new(

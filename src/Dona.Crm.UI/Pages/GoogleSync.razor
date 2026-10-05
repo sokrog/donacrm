@@ -14,7 +14,7 @@
     }
     else if (!connected)
     {
-        <div class="sync-state"><strong>Google не подключён</strong><p>Вернитесь в подключения, сохраните таблицу и выполните вход.</p><a href="/connections">Открыть подключения</a></div>
+        <div class="sync-state"><strong>Google не подключён</strong><p>Вернитесь в подключения, выполните вход в Google.</p><a href="/connections">Открыть подключения</a></div>
     }
     else
     {
@@ -22,7 +22,7 @@
 
         @if (preview is null)
         {
-            <section class="sync-intro"><h2>Безопасный предварительный просмотр</h2><p>Приложение прочитает таблицу и покажет только количество записей. Локальные данные останутся без изменений.</p><button disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button></section>
+            <section class="sync-intro"><h2>Безопасный предварительный просмотр</h2><p>Приложение прочитает скрытую папку приложения в вашем Google Drive и покажет только количество записей. Локальные данные останутся без изменений.</p><button disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button></section>
         }
         else
         {
