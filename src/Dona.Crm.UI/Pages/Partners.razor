@@ -10,38 +10,523 @@
 
 <PageTitle>Партнёры — DONA CRM</PageTitle>
 <div class="partners-page">
-    <header><div class="orbit-secondary-heading"><a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><p>Ещё</p><h1>Партнёры</h1></div></div>@if(!Editing){<button class="orbit-icon-button orbit-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>}</header>
-    <div class="partner-tabs" role="group" aria-label="Тип партнёра"><button type="button" class="@(mode==PartnerMode.Supplier?"active":null)" aria-pressed="@(mode==PartnerMode.Supplier)" @onclick="()=>SwitchMode(PartnerMode.Supplier)">Поставщики <span>@suppliers.Count</span></button><button type="button" class="@(mode==PartnerMode.Intermediary?"active":null)" aria-pressed="@(mode==PartnerMode.Intermediary)" @onclick="()=>SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button></div>
-    @if(loading){<div class="partner-state">Загружаем партнёров…</div>}
-    else if(editingSupplier is not null)
+    <header>
+        <div class="orbit-secondary-heading">
+            <a class="orbit-icon-button orbit-back-button" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
+            <div>
+                <p>Ещё</p>
+                <h1>Партнёры</h1>
+            </div>
+        </div>
+        @if (!Editing)
+        {
+            <button class="orbit-icon-button orbit-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
+        }
+    </header>
+    <div class="partner-tabs" role="group" aria-label="Тип партнёра">
+        <button type="button" class="@(mode == PartnerMode.Supplier ? "active" : null)" aria-pressed="@(mode == PartnerMode.Supplier)" @onclick="() => SwitchMode(PartnerMode.Supplier)">Поставщики <span>@suppliers.Count</span></button>
+        <button type="button" class="@(mode == PartnerMode.Intermediary ? "active" : null)" aria-pressed="@(mode == PartnerMode.Intermediary)" @onclick="() => SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button>
+    </div>
+    @if (errorMessage is not null && !Editing)
     {
-        <EditForm Model="editingSupplier" OnValidSubmit="SaveSupplierAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" /><section class="partner-form"><div class="form-heading"><div><p>Поставщик</p><h2>@(isNew?"Новая карточка":editingSupplier.Name)</h2></div><button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button></div><label>Название<InputText @bind-Value="editingSupplier.Name" /><ValidationMessage For="()=>editingSupplier.Name" /></label><div class="field-row"><label>Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label><label>MOQ, шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label></div><label>Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label><div class="field-row"><label>Рейтинг 0–5<InputNumber @bind-Value="editingSupplier.Rating" min="0" max="5" step="0.1" /></label><label>WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label></div><label>Контакт<InputText @bind-Value="editingSupplier.Contact" /></label><label>Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>@if(confirmDelete){<div class="delete-confirm"><span>Удалить поставщика? История закупок сохранится.</span><button type="button" class="secondary" @onclick="()=>confirmDelete=false">Нет</button><button type="button" class="danger" @onclick="DeleteSupplierAsync">Да, удалить</button></div>}<div class="form-actions"><button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>@if(!isNew&&!confirmDelete){<button type="button" class="danger" @onclick="()=>confirmDelete=true">Удалить</button>}<button disabled="@saving">Сохранить</button></div></section></EditForm>
+        <p class="delete-error" role="alert">@errorMessage</p>
     }
-    else if(editingIntermediary is not null)
+    @if (loading)
     {
-        <EditForm Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" /><section class="partner-form"><div class="form-heading"><div><p>Посредник</p><h2>@(isNew?"Новая карточка":editingIntermediary.Name)</h2></div><button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button></div><label>Название<InputText @bind-Value="editingIntermediary.Name" /><ValidationMessage For="()=>editingIntermediary.Name" /></label><label>Компания<InputText @bind-Value="editingIntermediary.Company" /></label><label>Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label><div class="field-row"><label>Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label><label>Телефон<InputText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label></div><div class="field-row"><label>Telegram<InputText @bind-Value="editingIntermediary.Telegram" /></label><label>WeChat<InputText @bind-Value="editingIntermediary.WeChat" /></label></div><div class="field-row"><label>Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label><label>Комиссия, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" step="0.1" /></label></div><div class="field-row"><label>Минимальный вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label><label>Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label></div><label>Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label><label class="toggle-row"><InputCheckbox @bind-Value="editingIntermediary.OfficialImport" /><span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span></label><label>Заметки<InputTextArea @bind-Value="editingIntermediary.Notes" /></label>@if(confirmDelete){<div class="delete-confirm"><span>Удалить посредника? История закупок сохранится.</span><button type="button" class="secondary" @onclick="()=>confirmDelete=false">Нет</button><button type="button" class="danger" @onclick="DeleteIntermediaryAsync">Да, удалить</button></div>}<div class="form-actions"><button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>@if(!isNew&&!confirmDelete){<button type="button" class="danger" @onclick="()=>confirmDelete=true">Удалить</button>}<button disabled="@saving">Сохранить</button></div></section></EditForm>
+        <div class="partner-state">Загружаем партнёров…</div>
+    }
+    else if (editingSupplier is not null)
+    {
+        <EditForm Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
+            <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <section class="partner-form">
+                <div class="form-heading">
+                    <div>
+                        <p>Поставщик</p>
+                        <h2>@(isNew ? "Новая карточка" : editingSupplier.Name)</h2>
+                    </div>
+                    <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
+                </div>
+                <label>
+                    Название
+                    <InputText @bind-Value="editingSupplier.Name" />
+                    <ValidationMessage For="() => editingSupplier.Name" />
+                </label>
+                <div class="field-row">
+                    <label>Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label>
+                    <label>MOQ, шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
+                </div>
+                <label>Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
+                <div class="field-row">
+                    <label>Рейтинг 0–5<InputNumber @bind-Value="editingSupplier.Rating" min="0" max="5" step="0.1" /></label>
+                    <label>WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label>
+                </div>
+                <label>Контакт<InputText @bind-Value="editingSupplier.Contact" /></label>
+                <label>Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>
+                @if (errorMessage is not null)
+                {
+                    <p class="delete-error" role="alert">@errorMessage</p>
+                }
+                @if (confirmDelete)
+                {
+                    <div class="delete-confirm">
+                        <span>Удалить поставщика? История закупок сохранится.</span>
+                        <button type="button" class="secondary" @onclick="() => confirmDelete = false">Нет</button>
+                        <button type="button" class="danger" disabled="@saving" @onclick="DeleteSupplierAsync">Да, удалить</button>
+                    </div>
+                }
+                <div class="form-actions">
+                    <button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>
+                    @if (!isNew && !confirmDelete)
+                    {
+                        <button type="button" class="danger" @onclick="() => confirmDelete = true">Удалить</button>
+                    }
+                    <button disabled="@saving">Сохранить</button>
+                </div>
+            </section>
+        </EditForm>
+    }
+    else if (editingIntermediary is not null)
+    {
+        <EditForm Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
+            <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <section class="partner-form">
+                <div class="form-heading">
+                    <div>
+                        <p>Посредник</p>
+                        <h2>@(isNew ? "Новая карточка" : editingIntermediary.Name)</h2>
+                    </div>
+                    <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
+                </div>
+                <label>
+                    Название
+                    <InputText @bind-Value="editingIntermediary.Name" />
+                    <ValidationMessage For="() => editingIntermediary.Name" />
+                </label>
+                <label>Компания<InputText @bind-Value="editingIntermediary.Company" /></label>
+                <label>Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
+                <div class="field-row">
+                    <label>Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label>
+                    <label>Телефон<InputText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label>
+                </div>
+                <div class="field-row">
+                    <label>Telegram<InputText @bind-Value="editingIntermediary.Telegram" /></label>
+                    <label>WeChat<InputText @bind-Value="editingIntermediary.WeChat" /></label>
+                </div>
+                <div class="field-row">
+                    <label>Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label>
+                    <label>Комиссия, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" step="0.1" /></label>
+                </div>
+                <div class="field-row">
+                    <label>Минимальный вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label>
+                    <label>Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label>
+                </div>
+                <label>Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label>
+                <label class="toggle-row">
+                    <InputCheckbox @bind-Value="editingIntermediary.OfficialImport" />
+                    <span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span>
+                </label>
+                <label>Заметки<InputTextArea @bind-Value="editingIntermediary.Notes" /></label>
+                @if (errorMessage is not null)
+                {
+                    <p class="delete-error" role="alert">@errorMessage</p>
+                }
+                @if (confirmDelete)
+                {
+                    <div class="delete-confirm">
+                        <span>Удалить посредника? История закупок сохранится.</span>
+                        <button type="button" class="secondary" @onclick="() => confirmDelete = false">Нет</button>
+                        <button type="button" class="danger" disabled="@saving" @onclick="DeleteIntermediaryAsync">Да, удалить</button>
+                    </div>
+                }
+                <div class="form-actions">
+                    <button type="button" class="secondary" @onclick="CloseEditor">Отмена</button>
+                    @if (!isNew && !confirmDelete)
+                    {
+                        <button type="button" class="danger" @onclick="() => confirmDelete = true">Удалить</button>
+                    }
+                    <button disabled="@saving">Сохранить</button>
+                </div>
+            </section>
+        </EditForm>
     }
     else
     {
         <label class="partner-search orbit-search-label">Поиск<input class="orbit-search-control" placeholder="Название, компания или контакт" @bind="query" @bind:event="oninput" /></label>
-        @if(mode==PartnerMode.Supplier)
+        @if (mode == PartnerMode.Supplier)
         {
-            @if(!FilteredSuppliers.Any()){<div class="partner-state"><strong>Поставщиков пока нет</strong><p>Добавьте магазин, чтобы выбирать его в закупках.</p></div>}else{<ul class="partner-list">@foreach(var value in FilteredSuppliers.OrderBy(item=>item.Name)){var actual=SupplierActual(value.Id);<li><button type="button" @onclick="()=>EditSupplier(value)"><InitialBadge Text="@value.Name" /><span><strong>@value.Name</strong><small>@SupplierMeta(value)</small><em>@Contact(value.Contact,value.WeChat)</em></span><b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b></button></li>}</ul>}
+            @if (!FilteredSuppliers.Any())
+            {
+                <div class="partner-state">
+                    <strong>Поставщиков пока нет</strong>
+                    <p>Добавьте магазин, чтобы выбирать его в закупках.</p>
+                </div>
+            }
+            else
+            {
+                <ul class="partner-list">
+                    @foreach (var value in FilteredSuppliers.OrderBy(item => item.Name))
+                    {
+                        var actual = SupplierActual(value.Id);
+                        <li>
+                            <button type="button" @onclick="() => EditSupplier(value)">
+                                <InitialBadge Text="@value.Name" />
+                                <span>
+                                    <strong>@value.Name</strong>
+                                    <small>@SupplierMeta(value)</small>
+                                    <em>@Contact(value.Contact, value.WeChat)</em>
+                                </span>
+                                <b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
         }
         else
         {
-            @if(!FilteredIntermediaries.Any()){<div class="partner-state"><strong>Посредников пока нет</strong><p>Добавьте логистического партнёра для поставок из Китая.</p></div>}else{<ul class="partner-list">@foreach(var value in FilteredIntermediaries.OrderBy(item=>item.Name)){var actual=IntermediaryActual(value.Id);<li><button type="button" @onclick="()=>EditIntermediary(value)"><InitialBadge Text="@value.Name" Variant="cyan" /><span><strong>@value.Name</strong><small>@IntermediaryMeta(value)</small><em>@Contact(value.ContactName,value.Telegram,value.Phone)</em></span><b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b></button></li>}</ul>}
+            @if (!FilteredIntermediaries.Any())
+            {
+                <div class="partner-state">
+                    <strong>Посредников пока нет</strong>
+                    <p>Добавьте логистического партнёра для поставок из Китая.</p>
+                </div>
+            }
+            else
+            {
+                <ul class="partner-list">
+                    @foreach (var value in FilteredIntermediaries.OrderBy(item => item.Name))
+                    {
+                        var actual = IntermediaryActual(value.Id);
+                        <li>
+                            <button type="button" @onclick="() => EditIntermediary(value)">
+                                <InitialBadge Text="@value.Name" Variant="cyan" />
+                                <span>
+                                    <strong>@value.Name</strong>
+                                    <small>@IntermediaryMeta(value)</small>
+                                    <em>@Contact(value.ContactName, value.Telegram, value.Phone)</em>
+                                </span>
+                                <b>@Score(actual?.ReliabilityScore)<small>надёжность</small></b>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
         }
     }
 </div>
-@code{
-    private IReadOnlyList<Supplier> suppliers=[];private IReadOnlyList<Intermediary> intermediaries=[];private IReadOnlyList<Purchase> purchases=[];private IReadOnlyList<SupplierAnalytics> supplierMetrics=[];private IReadOnlyList<IntermediaryAnalytics> intermediaryMetrics=[];private Supplier? editingSupplier;private Intermediary? editingIntermediary;private UnsavedChangesGuard? unsavedGuard;private PartnerMode mode;private string query=string.Empty;private bool loading=true;private bool saving;private bool isNew;private bool confirmDelete;private bool Editing=>editingSupplier is not null||editingIntermediary is not null;
-    private static readonly IReadOnlyList<OrbitSelectOption<string>> PlatformOptions=OrbitSelectOptions.OptionalStrings(["1688","Taobao","Alibaba","Pinduoduo","Другая"],"Не выбрана");
-    private IEnumerable<Supplier> FilteredSuppliers=>suppliers.Where(value=>string.IsNullOrWhiteSpace(query)||value.Name.Contains(query,StringComparison.OrdinalIgnoreCase)||(value.Contact?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)||(value.WeChat?.Contains(query,StringComparison.OrdinalIgnoreCase)??false));private IEnumerable<Intermediary> FilteredIntermediaries=>intermediaries.Where(value=>string.IsNullOrWhiteSpace(query)||value.Name.Contains(query,StringComparison.OrdinalIgnoreCase)||(value.Company?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)||(value.ContactName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)||(value.Telegram?.Contains(query,StringComparison.OrdinalIgnoreCase)??false));
-    protected override async Task OnInitializedAsync()=>await ReloadAsync();private async Task ReloadAsync(){loading=true;var supplierTask=Commerce.GetSuppliersAsync();var intermediaryTask=Commerce.GetIntermediariesAsync();var purchaseTask=Commerce.GetPurchasesAsync();var historyTask=PurchaseHistory.GetAsync();await Task.WhenAll(supplierTask,intermediaryTask,purchaseTask,historyTask);suppliers=await supplierTask;intermediaries=await intermediaryTask;purchases=await purchaseTask;supplierMetrics=SupplierAnalytics.Calculate(suppliers,purchases,await historyTask);intermediaryMetrics=IntermediaryAnalytics.Calculate(intermediaries,purchases);loading=false;}
-    private async Task SwitchMode(PartnerMode value){if(unsavedGuard is not null&&!await unsavedGuard.ConfirmDiscardAsync())return;CloseEditorCore();mode=value;query=string.Empty;}private void NewPartner(){isNew=true;confirmDelete=false;if(mode==PartnerMode.Supplier)editingSupplier=new Supplier();else editingIntermediary=new Intermediary();}
-    private void EditSupplier(Supplier value){editingSupplier=new Supplier{Id=value.Id,Name=value.Name,Platform=value.Platform,StoreUrl=value.StoreUrl,Rating=value.Rating,Moq=value.Moq,Contact=value.Contact,WeChat=value.WeChat,Intermediary=value.Intermediary,Notes=value.Notes,CreatedAt=value.CreatedAt};isNew=false;confirmDelete=false;}private void EditIntermediary(Intermediary value){editingIntermediary=new Intermediary{Id=value.Id,Name=value.Name,Company=value.Company,ChinaWarehouseAddress=value.ChinaWarehouseAddress,ContactName=value.ContactName,Telegram=value.Telegram,WeChat=value.WeChat,Phone=value.Phone,RatePerKgUsd=value.RatePerKgUsd,CommissionPercent=value.CommissionPercent,MinimumWeightKg=value.MinimumWeightKg,EstimatedDays=value.EstimatedDays,Rating=value.Rating,OfficialImport=value.OfficialImport,Notes=value.Notes,CreatedAt=value.CreatedAt};isNew=false;confirmDelete=false;}
-    private async Task CloseEditor(){if(unsavedGuard is not null&&!await unsavedGuard.ConfirmDiscardAsync())return;CloseEditorCore();}private void CloseEditorCore(){editingSupplier=null;editingIntermediary=null;confirmDelete=false;}private async Task SaveSupplierAsync(){if(saving)return;saving=true;try{await Commerce.UpsertSupplierAsync(editingSupplier!);unsavedGuard?.MarkClean();CloseEditorCore();await ReloadAsync();}finally{saving=false;}}private async Task SaveIntermediaryAsync(){if(saving)return;saving=true;try{await Commerce.UpsertIntermediaryAsync(editingIntermediary!);unsavedGuard?.MarkClean();CloseEditorCore();await ReloadAsync();}finally{saving=false;}}
-    private async Task DeleteSupplierAsync(){await Commerce.DeleteSupplierAsync(editingSupplier!.Id);unsavedGuard?.MarkClean();CloseEditorCore();await ReloadAsync();}private async Task DeleteIntermediaryAsync(){await Commerce.DeleteIntermediaryAsync(editingIntermediary!.Id);unsavedGuard?.MarkClean();CloseEditorCore();await ReloadAsync();}
-    private SupplierAnalytics? SupplierActual(Guid id)=>supplierMetrics.FirstOrDefault(value=>value.SupplierId==id);private IntermediaryAnalytics? IntermediaryActual(Guid id)=>intermediaryMetrics.FirstOrDefault(value=>value.IntermediaryId==id);private static string Score(decimal? value)=>value is null?"—":value.Value.ToString("N0",CultureInfo.GetCultureInfo("ru-RU"));private static string SupplierMeta(Supplier value)=>$"{(string.IsNullOrWhiteSpace(value.Platform)?"Площадка не указана":value.Platform)} · MOQ {value.Moq?.ToString()??"—"}";private static string IntermediaryMeta(Intermediary value)=>$"{value.Company??"Без компании"} · {(value.RatePerKgUsd is null?"тариф не указан":$"${value.RatePerKgUsd:N2}/кг")}";private static string Contact(params string?[] values)=>values.FirstOrDefault(value=>!string.IsNullOrWhiteSpace(value))??"Контакт не указан";private enum PartnerMode{Supplier,Intermediary}
+@code {
+    private IReadOnlyList<Supplier> suppliers = [];
+    private IReadOnlyList<Intermediary> intermediaries = [];
+    private IReadOnlyList<Purchase> purchases = [];
+    private IReadOnlyList<SupplierAnalytics> supplierMetrics = [];
+    private IReadOnlyList<IntermediaryAnalytics> intermediaryMetrics = [];
+    private Supplier? editingSupplier;
+    private Intermediary? editingIntermediary;
+    private UnsavedChangesGuard? unsavedGuard;
+    private PartnerMode mode;
+    private string query = string.Empty;
+    private bool loading = true;
+    private bool saving;
+    private bool isNew;
+    private bool confirmDelete;
+    private string? errorMessage;
+    private bool Editing => editingSupplier is not null || editingIntermediary is not null;
+
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> PlatformOptions =
+        OrbitSelectOptions.OptionalStrings(["1688", "Taobao", "Alibaba", "Pinduoduo", "Другая"], "Не выбрана");
+
+    private IEnumerable<Supplier> FilteredSuppliers => suppliers.Where(value =>
+        string.IsNullOrWhiteSpace(query)
+        || value.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || (value.Contact?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (value.WeChat?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private IEnumerable<Intermediary> FilteredIntermediaries => intermediaries.Where(value =>
+        string.IsNullOrWhiteSpace(query)
+        || value.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || (value.Company?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (value.ContactName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (value.Telegram?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            var supplierTask = Commerce.GetSuppliersAsync();
+            var intermediaryTask = Commerce.GetIntermediariesAsync();
+            var purchaseTask = Commerce.GetPurchasesAsync();
+            var historyTask = PurchaseHistory.GetAsync();
+            await Task.WhenAll(supplierTask, intermediaryTask, purchaseTask, historyTask);
+            suppliers = await supplierTask;
+            intermediaries = await intermediaryTask;
+            purchases = await purchaseTask;
+            supplierMetrics = SupplierAnalytics.Calculate(suppliers, purchases, await historyTask);
+            intermediaryMetrics = IntermediaryAnalytics.Calculate(intermediaries, purchases);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = $"Не удалось загрузить партнёров: {exception.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SwitchMode(PartnerMode value)
+    {
+        try
+        {
+            if (unsavedGuard is not null && !await unsavedGuard.ConfirmDiscardAsync())
+            {
+                return;
+            }
+
+            CloseEditorCore();
+            mode = value;
+            query = string.Empty;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = $"Не удалось переключить раздел: {exception.Message}";
+        }
+    }
+
+    private void NewPartner()
+    {
+        isNew = true;
+        confirmDelete = false;
+        errorMessage = null;
+        if (mode == PartnerMode.Supplier)
+        {
+            editingSupplier = new Supplier();
+        }
+        else
+        {
+            editingIntermediary = new Intermediary();
+        }
+    }
+
+    private void EditSupplier(Supplier value)
+    {
+        editingSupplier = new Supplier
+        {
+            Id = value.Id,
+            Name = value.Name,
+            Platform = value.Platform,
+            StoreUrl = value.StoreUrl,
+            Rating = value.Rating,
+            Moq = value.Moq,
+            Contact = value.Contact,
+            WeChat = value.WeChat,
+            Intermediary = value.Intermediary,
+            Notes = value.Notes,
+            CreatedAt = value.CreatedAt
+        };
+        isNew = false;
+        confirmDelete = false;
+        errorMessage = null;
+    }
+
+    private void EditIntermediary(Intermediary value)
+    {
+        editingIntermediary = new Intermediary
+        {
+            Id = value.Id,
+            Name = value.Name,
+            Company = value.Company,
+            ChinaWarehouseAddress = value.ChinaWarehouseAddress,
+            ContactName = value.ContactName,
+            Telegram = value.Telegram,
+            WeChat = value.WeChat,
+            Phone = value.Phone,
+            RatePerKgUsd = value.RatePerKgUsd,
+            CommissionPercent = value.CommissionPercent,
+            MinimumWeightKg = value.MinimumWeightKg,
+            EstimatedDays = value.EstimatedDays,
+            Rating = value.Rating,
+            OfficialImport = value.OfficialImport,
+            Notes = value.Notes,
+            CreatedAt = value.CreatedAt
+        };
+        isNew = false;
+        confirmDelete = false;
+        errorMessage = null;
+    }
+
+    private async Task CloseEditor()
+    {
+        try
+        {
+            if (unsavedGuard is not null && !await unsavedGuard.ConfirmDiscardAsync())
+            {
+                return;
+            }
+
+            CloseEditorCore();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = $"Не удалось закрыть редактор: {exception.Message}";
+        }
+    }
+
+    private void CloseEditorCore()
+    {
+        editingSupplier = null;
+        editingIntermediary = null;
+        confirmDelete = false;
+        errorMessage = null;
+    }
+
+    private async Task SaveSupplierAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            await Commerce.UpsertSupplierAsync(editingSupplier!);
+            unsavedGuard?.MarkClean();
+            CloseEditorCore();
+            await ReloadAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = $"Не удалось сохранить поставщика: {exception.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task SaveIntermediaryAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            await Commerce.UpsertIntermediaryAsync(editingIntermediary!);
+            unsavedGuard?.MarkClean();
+            CloseEditorCore();
+            await ReloadAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = $"Не удалось сохранить посредника: {exception.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteSupplierAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            var count = (await Commerce.GetPurchasesAsync()).Count(value => value.SupplierId == editingSupplier!.Id);
+            if (count > 0)
+            {
+                confirmDelete = false;
+                errorMessage = $"Нельзя удалить поставщика: он указан в закупках ({count}).";
+                return;
+            }
+
+            await Commerce.DeleteSupplierAsync(editingSupplier!.Id);
+            unsavedGuard?.MarkClean();
+            CloseEditorCore();
+            await ReloadAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            confirmDelete = false;
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteIntermediaryAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            var count = (await Commerce.GetPurchasesAsync()).Count(value => value.IntermediaryId == editingIntermediary!.Id);
+            if (count > 0)
+            {
+                confirmDelete = false;
+                errorMessage = $"Нельзя удалить посредника: он указан в закупках ({count}).";
+                return;
+            }
+
+            await Commerce.DeleteIntermediaryAsync(editingIntermediary!.Id);
+            unsavedGuard?.MarkClean();
+            CloseEditorCore();
+            await ReloadAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            confirmDelete = false;
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private SupplierAnalytics? SupplierActual(Guid id) => supplierMetrics.FirstOrDefault(value => value.SupplierId == id);
+
+    private IntermediaryAnalytics? IntermediaryActual(Guid id) => intermediaryMetrics.FirstOrDefault(value => value.IntermediaryId == id);
+
+    private static string Score(decimal? value) =>
+        value is null ? "—" : value.Value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
+
+    private static string SupplierMeta(Supplier value) =>
+        $"{(string.IsNullOrWhiteSpace(value.Platform) ? "Площадка не указана" : value.Platform)} · MOQ {value.Moq?.ToString() ?? "—"}";
+
+    private static string IntermediaryMeta(Intermediary value) =>
+        $"{value.Company ?? "Без компании"} · {(value.RatePerKgUsd is null ? "тариф не указан" : $"${value.RatePerKgUsd:N2}/кг")}";
+
+    private static string Contact(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Контакт не указан";
+
+    private enum PartnerMode
+    {
+        Supplier,
+        Intermediary
+    }
 }

@@ -7,22 +7,109 @@
 
 <PageTitle>Закупки — DONA CRM</PageTitle>
 <div class="purchases-page">
-    <header><div><p class="orbit-page-eyebrow">Поставка</p><h1 class="orbit-page-title">Закупки</h1></div><a class="orbit-icon-button orbit-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a></header>
-    @if(loading){<div class="purchase-state">Загружаем закупки…</div>}
+    <header>
+        <div>
+            <p class="orbit-page-eyebrow">Поставка</p>
+            <h1 class="orbit-page-title">Закупки</h1>
+        </div>
+        <a class="orbit-icon-button orbit-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a>
+    </header>
+    @if (loading)
+    {
+        <div class="purchase-state">Загружаем закупки…</div>
+    }
+    else if (errorMessage is not null)
+    {
+        <div class="purchase-state" role="alert"><strong>Не удалось загрузить закупки</strong><p>@errorMessage</p></div>
+    }
     else
     {
-        <section class="purchase-metrics orbit-metrics orbit-metrics--3 orbit-kpis"><article><span>В пути</span><strong>@Active.Count()</strong><small>закупок</small></article><article><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article><article class="@(OverdueCount>0?"warning":null)"><span>Просрочено</span><strong>@OverdueCount</strong><small>закупок</small></article></section>
-        @if(OverdueCount>0){<div class="purchase-alert" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>}
-        <div class="purchase-tools"><input class="orbit-search-control" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" /><OrbitSelect TValue="string" @bind-Value="status" Options="@PurchaseStatusFilterOptions" Label="Статус закупки" /></div>
-        @if(!Filtered.Any()){<div class="purchase-state"><strong>Закупки не найдены</strong><p>Измените фильтр или создайте первую закупку.</p></div>}
-        else{<div class="purchase-list">@foreach(var item in Filtered.OrderByDescending(value=>value.OrderedAt)){<a href="/purchases/@item.Id"><div class="purchase-card-title"><span><strong>@item.Number</strong><small>@(item.SupplierName??"Поставщик не указан")</small></span><em>@item.Status.Display()</em></div><div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@Money(item.TotalCostUzs) UZS</span></div><div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode)?"Без трек-кода":item.TrackingCode)</span><span>@Delivery(item)</span></div></a>}</div>}
+        <section class="purchase-metrics orbit-metrics orbit-metrics--3 orbit-kpis">
+            <article><span>В пути</span><strong>@Active.Count()</strong><small>закупок</small></article>
+            <article><span>Ожидается</span><strong>@IncomingUnits</strong><small>единиц</small></article>
+            <article class="@(OverdueCount > 0 ? "warning" : null)"><span>Просрочено</span><strong>@OverdueCount</strong><small>закупок</small></article>
+        </section>
+        @if (OverdueCount > 0)
+        {
+            <div class="purchase-alert" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>
+        }
+        <div class="purchase-tools">
+            <input class="orbit-search-control" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" />
+            <OrbitSelect TValue="string" @bind-Value="status" Options="@PurchaseStatusFilterOptions" Label="Статус закупки" />
+        </div>
+        @if (!Filtered.Any())
+        {
+            <div class="purchase-state"><strong>Закупки не найдены</strong><p>Измените фильтр или создайте первую закупку.</p></div>
+        }
+        else
+        {
+            <div class="purchase-list">
+                @foreach (var item in Filtered.OrderByDescending(value => value.OrderedAt))
+                {
+                    <a href="/purchases/@item.Id">
+                        <div class="purchase-card-title">
+                            <span><strong>@item.Number</strong><small>@(item.SupplierName ?? "Поставщик не указан")</small></span>
+                            <em>@item.Status.Display()</em>
+                        </div>
+                        <div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@Money(item.TotalCostUzs) UZS</span></div>
+                        <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : item.TrackingCode)</span><span>@Delivery(item)</span></div>
+                    </a>
+                }
+            </div>
+        }
     }
 </div>
-@code{
-    private IReadOnlyList<Purchase> purchases=[];private BusinessSettings settings=new();private bool loading=true;private string query=string.Empty;private string status=string.Empty;
-    private static readonly IReadOnlyList<OrbitSelectOption<string>> PurchaseStatusFilterOptions=[new(string.Empty,"Все статусы"),..Enum.GetValues<PurchaseStatus>().Select(value=>new OrbitSelectOption<string>(value.ToString(),value.Display()))];
-    private IEnumerable<Purchase> Active=>purchases.Where(value=>value.Status is not PurchaseStatus.Received and not PurchaseStatus.Cancelled);private int IncomingUnits=>Active.Sum(value=>value.Items.Sum(item=>item.MissingQuantity));private int OverdueCount=>Active.Count(value=>value.EstimatedDeliveryDate?.Date<DateTime.Today);
-    private IEnumerable<Purchase> Filtered=>purchases.Where(value=>(string.IsNullOrWhiteSpace(query)||value.Number.Contains(query,StringComparison.OrdinalIgnoreCase)||(value.SupplierName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)||(value.TrackingCode?.Contains(query,StringComparison.OrdinalIgnoreCase)??false))&&(string.IsNullOrWhiteSpace(status)||value.Status.ToString()==status));
-    protected override async Task OnInitializedAsync(){var values=Commerce.GetPurchasesAsync();var storedSettings=Settings.GetAsync();await Task.WhenAll(values,storedSettings);purchases=await values;settings=await storedSettings;loading=false;}
-    private static string Delivery(Purchase value)=>value.EstimatedDeliveryDate is null?"Дата не указана":value.EstimatedDeliveryDate.Value.Date<DateTime.Today?"Просрочено":$"До {value.EstimatedDeliveryDate:dd.MM}";private static string Money(decimal value)=>value.ToString("N0",CultureInfo.GetCultureInfo("ru-RU"));
+@code {
+    private IReadOnlyList<Purchase> purchases = [];
+    private BusinessSettings settings = new();
+    private bool loading = true;
+    private string? errorMessage;
+    private string query = string.Empty;
+    private string status = string.Empty;
+
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> PurchaseStatusFilterOptions =
+    [
+        new(string.Empty, "Все статусы"),
+        .. Enum.GetValues<PurchaseStatus>().Select(value => new OrbitSelectOption<string>(value.ToString(), value.Display()))
+    ];
+
+    private IEnumerable<Purchase> Active => purchases.Where(value => value.Status is not PurchaseStatus.Received and not PurchaseStatus.Cancelled);
+
+    private int IncomingUnits => Active.Sum(value => value.Items.Sum(item => item.MissingQuantity));
+
+    private int OverdueCount => Active.Count(value => value.EstimatedDeliveryDate?.Date < DateTime.Today);
+
+    private IEnumerable<Purchase> Filtered => purchases.Where(value =>
+        (string.IsNullOrWhiteSpace(query)
+            || value.Number.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || (value.SupplierName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (value.TrackingCode?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+        && (string.IsNullOrWhiteSpace(status) || value.Status.ToString() == status));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var values = Commerce.GetPurchasesAsync();
+            var storedSettings = Settings.GetAsync();
+            await Task.WhenAll(values, storedSettings);
+            purchases = await values;
+            settings = await storedSettings;
+        }
+        catch (Exception exception)
+        {
+            errorMessage = exception.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string Delivery(Purchase value) =>
+        value.EstimatedDeliveryDate is null
+            ? "Дата не указана"
+            : value.EstimatedDeliveryDate.Value.Date < DateTime.Today ? "Просрочено" : $"До {value.EstimatedDeliveryDate:dd.MM}";
+
+    private static string Money(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
 }

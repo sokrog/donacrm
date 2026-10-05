@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject NavigationManager Navigation
+@inject LocalImageMigrationService ImageMigration
 
 <div class="orbit-shell @(isFocusedRoute ? "is-focused-route" : null)">
     <aside class="orbit-sidebar">
@@ -25,7 +26,21 @@
     </aside>
 
     <main class="orbit-main">
-        @Body
+        <ErrorBoundary @ref="errorBoundary">
+            <ChildContent>
+                @Body
+            </ChildContent>
+            <ErrorContent Context="exception">
+                <section class="page-error" role="alert">
+                    <h1>Что-то пошло не так на этой странице</h1>
+                    <p>@exception.Message</p>
+                    <div class="page-error-actions">
+                        <button type="button" @onclick="RecoverFromError">Попробовать снова</button>
+                        <a href="/">На главную</a>
+                    </div>
+                </section>
+            </ErrorContent>
+        </ErrorBoundary>
     </main>
 
     @if (!isFocusedRoute)
@@ -67,9 +82,12 @@
     ];
 
     private bool isFocusedRoute;
+    private ErrorBoundary? errorBoundary;
 
     protected override void OnInitialized()
     {
+        // Однократный фоновый перенос старых base64-фотографий в локальное хранилище; ошибки глушатся внутри сервиса.
+        _ = ImageMigration.EnsureMigratedAsync();
         UpdateRouteMode();
         Navigation.LocationChanged += LocationChanged;
     }
@@ -77,8 +95,14 @@
     private void LocationChanged(object? sender, LocationChangedEventArgs args)
     {
         UpdateRouteMode();
-        InvokeAsync(StateHasChanged);
+        InvokeAsync(() =>
+        {
+            errorBoundary?.Recover();
+            StateHasChanged();
+        });
     }
+
+    private void RecoverFromError() => errorBoundary?.Recover();
 
     private void UpdateRouteMode()
     {

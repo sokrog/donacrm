@@ -47,7 +47,7 @@ public sealed class Category
 
 public enum PurchaseStatus { Draft, Ordered, ChinaWarehouse, Shipped, PartiallyReceived, Received, Cancelled }
 
-public sealed class Purchase
+public sealed class Purchase : IValidatableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required] public string Number { get; set; } = string.Empty;
@@ -79,6 +79,9 @@ public sealed class Purchase
     public decimal ItemOtherCostsUzs(PurchaseItem item) => Allocate(ItemGoodsCostUzs(item), GoodsCostUzs, OtherCostsUzs ?? 0, item.Quantity ?? 0);
     public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemCommissionUzs(item) + ItemShippingUzs(item) + ItemOtherCostsUzs(item);
     public decimal ItemUnitLandedCostUzs(PurchaseItem item) => (item.Quantity ?? 0) == 0 ? 0 : Math.Round(ItemLandedCostUzs(item) / item.Quantity!.Value);
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        NestedValidation.ValidateItems(Items, nameof(Items), "Позиция");
+
     private decimal Allocate(decimal basis, decimal totalBasis, decimal totalCost, int fallbackQuantity) => totalCost == 0 ? 0 : totalBasis > 0 ? Math.Round(totalCost * basis / totalBasis) : TotalQuantity > 0 ? Math.Round(totalCost * fallbackQuantity / TotalQuantity) : 0;
 }
 
@@ -112,14 +115,14 @@ public sealed class PurchaseItem
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? ProductId { get; set; }
     public Guid? ProductVariantId { get; set; }
-    [Required] public string ProductName { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Укажите название товара")] public string ProductName { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
-    [Range(1, 100_000)] public int? Quantity { get; set; }
-    [Range(0, 1_000_000)] public decimal? UnitPriceCny { get; set; }
-    [Range(0, 10_000)] public decimal? UnitWeightKg { get; set; }
-    [Range(0, 100_000)] public int? ReceivedQuantity { get; set; }
-    [Range(0, 100_000)] public int? DefectQuantity { get; set; }
+    [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
+    [Range(0, 1_000_000, ErrorMessage = "Цена должна быть от 0 до 1 000 000")] public decimal? UnitPriceCny { get; set; }
+    [Range(0, 10_000, ErrorMessage = "Вес должен быть от 0 до 10 000 кг")] public decimal? UnitWeightKg { get; set; }
+    [Range(0, 100_000, ErrorMessage = "Принятое количество должно быть от 0 до 100 000")] public int? ReceivedQuantity { get; set; }
+    [Range(0, 100_000, ErrorMessage = "Количество брака должно быть от 0 до 100 000")] public int? DefectQuantity { get; set; }
     public int StockedQuantity { get; set; }
     public int MissingQuantity => Math.Max(0, (Quantity ?? 0) - (ReceivedQuantity ?? 0));
     public int AcceptedQuantity => Math.Max(0, Math.Min(Quantity ?? 0, ReceivedQuantity ?? 0) - (DefectQuantity ?? 0));

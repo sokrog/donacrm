@@ -5,7 +5,7 @@ namespace Dona.Crm.Web.Domain;
 public enum ProductStatus { InStock, OnOrder, LowStock, OutOfStock, Archived }
 public enum ProductImageStorage { Local, GoogleDrive, External }
 
-public sealed class Product
+public sealed class Product : IValidatableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите SKU")] public string Sku { get; set; } = string.Empty;
@@ -33,6 +33,9 @@ public sealed class Product
     public decimal ProfitUzs => (SellingPriceUzs ?? 0) - CostUzs;
     public decimal MarkupPercent => CostUzs == 0 ? 0 : Math.Round(ProfitUzs / CostUzs * 100, 1);
     public int Quantity => Variants.Sum(x => x.Quantity ?? 0);
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        NestedValidation.ValidateItems(Variants, nameof(Variants), "Вариант");
 }
 
 public sealed class ProductImage
@@ -55,7 +58,7 @@ public sealed class ProductVariant
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
-    [Range(0, 100_000)] public int? Quantity { get; set; }
+    [Range(0, 100_000, ErrorMessage = "Количество должно быть от 0 до 100 000")] public int? Quantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int AvailableQuantity => Math.Max(0, (Quantity ?? 0) - ReservedQuantity);
 }

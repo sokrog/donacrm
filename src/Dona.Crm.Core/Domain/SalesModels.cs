@@ -21,7 +21,7 @@ public enum ReturnDisposition { Restock, Defect, Rejected }
 public enum PaymentOperationType { Payment, Refund }
 public enum PaymentStatus { Pending, Completed, Cancelled }
 
-public sealed class Sale
+public sealed class Sale : IValidatableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите номер заказа")] public string Number { get; set; } = string.Empty;
@@ -51,6 +51,11 @@ public sealed class Sale
     public decimal CostUzs => Items.Sum(x => (x.UnitCostUzs ?? 0) * Math.Max(0, x.SoldQuantity - RestockedQuantity(x.Id)));
     public decimal ProfitUzs => NetTotalUzs - CostUzs;
     public int TotalQuantity => Items.Sum(x => x.Quantity ?? 0);
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        NestedValidation.ValidateItems(Items, nameof(Items), "Позиция")
+            .Concat(NestedValidation.ValidateItems(Payments, nameof(Payments), "Платёж"))
+            .Concat(NestedValidation.ValidateItems(Returns, nameof(Returns), "Возврат"));
 }
 
 public sealed class SalePayment
@@ -60,23 +65,26 @@ public sealed class SalePayment
     public PaymentOperationType? Type { get; set; }
     public PaymentStatus? Status { get; set; }
     public PaymentMethod? Method { get; set; }
-    [Range(1, 1_000_000_000)] public decimal? AmountUzs { get; set; }
+    [Range(1, 1_000_000_000, ErrorMessage = "Сумма должна быть от 1 до 1 000 000 000")] public decimal? AmountUzs { get; set; }
     public string? Reference { get; set; }
     public string? Notes { get; set; }
 }
 
-public sealed class SaleReturn
+public sealed class SaleReturn : IValidatableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     [Required(ErrorMessage = "Укажите причину возврата")] public string Reason { get; set; } = string.Empty;
-    [Range(0, 1_000_000_000)] public decimal? RefundAmountUzs { get; set; }
+    [Range(0, 1_000_000_000, ErrorMessage = "Сумма возврата должна быть от 0 до 1 000 000 000")] public decimal? RefundAmountUzs { get; set; }
     public string? Notes { get; set; }
     public List<SaleReturnItem> Items { get; set; } = [];
     public int AcceptedQuantity => Items.Where(x => x.Disposition is ReturnDisposition.Restock or ReturnDisposition.Defect).Sum(x => x.Quantity ?? 0);
     public int RestockedQuantity => Items.Where(x => x.Disposition == ReturnDisposition.Restock).Sum(x => x.Quantity ?? 0);
     public int DefectQuantity => Items.Where(x => x.Disposition == ReturnDisposition.Defect).Sum(x => x.Quantity ?? 0);
     public int RejectedQuantity => Items.Where(x => x.Disposition == ReturnDisposition.Rejected).Sum(x => x.Quantity ?? 0);
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        NestedValidation.ValidateItems(Items, nameof(Items), "Позиция возврата");
 }
 
 public sealed class SaleReturnItem
@@ -88,7 +96,7 @@ public sealed class SaleReturnItem
     public string ProductName { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
-    [Range(1, 100_000)] public int? Quantity { get; set; }
+    [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
     public ReturnDisposition? Disposition { get; set; }
 }
 
@@ -100,8 +108,8 @@ public sealed class SaleItem
     public string ProductName { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
-    [Range(1, 100_000)] public int? Quantity { get; set; }
-    [Range(0, 1_000_000_000)] public decimal? UnitPriceUzs { get; set; }
+    [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
+    [Range(0, 1_000_000_000, ErrorMessage = "Цена должна быть от 0 до 1 000 000 000")] public decimal? UnitPriceUzs { get; set; }
     public decimal? UnitCostUzs { get; set; }
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }

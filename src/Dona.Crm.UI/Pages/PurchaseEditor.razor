@@ -9,44 +9,440 @@
 @inject PurchaseReceivingService Receiving
 @inject NavigationManager Navigation
 
-<PageTitle>@(IsNew?"Новая закупка":purchase.Number) — DONA CRM</PageTitle>
+<PageTitle>@(IsNew ? "Новая закупка" : purchase.Number) — DONA CRM</PageTitle>
 <div class="purchase-editor">
-    <header><a class="orbit-icon-button orbit-back-button" href="/purchases" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a><div><p>@purchase.Status.Display()</p><h1>@(IsNew?"Новая закупка":purchase.Number)</h1></div></header>
-    @if(loading){<div class="editor-state">Загружаем закупку…</div>}
-    else if(error is not null){<div class="editor-state" role="alert">@error</div>}
+    <header>
+        <a class="orbit-icon-button orbit-back-button" href="/purchases" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
+        <div>
+            <p>@purchase.Status.Display()</p>
+            <h1>@(IsNew ? "Новая закупка" : purchase.Number)</h1>
+        </div>
+    </header>
+    @if (loading)
+    {
+        <div class="editor-state">Загружаем закупку…</div>
+    }
+    else if (error is not null)
+    {
+        <div class="editor-state" role="alert">@error</div>
+    }
     else
     {
-        @if(!IsNew){<ol class="purchase-flow" aria-label="Этап закупки">@foreach(var value in Flow){<li class="@FlowClass(value)">@value.Display()</li>}</ol>}
-        <EditForm Model="purchase" OnValidSubmit="SaveAsync"><DataAnnotationsValidator /><UnsavedChangesGuard @ref="unsavedGuard" />
-            <section><h2>Поставка</h2><div class="field-row"><label>Номер<InputText @bind-Value="purchase.Number" /></label><label>Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label></div>
-                <label>Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label><label>Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label><a class="manage-partners" href="/partners">Управлять поставщиками и посредниками →</a>
-                <div class="field-row"><label>Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label><label>Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_=>unsavedGuard?.MarkDirty()" /></label></div><label>Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
+        @if (!IsNew)
+        {
+            <ol class="purchase-flow" aria-label="Этап закупки">
+                @foreach (var value in Flow)
+                {
+                    <li class="@FlowClass(value)">@value.Display()</li>
+                }
+            </ol>
+        }
+        <EditForm Model="purchase" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <section>
+                <h2>Поставка</h2>
+                <div class="field-row">
+                    <label>Номер<InputText @bind-Value="purchase.Number" /></label>
+                    <label>Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
+                </div>
+                <label>Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label>
+                <label>Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label>
+                <a class="manage-partners" href="/partners">Управлять поставщиками и посредниками →</a>
+                <div class="field-row">
+                    <label>Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
+                    <label>Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                </div>
+                <label>Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
             </section>
-            <section><div class="section-title"><div><h2>Стоимость партии</h2><p>@purchase.TotalQuantity ед. · @Money(purchase.TotalCostUzs) UZS</p></div></div><div class="field-row"><label>Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="CurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label><label>Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label></div><div class="cost-grid"><label>Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label><label>Доставка, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label><label>Другие расходы<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label></div><div class="cost-summary"><span>Товар<strong>@Money(purchase.GoodsCostUzs)</strong></span><span>Комиссия<strong>@Money(purchase.AgentCommissionUzs)</strong></span><span class="total">Итого<strong>@Money(purchase.TotalCostUzs) UZS</strong></span></div></section>
-            <section><div class="section-title"><div><h2>Позиции</h2><p>Товары и варианты</p></div><button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Позиция</button></div>@if(purchase.Items.Count==0){<p class="empty-items">Добавьте хотя бы одну позицию.</p>}@foreach(var item in purchase.Items){<article class="purchase-line" @key="item.Id"><label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product=>ProductChanged(item,product)" /></label><label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="()=>VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label><div class="line-fields"><label>Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label><label>Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label><label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label></div>@if((item.ReceivedQuantity??0)>0){<div class="received-note">Получено @(item.ReceivedQuantity??0) · брак @(item.DefectQuantity??0) · на складе @item.StockedQuantity</div>}else if(removeCandidate==item.Id){<div class="remove-confirm"><span>Удалить позицию?</span><button type="button" class="secondary" @onclick="()=>removeCandidate=null">Нет</button><button type="button" class="danger" @onclick="()=>RemoveItem(item)">Да, удалить</button></div>}else{<button type="button" class="remove-line" @onclick="()=>removeCandidate=item.Id">Удалить позицию</button>}</article>}</section>
-            @if(!IsNew && purchase.Status!=PurchaseStatus.Cancelled && purchase.Items.Any(value=>value.MissingQuantity>0))
+            <section>
+                <div class="section-title">
+                    <div>
+                        <h2>Стоимость партии</h2>
+                        <p>@purchase.TotalQuantity ед. · @Money(purchase.TotalCostUzs) UZS</p>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label>Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="CurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
+                    <label>Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
+                </div>
+                <div class="cost-grid">
+                    <label>Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
+                    <label>Доставка, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
+                    <label>Другие расходы<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
+                </div>
+                <div class="cost-summary">
+                    <span>Товар<strong>@Money(purchase.GoodsCostUzs)</strong></span>
+                    <span>Комиссия<strong>@Money(purchase.AgentCommissionUzs)</strong></span>
+                    <span class="total">Итого<strong>@Money(purchase.TotalCostUzs) UZS</strong></span>
+                </div>
+            </section>
+            <section>
+                <div class="section-title">
+                    <div>
+                        <h2>Позиции</h2>
+                        <p>Товары и варианты</p>
+                    </div>
+                    <button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="orbit-inline-icon" />Позиция</button>
+                </div>
+                @if (purchase.Items.Count == 0)
+                {
+                    <p class="empty-items">Добавьте хотя бы одну позицию.</p>
+                }
+                @foreach (var item in purchase.Items)
+                {
+                    <article class="purchase-line" @key="item.Id">
+                        <label>Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
+                        <label>Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
+                        <div class="line-fields">
+                            <label>Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
+                            <label>Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label>
+                            <label>Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
+                        </div>
+                        @if ((item.ReceivedQuantity ?? 0) > 0)
+                        {
+                            <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · на складе @item.StockedQuantity</div>
+                        }
+                        else if (removeCandidate == item.Id)
+                        {
+                            <div class="remove-confirm">
+                                <span>Удалить позицию?</span>
+                                <button type="button" class="secondary" @onclick="() => removeCandidate = null">Нет</button>
+                                <button type="button" class="danger" @onclick="() => RemoveItem(item)">Да, удалить</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <button type="button" class="remove-line" @onclick="() => removeCandidate = item.Id">Удалить позицию</button>
+                        }
+                    </article>
+                }
+            </section>
+            @if (!IsNew && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(value => value.MissingQuantity > 0))
             {
-                <section class="receipt-card"><div class="section-title"><div><h2>Принять поставку</h2><p>Укажите фактически полученное</p></div></div><div class="field-row"><label>Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_=>unsavedGuard?.MarkDirty()" /></label><label>Комментарий<InputText @bind-Value="receiptNote" /></label></div>@foreach(var item in purchase.Items.Where(value=>value.MissingQuantity>0)){var line=ReceiptInput(item.Id);<article class="receipt-line"><div><strong>@item.ProductName</strong><small>@VariantLabel(item) · осталось @item.MissingQuantity шт.</small></div><div class="field-row"><label>Получено<InputNumber @bind-Value="line.ReceivedQuantity" min="0" max="@item.MissingQuantity" /></label><label>Из них брак<InputNumber @bind-Value="line.DefectQuantity" min="0" /></label></div></article>}<button type="button" class="inline-primary" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button></section>
+                <section class="receipt-card">
+                    <div class="section-title">
+                        <div>
+                            <h2>Принять поставку</h2>
+                            <p>Укажите фактически полученное</p>
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <label>Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                        <label>Комментарий<InputText @bind-Value="receiptNote" /></label>
+                    </div>
+                    @foreach (var item in purchase.Items.Where(value => value.MissingQuantity > 0))
+                    {
+                        var line = ReceiptInput(item.Id);
+                        <article class="receipt-line">
+                            <div>
+                                <strong>@item.ProductName</strong>
+                                <small>@VariantLabel(item) · осталось @item.MissingQuantity шт.</small>
+                            </div>
+                            <div class="field-row">
+                                <label>Получено<InputNumber @bind-Value="line.ReceivedQuantity" min="0" max="@item.MissingQuantity" /></label>
+                                <label>Из них брак<InputNumber @bind-Value="line.DefectQuantity" min="0" /></label>
+                            </div>
+                        </article>
+                    }
+                    <button type="button" class="inline-primary" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button>
+                </section>
             }
-            @if(purchase.Receipts.Count>0){<section><h2>История приёмок</h2><ul class="receipt-history">@foreach(var value in purchase.Receipts.OrderByDescending(item=>item.ReceivedAt)){<li><span><strong>@value.ReceivedAt.ToLocalTime().ToString("dd.MM.yyyy · HH:mm")</strong><small>@(value.Note??"Без комментария")</small></span><b>+@value.StockedQuantity<small>на склад</small></b></li>}</ul></section>}
-            <ValidationSummary />@if(message is not null){<p class="message @(success?"success":null)" role="status">@message</p>}
-            <div class="actions"><a href="/purchases">Отмена</a><button disabled="@saving">@(saving?"Сохраняем…":"Сохранить закупку")</button></div>
+            @if (purchase.Receipts.Count > 0)
+            {
+                <section>
+                    <h2>История приёмок</h2>
+                    <ul class="receipt-history">
+                        @foreach (var value in purchase.Receipts.OrderByDescending(item => item.ReceivedAt))
+                        {
+                            <li>
+                                <span>
+                                    <strong>@value.ReceivedAt.ToLocalTime().ToString("dd.MM.yyyy · HH:mm")</strong>
+                                    <small>@(value.Note ?? "Без комментария")</small>
+                                </span>
+                                <b>+@value.StockedQuantity<small>на склад</small></b>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+            <ValidationSummary />
+            @if (message is not null)
+            {
+                <p class="message @(success ? "success" : null)" role="status">@message</p>
+            }
+            <div class="actions">
+                <a href="/purchases">Отмена</a>
+                <button disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить закупку")</button>
+            </div>
         </EditForm>
     }
 </div>
-@code{
-    [Parameter]public Guid? Id{get;set;}private Purchase purchase=new();private IReadOnlyList<Supplier> suppliers=[];private IReadOnlyList<Intermediary> intermediaries=[];private IReadOnlyList<Product> products=[];private readonly Dictionary<Guid,ReceiptFormLine> receiptLines=[];private Guid receiptId=Guid.NewGuid();private DateTime? receiptDate;private string? receiptNote;private Guid? removeCandidate;private UnsavedChangesGuard? unsavedGuard;private bool loading=true;private bool saving;private string? error;private string? message;private bool success;
-    private static readonly PurchaseStatus[] Flow=[PurchaseStatus.Draft,PurchaseStatus.Ordered,PurchaseStatus.Shipped,PurchaseStatus.Received];private bool IsNew=>Id is null;
-    private static readonly IReadOnlyList<OrbitSelectOption<PurchaseStatus?>> PurchaseStatusOptions=OrbitSelectOptions.Optional(Enum.GetValues<PurchaseStatus>(),"Не указан",value=>value.Display());private static readonly IReadOnlyList<OrbitSelectOption<string>> CurrencyOptions=OrbitSelectOptions.From(CurrencyCodes.Supported,value=>$"{value} · {CurrencyCodes.Symbol(value)}");private IReadOnlyList<OrbitSelectOption<Guid?>> SupplierOptions=>[new(null,"Не выбран"),..suppliers.Select(value=>new OrbitSelectOption<Guid?>(value.Id,value.Name))];private IReadOnlyList<OrbitSelectOption<Guid?>> IntermediaryOptions=>[new(null,"Не выбран"),..intermediaries.Select(value=>new OrbitSelectOption<Guid?>(value.Id,value.Name))];
-    protected override async Task OnParametersSetAsync(){loading=true;error=null;try{var supplierTask=Commerce.GetSuppliersAsync();var intermediaryTask=Commerce.GetIntermediariesAsync();var productTask=Catalog.GetProductsAsync();var purchaseTask=Commerce.GetPurchasesAsync();await Task.WhenAll(supplierTask,intermediaryTask,productTask,purchaseTask);suppliers=await supplierTask;intermediaries=await intermediaryTask;products=(await productTask).Where(value=>value.Status!=ProductStatus.Archived).ToList();purchase=Id is null?NewPurchase(await purchaseTask):await Commerce.GetPurchaseAsync(Id.Value)??throw new InvalidOperationException("Закупка не найдена.");purchase.CurrencyCode=CurrencyCodes.Normalize(purchase.CurrencyCode,"CNY");ResetReceipt();}catch(Exception ex){error=ex.Message;}finally{loading=false;}}
-    private static Purchase NewPurchase(IEnumerable<Purchase> existing){var prefix=$"PO-{DateTime.Now:yyyyMMdd}";var used=existing.Select(value=>value.Number).ToHashSet(StringComparer.OrdinalIgnoreCase);var index=1;while(used.Contains($"{prefix}-{index:000}"))index++;return new Purchase{Number=$"{prefix}-{index:000}",Status=PurchaseStatus.Draft,CurrencyCode="CNY"};}
-    private void AddItem(){purchase.Items.Add(new PurchaseItem{Quantity=1});unsavedGuard?.MarkDirty();}private void RemoveItem(PurchaseItem item){purchase.Items.Remove(item);removeCandidate=null;unsavedGuard?.MarkDirty();}private IEnumerable<ProductVariant> Variants(PurchaseItem item)=>item.ProductId is null?[]:products.FirstOrDefault(value=>value.Id==item.ProductId)?.Variants??[];
-    private void SupplierChanged(){purchase.SupplierName=purchase.SupplierId is null?null:suppliers.FirstOrDefault(value=>value.Id==purchase.SupplierId)?.Name;}private void IntermediaryChanged(){purchase.IntermediaryName=purchase.IntermediaryId is null?null:intermediaries.FirstOrDefault(value=>value.Id==purchase.IntermediaryId)?.Name;}
-    private void ProductChanged(PurchaseItem item,Product? product){item.ProductId=product?.Id;item.ProductName=product?.Name??string.Empty;item.UnitPriceCny=product?.PurchasePriceCny;item.ProductVariantId=null;item.Color=string.Empty;item.Size=string.Empty;if(product is not null&&purchase.Items.All(value=>value.Id==item.Id||value.ProductId is null)){purchase.CurrencyCode=CurrencyCodes.Normalize(product.PurchaseCurrencyCode,"CNY");purchase.CnyRateUzs=product.CnyRateUzs;CurrencyChanged();}unsavedGuard?.MarkDirty();}
-    private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions(PurchaseItem item)=>[new(null,"Не выбран"),..Variants(item).Select(value=>new OrbitSelectOption<Guid?>(value.Id,VariantName(value)))];private void VariantChanged(PurchaseItem item){var value=Variants(item).FirstOrDefault(variant=>variant.Id==item.ProductVariantId);item.Color=value?.Color??string.Empty;item.Size=value?.Size??string.Empty;}private void CurrencyChanged(){purchase.CurrencyCode=CurrencyCodes.Normalize(purchase.CurrencyCode,"CNY");if(purchase.CurrencyCode=="UZS")purchase.CnyRateUzs=1;}
-    private async Task SaveAsync(){await RunAsync(async()=>{ValidatePurchase();if((await Commerce.GetPurchasesAsync()).Any(value=>value.Id!=purchase.Id&&value.Number.Equals(purchase.Number,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("Закупка с таким номером уже существует.");await Commerce.UpsertPurchaseAsync(purchase);if(IsNew){unsavedGuard?.MarkClean();Navigation.NavigateTo($"/purchases/{purchase.Id}");}},"Закупка сохранена.");}
-    private async Task ReceiveAsync(){await RunAsync(async()=>{ValidatePurchase();await Commerce.UpsertPurchaseAsync(purchase);var input=receiptLines.Select(value=>new PurchaseReceiptInput(value.Key,value.Value.ReceivedQuantity??0,value.Value.DefectQuantity??0));DateTimeOffset? at=receiptDate is null?null:new DateTimeOffset(receiptDate.Value.Date,TimeZoneInfo.Local.GetUtcOffset(receiptDate.Value.Date));var result=await Receiving.ReceiveAsync(purchase,input,receiptId,at,receiptNote);ResetReceipt();message=$"Принято: {result.AddedUnits} шт. на склад.";},"Приёмка сохранена.");}
-    private void ValidatePurchase(){purchase.Number=purchase.Number.Trim();purchase.Status??=PurchaseStatus.Draft;if(string.IsNullOrWhiteSpace(purchase.Number))throw new InvalidOperationException("Укажите номер закупки.");if(purchase.Items.Count==0)throw new InvalidOperationException("Добавьте хотя бы одну позицию.");if(purchase.Items.Any(value=>string.IsNullOrWhiteSpace(value.ProductName)||(value.Quantity??0)<=0))throw new InvalidOperationException("Для каждой позиции выберите товар и укажите количество.");CurrencyChanged();}
-    private void ResetReceipt(){receiptLines.Clear();receiptId=Guid.NewGuid();receiptDate=null;receiptNote=null;}private ReceiptFormLine ReceiptInput(Guid id){if(!receiptLines.TryGetValue(id,out var value))receiptLines[id]=value=new();return value;}private async Task RunAsync(Func<Task> action,string text){if(saving)return;saving=true;message=null;try{await action();unsavedGuard?.MarkClean();message??=text;success=true;}catch(Exception ex){message=ex.Message;success=false;}finally{saving=false;}}
-    private string FlowClass(PurchaseStatus value)=>purchase.Status==value?"active":purchase.Status is not null&&value<purchase.Status?"done":string.Empty;private static string VariantName(ProductVariant value)=>string.Join(" · ",new[]{value.Color,value.Size}.Where(text=>!string.IsNullOrWhiteSpace(text)));private static string VariantLabel(PurchaseItem value)=>string.Join(" · ",new[]{value.Color,value.Size}.Where(text=>!string.IsNullOrWhiteSpace(text)));private static string Money(decimal value)=>value.ToString("N0",CultureInfo.GetCultureInfo("ru-RU"));private sealed class ReceiptFormLine{public int? ReceivedQuantity{get;set;}public int? DefectQuantity{get;set;}}
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private Purchase purchase = new();
+    private IReadOnlyList<Supplier> suppliers = [];
+    private IReadOnlyList<Intermediary> intermediaries = [];
+    private IReadOnlyList<Product> products = [];
+    private readonly Dictionary<Guid, ReceiptFormLine> receiptLines = [];
+    private Guid receiptId = Guid.NewGuid();
+    private DateTime? receiptDate;
+    private string? receiptNote;
+    private Guid? removeCandidate;
+    private UnsavedChangesGuard? unsavedGuard;
+    private bool loading = true;
+    private bool saving;
+    private string? error;
+    private string? message;
+    private bool success;
+
+    private static readonly PurchaseStatus[] Flow = [PurchaseStatus.Draft, PurchaseStatus.Ordered, PurchaseStatus.Shipped, PurchaseStatus.Received];
+
+    private bool IsNew => Id is null;
+
+    private static readonly IReadOnlyList<OrbitSelectOption<PurchaseStatus?>> PurchaseStatusOptions =
+        OrbitSelectOptions.Optional(Enum.GetValues<PurchaseStatus>(), "Не указан", value => value.Display());
+
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> CurrencyOptions =
+        OrbitSelectOptions.From(CurrencyCodes.Supported, value => $"{value} · {CurrencyCodes.Symbol(value)}");
+
+    private IReadOnlyList<OrbitSelectOption<Guid?>> SupplierOptions =>
+        [new(null, "Не выбран"), .. suppliers.Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name))];
+
+    private IReadOnlyList<OrbitSelectOption<Guid?>> IntermediaryOptions =>
+        [new(null, "Не выбран"), .. intermediaries.Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name))];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            var supplierTask = Commerce.GetSuppliersAsync();
+            var intermediaryTask = Commerce.GetIntermediariesAsync();
+            var productTask = Catalog.GetProductsAsync();
+            var purchaseTask = Commerce.GetPurchasesAsync();
+            await Task.WhenAll(supplierTask, intermediaryTask, productTask, purchaseTask);
+            suppliers = await supplierTask;
+            intermediaries = await intermediaryTask;
+            products = (await productTask).Where(value => value.Status != ProductStatus.Archived).ToList();
+            purchase = Id is null
+                ? NewPurchase(await purchaseTask)
+                : await Commerce.GetPurchaseAsync(Id.Value) ?? throw new InvalidOperationException("Закупка не найдена.");
+            purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
+            ResetReceipt();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static Purchase NewPurchase(IEnumerable<Purchase> existing)
+    {
+        var prefix = $"PO-{DateTime.Now:yyyyMMdd}";
+        var used = existing.Select(value => value.Number).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var index = 1;
+        while (used.Contains($"{prefix}-{index:000}"))
+        {
+            index++;
+        }
+
+        return new Purchase { Number = $"{prefix}-{index:000}", Status = PurchaseStatus.Draft, CurrencyCode = "CNY" };
+    }
+
+    private void AddItem()
+    {
+        purchase.Items.Add(new PurchaseItem { Quantity = 1 });
+        unsavedGuard?.MarkDirty();
+    }
+
+    private void RemoveItem(PurchaseItem item)
+    {
+        purchase.Items.Remove(item);
+        removeCandidate = null;
+        unsavedGuard?.MarkDirty();
+    }
+
+    private IEnumerable<ProductVariant> Variants(PurchaseItem item) =>
+        item.ProductId is null ? [] : products.FirstOrDefault(value => value.Id == item.ProductId)?.Variants ?? [];
+
+    private void SupplierChanged()
+    {
+        purchase.SupplierName = purchase.SupplierId is null
+            ? null
+            : suppliers.FirstOrDefault(value => value.Id == purchase.SupplierId)?.Name;
+    }
+
+    private void IntermediaryChanged()
+    {
+        purchase.IntermediaryName = purchase.IntermediaryId is null
+            ? null
+            : intermediaries.FirstOrDefault(value => value.Id == purchase.IntermediaryId)?.Name;
+    }
+
+    private void ProductChanged(PurchaseItem item, Product? product)
+    {
+        item.ProductId = product?.Id;
+        item.ProductName = product?.Name ?? string.Empty;
+        item.UnitPriceCny = product?.PurchasePriceCny;
+        item.ProductVariantId = null;
+        item.Color = string.Empty;
+        item.Size = string.Empty;
+        if (product is not null && purchase.Items.All(value => value.Id == item.Id || value.ProductId is null))
+        {
+            purchase.CurrencyCode = CurrencyCodes.Normalize(product.PurchaseCurrencyCode, "CNY");
+            purchase.CnyRateUzs = product.CnyRateUzs;
+            CurrencyChanged();
+        }
+
+        unsavedGuard?.MarkDirty();
+    }
+
+    private IReadOnlyList<OrbitSelectOption<Guid?>> VariantOptions(PurchaseItem item) =>
+        [new(null, "Не выбран"), .. Variants(item).Select(value => new OrbitSelectOption<Guid?>(value.Id, VariantName(value)))];
+
+    private void VariantChanged(PurchaseItem item)
+    {
+        var value = Variants(item).FirstOrDefault(variant => variant.Id == item.ProductVariantId);
+        item.Color = value?.Color ?? string.Empty;
+        item.Size = value?.Size ?? string.Empty;
+    }
+
+    private void CurrencyChanged()
+    {
+        purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
+        if (purchase.CurrencyCode == "UZS")
+        {
+            purchase.CnyRateUzs = 1;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        await RunAsync(async () =>
+        {
+            ValidatePurchase();
+            if ((await Commerce.GetPurchasesAsync()).Any(value =>
+                    value.Id != purchase.Id && value.Number.Equals(purchase.Number, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("Закупка с таким номером уже существует.");
+            }
+
+            await Commerce.UpsertPurchaseAsync(purchase);
+            if (IsNew)
+            {
+                unsavedGuard?.MarkClean();
+                Navigation.NavigateTo($"/purchases/{purchase.Id}");
+            }
+        }, "Закупка сохранена.");
+    }
+
+    private async Task ReceiveAsync()
+    {
+        await RunAsync(async () =>
+        {
+            ValidatePurchase();
+            await Commerce.UpsertPurchaseAsync(purchase);
+            var input = receiptLines.Select(value =>
+                new PurchaseReceiptInput(value.Key, value.Value.ReceivedQuantity ?? 0, value.Value.DefectQuantity ?? 0));
+            DateTimeOffset? at = receiptDate is null
+                ? null
+                : new DateTimeOffset(receiptDate.Value.Date, TimeZoneInfo.Local.GetUtcOffset(receiptDate.Value.Date));
+            var result = await Receiving.ReceiveAsync(purchase, input, receiptId, at, receiptNote);
+            ResetReceipt();
+            message = $"Принято: {result.AddedUnits} шт. на склад.";
+        }, "Приёмка сохранена.");
+    }
+
+    private void ValidatePurchase()
+    {
+        purchase.Number = purchase.Number.Trim();
+        purchase.Status ??= PurchaseStatus.Draft;
+        if (string.IsNullOrWhiteSpace(purchase.Number))
+        {
+            throw new InvalidOperationException("Укажите номер закупки.");
+        }
+
+        if (purchase.Items.Count == 0)
+        {
+            throw new InvalidOperationException("Добавьте хотя бы одну позицию.");
+        }
+
+        if (purchase.Items.Any(value => string.IsNullOrWhiteSpace(value.ProductName) || (value.Quantity ?? 0) <= 0))
+        {
+            throw new InvalidOperationException("Для каждой позиции выберите товар и укажите количество.");
+        }
+
+        CurrencyChanged();
+    }
+
+    private void ResetReceipt()
+    {
+        receiptLines.Clear();
+        receiptId = Guid.NewGuid();
+        receiptDate = null;
+        receiptNote = null;
+    }
+
+    private ReceiptFormLine ReceiptInput(Guid id)
+    {
+        if (!receiptLines.TryGetValue(id, out var value))
+        {
+            receiptLines[id] = value = new();
+        }
+
+        return value;
+    }
+
+    private async Task RunAsync(Func<Task> action, string text)
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        message = null;
+        try
+        {
+            await action();
+            unsavedGuard?.MarkClean();
+            message ??= text;
+            success = true;
+        }
+        catch (Exception ex)
+        {
+            message = ex.Message;
+            success = false;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private string FlowClass(PurchaseStatus value) =>
+        purchase.Status == value ? "active" : purchase.Status is not null && value < purchase.Status ? "done" : string.Empty;
+
+    private static string VariantName(ProductVariant value) =>
+        string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));
+
+    private static string VariantLabel(PurchaseItem value) =>
+        string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));
+
+    private static string Money(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
+
+    private sealed class ReceiptFormLine
+    {
+        public int? ReceivedQuantity { get; set; }
+
+        public int? DefectQuantity { get; set; }
+    }
 }
