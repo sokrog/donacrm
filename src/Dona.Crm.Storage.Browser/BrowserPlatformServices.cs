@@ -25,6 +25,7 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
     private const string TokenKey = "dona.crm.google.access-token";
     private const string DefaultWebClientId = "440684132138-br3o9siah11u1m3n9lbbd7sea0use33d.apps.googleusercontent.com";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly BrowserKeyValueStore store = new(javascript);
 
     public async Task<GoogleConnectionState> GetStateAsync(CancellationToken cancellationToken = default)
     {
@@ -33,21 +34,16 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
         var settings = string.IsNullOrWhiteSpace(stored.Settings.OAuthClientId)
             ? stored.Settings with { OAuthClientId = DefaultWebClientId }
             : stored.Settings;
-        return stored with { Settings = settings, IsConnected = !string.IsNullOrWhiteSpace(token) };
+        return stored with { Settings = settings, IsConnected = !string.IsNullOrWhiteSpace(token), IsConfigured = !string.IsNullOrWhiteSpace(settings.OAuthClientId) };
     }
 
     public async Task<GoogleConnectionState> SaveSettingsAsync(GoogleConnectionSettings settings, CancellationToken cancellationToken = default)
     {
-        var rawSpreadsheet = settings.SpreadsheetId?.Trim() ?? string.Empty;
-        var spreadsheetId = string.IsNullOrWhiteSpace(rawSpreadsheet) ? string.Empty : GoogleResourceIds.Spreadsheet(rawSpreadsheet);
-        var driveFolderId = GoogleResourceIds.DriveFolder(settings.DriveFolderId);
         var clientId = settings.OAuthClientId?.Trim() ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(rawSpreadsheet) && string.IsNullOrWhiteSpace(spreadsheetId)) throw new InvalidOperationException("Укажите корректную ссылку или ID Google-таблицы.");
-        if (driveFolderId == string.Empty) throw new InvalidOperationException("Укажите корректную ссылку или ID папки Google Drive.");
         if (!clientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Укажите Web Client ID из Google Cloud Console.");
 
         var current = await GetStateAsync(cancellationToken);
-        var updated = current with { Settings = new GoogleConnectionSettings(spreadsheetId, driveFolderId, clientId) };
+        var updated = current with { Settings = new GoogleConnectionSettings(clientId), IsConfigured = true };
         await WriteStateAsync(updated, cancellationToken);
         return updated;
     }
@@ -71,8 +67,6 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
             IsConnected = true,
             AccountEmail = user.TryGetProperty("email", out var email) ? email.GetString() : null,
             AccountName = user.TryGetProperty("name", out var name) ? name.GetString() : null,
-            SpreadsheetName = null,
-            DriveFolderName = null,
             LastCheckedAt = DateTimeOffset.UtcNow
         };
         await WriteStateAsync(updated, cancellationToken);
@@ -99,8 +93,7 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
         using var response = await http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"Google не подтвердил доступ: {detail}");
+            throw await GoogleErrorMessages.CreateExceptionAsync(response, "Google не подтвердил доступ", cancellationToken);
         }
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         return document.RootElement.Clone();
@@ -108,22 +101,23 @@ public sealed class BrowserGoogleConnectionService(IJSRuntime javascript, HttpCl
 
     private async Task<GoogleConnectionState> ReadStateAsync(CancellationToken cancellationToken)
     {
-        var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StateKey);
+        var json = await store.GetAsync(StateKey, cancellationToken);
         return string.IsNullOrWhiteSpace(json)
-            ? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, DefaultWebClientId), false)
+            ? new GoogleConnectionState(new GoogleConnectionSettings(DefaultWebClientId), false)
             : JsonSerializer.Deserialize<GoogleConnectionState>(json, JsonOptions)
-                ?? new GoogleConnectionState(new GoogleConnectionSettings(string.Empty, null, DefaultWebClientId), false);
+                ?? new GoogleConnectionState(new GoogleConnectionSettings(DefaultWebClientId), false);
     }
 
     private Task WriteStateAsync(GoogleConnectionState state, CancellationToken cancellationToken) =>
-        javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, StateKey, JsonSerializer.Serialize(state, JsonOptions)).AsTask();
+        store.SetAsync(StateKey, JsonSerializer.Serialize(state, JsonOptions), cancellationToken);
 }
 
 public sealed class BrowserProductImagePicker(
     IJSRuntime javascript,
     IGoogleConnectionService google,
     IGoogleAccessTokenProvider tokens,
-    GoogleDriveFileClient drive) : IProductImagePicker
+    GoogleDriveFileClient drive,
+    ILocalImageStore localImages) : IProductImagePicker
 {
     public async Task<ProductImage?> PickAsync(Guid productId, CancellationToken cancellationToken = default)
     {
@@ -155,20 +149,32 @@ public sealed class BrowserProductImagePicker(
             };
         }
 
+        var storageKey = $"browser-{productId:N}-{Guid.NewGuid():N}";
+        if (!LocalImageKey.TryParseDataUrl(picked.DataUrl, out _, out var content))
+            throw new InvalidDataException("Браузер вернул повреждённое изображение.");
+        await localImages.SaveAsync(storageKey, content, picked.ContentType, cancellationToken);
         return new ProductImage
         {
             FileName = picked.Name,
             ContentType = picked.ContentType,
             SizeBytes = picked.Size,
             Storage = ProductImageStorage.Local,
-            StorageKey = $"browser:{productId:N}:{Guid.NewGuid():N}",
-            Url = picked.DataUrl
+            StorageKey = storageKey,
+            Url = LocalImageKey.ToUrl(storageKey)
         };
     }
 
     public async Task DeleteAsync(ProductImage image, CancellationToken cancellationToken = default)
     {
-        if (image.Storage != ProductImageStorage.GoogleDrive || string.IsNullOrWhiteSpace(image.StorageKey))
+        if (string.IsNullOrWhiteSpace(image.StorageKey))
+            return;
+        if (image.Storage == ProductImageStorage.Local)
+        {
+            var key = LocalImageKey.IsValid(image.StorageKey) ? image.StorageKey : LocalImageKey.Sanitize(image.StorageKey);
+            await localImages.DeleteAsync(key, cancellationToken);
+            return;
+        }
+        if (image.Storage != ProductImageStorage.GoogleDrive)
             return;
         await drive.DeleteAsync(
             image.StorageKey,
@@ -177,6 +183,31 @@ public sealed class BrowserProductImagePicker(
     }
 
     private sealed record BrowserPickedImage(string Name, string ContentType, long Size, string DataUrl);
+}
+
+/// <summary>Фотографии в IndexedDB (donaStore) под ключами image:KEY; значение - data URL, поэтому тип содержимого сохраняется.</summary>
+public sealed class BrowserLocalImageStore(IJSRuntime javascript) : ILocalImageStore
+{
+    internal const string KeyPrefix = "image:";
+    private readonly BrowserKeyValueStore store = new(javascript);
+
+    public Task SaveAsync(string key, byte[] content, string contentType, CancellationToken cancellationToken = default) =>
+        store.SetAsync(KeyPrefix + LocalImageKey.Validate(key), LocalImageKey.ToDataUrl(content, contentType), cancellationToken);
+
+    public async Task<LocalImage?> ReadAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var value = await store.GetAsync(KeyPrefix + LocalImageKey.Validate(key), cancellationToken);
+        return LocalImageKey.TryParseDataUrl(value, out var contentType, out var content) ? new LocalImage(content, contentType) : null;
+    }
+
+    public Task DeleteAsync(string key, CancellationToken cancellationToken = default) =>
+        store.RemoveAsync(KeyPrefix + LocalImageKey.Validate(key), cancellationToken);
+
+    public async Task<IReadOnlyList<string>> ListKeysAsync(CancellationToken cancellationToken = default) =>
+        (await store.KeysAsync(KeyPrefix, cancellationToken))
+            .Select(item => item[KeyPrefix.Length..])
+            .Where(LocalImageKey.IsValid)
+            .ToList();
 }
 
 public sealed class BrowserGoogleSyncService(
@@ -189,6 +220,7 @@ public sealed class BrowserGoogleSyncService(
 {
     private const string OperationsKey = "dona.crm.google.sync-operations.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly BrowserKeyValueStore store = new(javascript);
 
     public async Task<GoogleSyncStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
@@ -265,7 +297,7 @@ public sealed class BrowserGoogleSyncService(
 
     public async Task<IReadOnlyList<GoogleSyncOperation>> GetOperationsAsync(CancellationToken cancellationToken = default)
     {
-        var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, OperationsKey);
+        var json = await store.GetAsync(OperationsKey, cancellationToken);
         return string.IsNullOrWhiteSpace(json)
             ? []
             : JsonSerializer.Deserialize<List<GoogleSyncOperation>>(json, JsonOptions) ?? [];
@@ -273,7 +305,7 @@ public sealed class BrowserGoogleSyncService(
 
     public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
     {
-        await javascript.InvokeVoidAsync("localStorage.removeItem", cancellationToken, OperationsKey);
+        await store.RemoveAsync(OperationsKey, cancellationToken);
         await checkpointStore.WriteAsync(new GoogleSyncCheckpoint(), cancellationToken);
     }
 
@@ -304,22 +336,22 @@ public sealed class BrowserGoogleSyncService(
 
     private async Task<GoogleSyncEnvelope> ReadRemoteAsync(CancellationToken cancellationToken)
     {
-        var (spreadsheetId, token) = await GetContextAsync(cancellationToken);
-        return await remote.ReadAsync(spreadsheetId, token, cancellationToken);
+        var token = await GetTokenAsync(cancellationToken);
+        return await remote.ReadAsync(token, cancellationToken);
     }
 
     private async Task WriteRemoteAsync(GoogleSyncEnvelope envelope, CancellationToken cancellationToken)
     {
-        var (spreadsheetId, token) = await GetContextAsync(cancellationToken);
-        await remote.WriteAsync(spreadsheetId, token, envelope, cancellationToken);
+        var token = await GetTokenAsync(cancellationToken);
+        await remote.WriteAsync(token, envelope, cancellationToken);
     }
 
-    private async Task<(string SpreadsheetId, string Token)> GetContextAsync(CancellationToken cancellationToken)
+    private async Task<string> GetTokenAsync(CancellationToken cancellationToken)
     {
         var state = await connection.GetStateAsync(cancellationToken);
         if (!state.IsConnected)
             throw new InvalidOperationException("Сначала войдите в Google в разделе «Подключения».");
-        return (state.Settings.SpreadsheetId, await tokens.GetAccessTokenAsync(cancellationToken));
+        return await tokens.GetAccessTokenAsync(cancellationToken);
     }
 
     private async Task SaveOperationAsync(GoogleSyncOperation operation, CancellationToken cancellationToken)
@@ -327,7 +359,7 @@ public sealed class BrowserGoogleSyncService(
         var operations = (await GetOperationsAsync(cancellationToken)).ToList();
         var index = operations.FindIndex(value => value.Id == operation.Id);
         if (index >= 0) operations[index] = operation; else operations.Add(operation);
-        await javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, OperationsKey, JsonSerializer.Serialize(operations, JsonOptions));
+        await store.SetAsync(OperationsKey, JsonSerializer.Serialize(operations, JsonOptions), cancellationToken);
     }
 
     private static void RequirePreview(string version)
@@ -338,7 +370,7 @@ public sealed class BrowserGoogleSyncService(
     private static void EnsureUnchanged(string actual, string expected)
     {
         if (!string.Equals(actual, expected, StringComparison.Ordinal))
-            throw new GoogleSyncConflictException("Google-таблица изменилась после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
+            throw new GoogleSyncConflictException("Данные в Google Drive изменились после предварительного просмотра. Обновите сравнение и проверьте данные ещё раз.");
     }
 
     private static GoogleSyncPreview Preview(DonaSyncSnapshot localSnapshot, GoogleSyncEnvelope remote) => new(
@@ -382,15 +414,16 @@ public sealed class BrowserGoogleSyncCheckpointStore(IJSRuntime javascript) : IG
 {
     private const string StorageKey = "dona.crm.google.sync-checkpoint.v1";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly BrowserKeyValueStore store = new(javascript);
 
     public async Task<GoogleSyncCheckpoint?> ReadAsync(CancellationToken cancellationToken = default)
     {
-        var json = await javascript.InvokeAsync<string?>("localStorage.getItem", cancellationToken, StorageKey);
+        var json = await store.GetAsync(StorageKey, cancellationToken);
         return string.IsNullOrWhiteSpace(json)
             ? null
             : JsonSerializer.Deserialize<GoogleSyncCheckpoint>(json, JsonOptions);
     }
 
     public async Task WriteAsync(GoogleSyncCheckpoint checkpoint, CancellationToken cancellationToken = default) =>
-        await javascript.InvokeVoidAsync("localStorage.setItem", cancellationToken, StorageKey, JsonSerializer.Serialize(checkpoint, JsonOptions));
+        await store.SetAsync(StorageKey, JsonSerializer.Serialize(checkpoint, JsonOptions), cancellationToken);
 }
