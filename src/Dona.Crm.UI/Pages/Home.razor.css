@@ -42,9 +42,9 @@ h1 {
     place-items: center;
     border: 1px solid var(--dona-line);
     border-radius: 50%;
-    background: rgba(24, 17, 34, .82);
+    background: var(--dona-surface);
     color: var(--dona-text);
-    box-shadow: inset 0 1px rgba(255, 255, 255, .04);
+    box-shadow: inset 0 1px rgba(var(--dona-brand-rgb), 0.04);
 }
 
 .icon-button ::deep svg,
@@ -72,7 +72,7 @@ h1 {
     align-items: center;
     gap: 8px;
     margin: 0;
-    color: #c5bbcf;
+    color: var(--dona-muted);
     font-size: var(--dona-type-body-sm);
 }
 
@@ -81,18 +81,18 @@ h1 {
     height: 7px;
     border-radius: 50%;
     background: var(--dona-cyan);
-    box-shadow: 0 0 12px rgba(98, 220, 235, .65);
+    box-shadow: 0 0 0 4px rgba(var(--dona-success-rgb), .08);
 }
 
 .connection.pending span {
-    background: #f3be69;
-    box-shadow: 0 0 12px rgba(243, 190, 105, .55);
+    background: var(--dona-warning);
+    box-shadow: 0 0 12px rgba(var(--dona-warning-rgb), 0.55);
 }
 
 .connection.conflict span,
 .connection.error span {
     background: var(--dona-danger);
-    box-shadow: 0 0 12px rgba(255, 120, 148, .55);
+    box-shadow: 0 0 12px rgba(var(--dona-danger-rgb), 0.55);
 }
 
 .sync-shortcut {
@@ -103,7 +103,7 @@ h1 {
     place-items: center;
     border: 1px solid var(--dona-line);
     border-radius: 14px;
-    background: rgba(24, 17, 34, .72);
+    background: var(--dona-surface);
     color: var(--dona-cyan);
     text-decoration: none;
 }
@@ -117,7 +117,7 @@ h1 {
 .empty-state {
     border: 1px solid var(--dona-line);
     border-radius: 18px;
-    background: rgba(22, 16, 31, .72);
+    background: var(--dona-surface);
 }
 
 .state-card {
@@ -154,7 +154,7 @@ h1 {
 .loading-block,
 .loading-row span {
     display: block;
-    background: linear-gradient(100deg, rgba(36, 27, 49, .85) 20%, rgba(62, 45, 80, .9) 45%, rgba(36, 27, 49, .85) 70%);
+    background: linear-gradient(100deg, var(--dona-surface-soft) 20%, var(--dona-line) 45%, var(--dona-surface-soft) 70%);
     background-size: 220% 100%;
     animation: orbit-loading 1.4s ease-in-out infinite;
 }
@@ -177,11 +177,12 @@ h1 {
     position: relative;
     margin: 0 14px;
     overflow: hidden;
-    border: 1px solid rgba(220, 194, 255, .16);
+    border: 1px solid rgba(var(--dona-brand-rgb), 0.16);
     border-radius: 28px;
     padding: 23px 20px 21px;
-    background: radial-gradient(circle at 84% 15%, rgba(240, 91, 200, .22), transparent 42%), linear-gradient(145deg, rgba(77, 42, 119, .78), rgba(29, 19, 43, .9) 58%, rgba(18, 14, 28, .96));
-    box-shadow: 0 18px 48px rgba(5, 3, 10, .35), inset 0 1px rgba(255, 255, 255, .06);
+    background: var(--dona-brand);
+    color: #fff8fa;
+    box-shadow: 0 18px 48px var(--dona-shadow), inset 0 1px rgba(var(--dona-brand-rgb), 0.06);
 }
 
 .hero::after {
@@ -191,14 +192,14 @@ h1 {
     height: 170px;
     right: -83px;
     bottom: -102px;
-    border: 1px solid rgba(255, 255, 255, .14);
+    border: 1px solid rgba(var(--dona-brand-rgb), 0.14);
     border-radius: 50%;
-    box-shadow: 0 0 0 22px rgba(255, 255, 255, .018), 0 0 0 44px rgba(255, 255, 255, .012);
+    box-shadow: 0 0 0 22px rgba(var(--dona-brand-rgb), 0.018), 0 0 0 44px rgba(var(--dona-brand-rgb), 0.012);
 }
 
 .hero-label {
     margin: 0 0 8px;
-    color: #d5c9e5;
+    color: #f5d9e2;
     font-size: var(--dona-type-body-sm);
 }
 
@@ -212,7 +213,7 @@ h1 {
 
 .revenue span {
     margin-left: 4px;
-    color: #cbbddd;
+    color: #f5d9e2;
     font-size: var(--dona-type-small);
     font-weight: 700;
     letter-spacing: .08em;
@@ -228,7 +229,7 @@ h1 {
 .hero-meta span {
     display: block;
     margin-bottom: 5px;
-    color: #b9abc9;
+    color: #f5d9e2;
     font-size: var(--dona-type-small);
 }
 
@@ -238,7 +239,7 @@ h1 {
 }
 
 .sales-meta strong {
-    color: var(--dona-cyan);
+    color: #fff8fa;
 }
 
 .signal-strip {
@@ -254,7 +255,7 @@ h1 {
     padding: 15px;
     border: 1px solid var(--dona-line);
     border-radius: 16px;
-    background: rgba(25, 18, 36, .76);
+    background: var(--dona-surface);
     backdrop-filter: blur(14px);
 }
 
@@ -315,7 +316,7 @@ section {
     overflow: hidden;
     border: 1px solid var(--dona-line);
     border-radius: 20px;
-    background: rgba(22, 16, 31, .72);
+    background: var(--dona-surface);
 }
 
 .attention-list li + li {
@@ -340,8 +341,8 @@ section {
     display: grid;
     place-items: center;
     border-radius: 13px;
-    color: #c598ff;
-    background: rgba(159, 92, 255, .13);
+    color: var(--dona-brand);
+    background: rgba(var(--dona-brand-rgb), 0.13);
 }
 
 .attention-icon {
@@ -349,12 +350,12 @@ section {
     height: 42px;
 }
 
-.attention-icon.amber { color: var(--dona-amber); background: rgba(244, 189, 111, .1); }
-.attention-icon.cyan { color: var(--dona-cyan); background: rgba(98, 220, 235, .09); }
-.attention-icon.magenta { color: var(--dona-magenta); background: rgba(240, 91, 200, .1); }
+.attention-icon.amber { color: var(--dona-amber); background: rgba(var(--dona-warning-rgb), 0.1); }
+.attention-icon.cyan { color: var(--dona-cyan); background: rgba(var(--dona-success-rgb), 0.09); }
+.attention-icon.magenta { color: var(--dona-magenta); background: rgba(var(--dona-brand-rgb), 0.1); }
 
 .chevron {
-    color: #8f849c;
+    color: var(--dona-muted);
     font-size: var(--dona-type-title-sm);
     text-align: center;
 }
@@ -373,7 +374,7 @@ section {
     padding: 10px 12px;
     border: 1px solid var(--dona-line);
     border-radius: 16px;
-    background: rgba(28, 20, 39, .76);
+    background: var(--dona-surface);
     color: var(--dona-text);
     font-size: var(--dona-type-body);
     font-weight: 680;
@@ -385,7 +386,7 @@ section {
     flex: 0 0 auto;
     width: 40px;
     height: 40px;
-    background: linear-gradient(145deg, rgba(159, 92, 255, .22), rgba(240, 91, 200, .09));
+    background: linear-gradient(145deg, rgba(var(--dona-brand-rgb), 0.22), rgba(var(--dona-brand-rgb), 0.09));
 }
 
 .activity-list {
@@ -399,7 +400,7 @@ section {
     bottom: 18px;
     left: 17px;
     width: 1px;
-    background: linear-gradient(var(--dona-purple), rgba(159, 92, 255, .08));
+    background: linear-gradient(var(--dona-purple), rgba(var(--dona-brand-rgb), 0.08));
 }
 
 .activity-list li {
@@ -416,10 +417,10 @@ section {
     width: 36px;
     height: 36px;
     place-items: center;
-    border: 1px solid rgba(159, 92, 255, .28);
+    border: 1px solid rgba(var(--dona-brand-rgb), 0.28);
     border-radius: 50%;
     background: var(--dona-panel-solid);
-    color: #bd86ff;
+    color: var(--dona-brand);
 }
 
 .activity-mark ::deep svg {
@@ -554,3 +555,14 @@ section {
         padding-left: 16px;
     }
 }
+
+.home-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 20px; padding-top: calc(16px + env(safe-area-inset-top)); border-bottom: 1px solid var(--dona-line); }
+.home-brand img { width: 132px; height: 68px; object-fit: contain; }
+.home-brand > span { max-width: 140px; color: var(--dona-muted); font-size: var(--dona-type-caption); text-align: right; line-height: 1.6; }
+.home-header { padding-top: 22px; }
+.hero { border-radius: 22px; border-color: var(--dona-brand); box-shadow: 0 12px 28px var(--dona-shadow); }
+.hero::after { border-color: #b86a83; box-shadow: 0 0 0 22px rgba(255,248,250,.04), 0 0 0 44px rgba(255,248,250,.03); }
+.revenue, .signal strong { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.action { transition: background .15s, border-color .15s; }
+.action:hover { background: var(--dona-surface-soft); border-color: var(--dona-line-strong); }
+@media (min-width: 900px) { .home-brand { display: none; } }

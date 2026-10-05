@@ -1,9 +1,9 @@
 html { min-width: 320px; }
-.browser-boot { min-height:100dvh; display:grid; place-content:center; gap:.5rem; padding:2rem; text-align:center; color:#f7f1ff; background:#09070f; }
+.browser-boot { min-height:100dvh; display:grid; place-content:center; gap:.5rem; padding:2rem; text-align:center; color:var(--dona-text); background:var(--dona-bg); }
 .browser-boot strong { font-size:var(--dona-type-title-md); }
-.browser-boot span { color:#aaa0b8; font-size:var(--dona-type-body); }
-#blazor-error-ui { position:fixed; right:1rem; bottom:1rem; left:1rem; z-index:1000; display:none; max-width:44rem; margin:auto; border:1px solid rgba(255,120,148,.35); border-radius:14px; padding:14px 18px; background:#211522; color:#fff; }
-#blazor-error-ui a { color:#62dceb; }
+.browser-boot span { color:var(--dona-muted); font-size:var(--dona-type-body); }
+#blazor-error-ui { position:fixed; right:1rem; bottom:1rem; left:1rem; z-index:1000; display:none; max-width:44rem; margin:auto; border:1px solid rgba(var(--dona-danger-rgb), 0.35); border-radius:14px; padding:14px 18px; background:var(--dona-surface); color:var(--dona-text); }
+#blazor-error-ui a { color:var(--dona-success); }
 @media (min-width: 900px) {
     body { background-attachment:fixed; }
     :where(.orbit-home,.catalog-page,.products-page,.sales-page,.purchases-page,.partners-page,.inventory-page,.analytics-page,.marketing-page,.marketing-hub,.content-page,.customers-page,.more-page) { width:min(100%,1180px) !important; max-width:1180px !important; padding-right:var(--dona-page-inline) !important; padding-left:var(--dona-page-inline) !important; }

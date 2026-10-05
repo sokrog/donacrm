@@ -1,10 +1,10 @@
 {
-  "name": "Command Orbit",
-  "short_name": "Orbit",
+  "name": "DONA CRM",
+  "short_name": "DONA",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#09070f",
-  "theme_color": "#09070f",
+  "background_color": "#fce6ed",
+  "theme_color": "#fce6ed",
   "lang": "ru",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }

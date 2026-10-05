@@ -4,7 +4,7 @@
     border: 1px solid var(--dona-line);
     border-radius: 20px;
     padding: 17px;
-    background: rgba(24,17,34,.78);
+    background: var(--dona-surface);
 }
 
 .entity-images__heading {
@@ -19,11 +19,11 @@ h2 { margin: 0; font-size: var(--dona-type-subtitle); }
 .entity-images__heading button,
 .entity-images__url > button {
     min-height: 44px;
-    border: 1px solid rgba(159,92,255,.28);
+    border: 1px solid rgba(var(--dona-brand-rgb), 0.28);
     border-radius: 12px;
     padding: 0 12px;
-    background: rgba(159,92,255,.12);
-    color: #d1b2ff;
+    background: rgba(var(--dona-brand-rgb), 0.12);
+    color: var(--dona-brand);
     font-size: var(--dona-type-small);
     font-weight: 700;
 }
@@ -49,7 +49,7 @@ label {
     border: 1px solid var(--dona-line-strong);
     border-radius: 12px;
     padding: 0 12px;
-    background: #120d1b;
+    background: var(--dona-field);
     color: var(--dona-text);
     font: inherit;
     font-size: var(--dona-type-body);
@@ -57,8 +57,8 @@ label {
 
 .entity-images__url > button {
     min-height: var(--dona-control-height);
-    border-color: rgba(98,220,235,.24);
-    background: rgba(98,220,235,.08);
+    border-color: rgba(var(--dona-success-rgb), 0.24);
+    background: rgba(var(--dona-success-rgb), 0.08);
     color: var(--dona-cyan);
 }
 
@@ -73,7 +73,7 @@ label {
     overflow: hidden;
     border: 1px solid var(--dona-line);
     border-radius: 14px;
-    background: #100b18;
+    background: var(--dona-surface-soft);
 }
 
 .entity-images__item ::deep .entity-image-preview {
@@ -101,12 +101,12 @@ label {
     display:grid;
     place-items:center;
     padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
-    background:rgba(5,3,9,.92);
+    background:var(--dona-overlay);
 }
 
 .entity-image-lightbox section { position:relative; display:grid; width:min(100%,980px); height:min(100%,900px); place-items:center; }
 .entity-image-lightbox ::deep .entity-image-lightbox__image { width:100%; height:100%; object-fit:contain; }
-.entity-image-lightbox__close { position:absolute; z-index:1; top:8px; right:8px; display:grid; width:44px; height:44px; place-items:center; border:1px solid var(--dona-line-strong); border-radius:50%; padding:0; background:rgba(20,13,30,.86); color:#fff; }
+.entity-image-lightbox__close { position:absolute; z-index:1; top:8px; right:8px; display:grid; width:44px; height:44px; place-items:center; border:1px solid var(--dona-line-strong); border-radius:50%; padding:0; background:var(--dona-surface); color:#fff; }
 .entity-image-lightbox__close ::deep svg { width:22px; height:22px; }
 
 .entity-images__item > div {
@@ -127,7 +127,7 @@ label {
 }
 
 .entity-images__item button.selected {
-    background: rgba(98,220,235,.08);
+    background: rgba(var(--dona-success-rgb), 0.08);
     color: var(--dona-cyan);
 }
 

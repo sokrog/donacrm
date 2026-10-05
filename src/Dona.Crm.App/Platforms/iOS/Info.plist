@@ -33,7 +33,7 @@
         <string>arm64</string>
     </array>
     <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleLightContent</string>
+    <string>UIStatusBarStyleDarkContent</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
     <key>UISupportedInterfaceOrientations</key>

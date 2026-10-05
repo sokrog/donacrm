@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
         <TargetFrameworks>net10.0-android</TargetFrameworks>
@@ -66,11 +66,11 @@
                   ForegroundFile="Resources\AppIcon\appiconfg.svg"
                   ForegroundScale="0.65"
                   BaseSize="456,456"
-                  Color="#09070F" />
+                  Color="#FCE6ED" />
 
         <!-- Splash Screen -->
         <MauiSplashScreen Include="Resources\Splash\splash.svg"
-                          Color="#09070F"
+                          Color="#FCE6ED"
                           BaseSize="256,256" />
 
         <!-- Images -->

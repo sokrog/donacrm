@@ -1,18 +1,36 @@
+/* DONA · Burgundy / Petal, adapted from the interactive brandbook. */
+@import url("brand/fonts.css");
+
 :root {
-    color-scheme: dark;
-    --dona-space: #09070f;
-    --dona-space-2: #100b19;
-    --dona-panel: rgba(29, 20, 42, .78);
-    --dona-panel-solid: #1b1426;
-    --dona-line: rgba(233, 222, 255, .11);
-    --dona-line-strong: rgba(233, 222, 255, .18);
-    --dona-text: #f7f1ff;
-    --dona-muted: #aaa0b8;
-    --dona-purple: #9f5cff;
-    --dona-magenta: #f05bc8;
-    --dona-cyan: #62dceb;
-    --dona-amber: #f4bd6f;
-    --dona-danger: #ff7894;
+    color-scheme: light;
+    --dona-brand: #630625;
+    --dona-brand-deep: #48071d;
+    --dona-brand-rgb: 99, 6, 37;
+    --dona-bg: #fce6ed;
+    --dona-surface: #fff8fa;
+    --dona-surface-soft: #f5d9e2;
+    --dona-field: #fffdfd;
+    --dona-line: #e8c9d3;
+    --dona-line-strong: #b77e90;
+    --dona-text: #381523;
+    --dona-muted: #765462;
+    --dona-rose: #963c60;
+    --dona-success: #24634f;
+    --dona-success-rgb: 36, 99, 79;
+    --dona-warning: #87500e;
+    --dona-warning-rgb: 135, 80, 14;
+    --dona-danger: #af183e;
+    --dona-danger-rgb: 175, 24, 62;
+    --dona-overlay: rgba(56, 21, 35, .42);
+    --dona-shadow: rgba(99, 6, 37, .09);
+    --dona-space: var(--dona-bg);
+    --dona-space-2: var(--dona-surface-soft);
+    --dona-panel: var(--dona-surface);
+    --dona-panel-solid: var(--dona-surface);
+    --dona-purple: var(--dona-brand);
+    --dona-magenta: var(--dona-rose);
+    --dona-cyan: var(--dona-success);
+    --dona-amber: var(--dona-warning);
     --dona-page-inline: 20px;
     --dona-page-block: 22px;
     --dona-section-gap: 16px;
@@ -53,9 +71,9 @@ body {
     min-height: 100dvh;
     margin: 0;
     overflow-x: hidden;
-    background: radial-gradient(circle at 82% 8%, rgba(159, 92, 255, .18), transparent 21rem), radial-gradient(circle at 10% 46%, rgba(240, 91, 200, .07), transparent 18rem), linear-gradient(180deg, #0d0915 0%, #09070f 50%, #0d0913 100%);
+    background: var(--dona-bg);
     color: var(--dona-text);
-    font-family: "OpenSansRegular", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Manrope", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }
@@ -69,16 +87,7 @@ body.orbit-modal-open {
     overscroll-behavior: none;
 }
 
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    opacity: .38;
-    background-image: radial-gradient(circle at 9% 8%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 83% 21%, #fff 0 .8px, transparent 1.4px), radial-gradient(circle at 25% 31%, #a66cff 0 .8px, transparent 1.4px), radial-gradient(circle at 71% 46%, #fff 0 .7px, transparent 1.3px), radial-gradient(circle at 14% 63%, #62dceb 0 .7px, transparent 1.3px);
-    background-size: 137px 149px, 173px 181px, 191px 167px, 223px 211px, 257px 233px;
-}
+
 
 button, a, input, select, textarea {
     font: inherit;
@@ -97,10 +106,10 @@ input, select, textarea {
     }
 }
 
-input::placeholder, textarea::placeholder { color: #7f758d; }
+input::placeholder, textarea::placeholder { color: var(--dona-muted); }
 
 :where(input, select, textarea):focus-visible {
-    outline: 3px solid rgba(98,220,235,.3);
+    outline: 3px solid rgba(var(--dona-success-rgb), 0.3);
     outline-offset: 1px;
     border-color: var(--dona-cyan) !important;
 }
@@ -115,7 +124,7 @@ select.adjust-select {
     border: 1px solid var(--dona-line-strong);
     border-radius: 12px;
     padding: 0 12px;
-    background: #120d1b;
+    background: var(--dona-field);
     color: var(--dona-text);
     font: inherit;
     font-size: var(--dona-type-body);
@@ -131,7 +140,7 @@ select.adjust-select {
     border: 1px solid var(--dona-line);
     border-radius: 15px;
     padding: 9px 12px;
-    background: rgba(24, 17, 34, .7);
+    background: var(--dona-surface);
     color: var(--dona-text);
     text-decoration: none;
 }
@@ -147,12 +156,12 @@ select.adjust-select {
 .more-page h1 { margin: 4px 0 0; font-size: var(--dona-type-page-title); }
 .more-intro { margin: 7px 0 20px; color: var(--dona-muted); font-size: var(--dona-type-body-sm); }
 .more-list { display: grid; gap: 10px; }
-.more-list a { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 76px; border: 1px solid var(--dona-line); border-radius: 17px; padding: 11px; background: rgba(24,17,34,.76); color: var(--dona-text); text-decoration: none; }
+.more-list a { display: grid; grid-template-columns: 46px minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 76px; border: 1px solid var(--dona-line); border-radius: 17px; padding: 11px; background: var(--dona-surface); color: var(--dona-text); text-decoration: none; }
 .more-list a > span, .more-list strong, .more-list small { display: block; }
 .more-list strong { font-size: var(--dona-type-body-sm); }
 .more-list small { margin-top: 4px; color: var(--dona-muted); font-size: var(--dona-type-caption); }
 .more-list b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }
-.more-list .sale-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 13px; background: rgba(159,92,255,.13); color: #c598ff; }
+.more-list .sale-icon { display: grid; width: 46px; height: 46px; place-items: center; border-radius: 13px; background: rgba(var(--dona-brand-rgb), 0.13); color: var(--dona-brand); }
 .more-list .sale-icon svg { width: 21px; }
 
 :where(button, a):focus-visible {
@@ -184,8 +193,8 @@ select.adjust-select {
     height: 52px !important;
     border: 0 !important;
     border-radius: 17px !important;
-    background: linear-gradient(145deg, var(--dona-purple), #7440bd) !important;
-    box-shadow: 0 10px 28px rgba(159,92,255,.28);
+    background: linear-gradient(145deg, var(--dona-purple), var(--dona-brand-deep)) !important;
+    box-shadow: 0 10px 28px rgba(var(--dona-brand-rgb), 0.28);
     color: white !important;
 }
 
@@ -211,7 +220,7 @@ select.adjust-select {
 
 .orbit-secondary-heading > div > :first-child {
     margin: 0 0 3px;
-    color: var(--dona-cyan);
+    color: var(--dona-brand);
     font-size: var(--dona-type-small);
     font-weight: 700;
     letter-spacing: .09em;
@@ -249,7 +258,7 @@ select.adjust-select {
     border: 1px solid var(--dona-line);
     border-radius: 16px;
     padding: 13px;
-    background: rgba(24, 17, 34, .76);
+    background: var(--dona-surface);
 }
 
 .orbit-kpis.orbit-kpis > article > span,
@@ -281,19 +290,19 @@ select.adjust-select {
     border: 1px solid var(--dona-line-strong);
     border-radius: 14px;
     padding: 0 14px;
-    background: #120d1b;
+    background: var(--dona-field);
     color: var(--dona-text);
     font: inherit;
     font-size: var(--dona-type-body-sm);
 }
 
 .orbit-search-control.orbit-search-control::placeholder {
-    color: #8f839f;
+    color: var(--dona-muted);
 }
 
 .orbit-page-eyebrow {
     margin: 0 0 4px;
-    color: var(--dona-cyan);
+    color: var(--dona-brand);
     font-size: var(--dona-type-small);
     font-weight: 700;
     letter-spacing: .1em;
@@ -372,9 +381,9 @@ select.adjust-select {
     min-height: var(--dona-control-height);
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(98,220,235,.2);
+    border: 1px solid rgba(var(--dona-success-rgb), 0.2);
     border-radius: 12px;
-    background: rgba(98,220,235,.07);
+    background: rgba(var(--dona-success-rgb), 0.07);
     color: var(--dona-cyan);
     font-size: var(--dona-type-small);
     font-weight: 700;
@@ -401,9 +410,9 @@ select.adjust-select {
 
 @media (prefers-contrast: more) {
     :root {
-        --dona-line: rgba(255, 255, 255, .34);
-        --dona-line-strong: rgba(255, 255, 255, .58);
-        --dona-muted: #d2c9db;
+        --dona-line: #9c6074;
+        --dona-line-strong: #630625;
+        --dona-muted: #57323f;
     }
 }
 
@@ -439,3 +448,13 @@ select.adjust-select {
 @media (max-width: 899px) {
     :where(.editor-page,.sale-editor,.purchase-editor,.adjust-page,.marketing-editor,.content-editor,.settings-page) { padding-bottom:calc(56px + var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom)) !important; }
 }
+
+/* Brand typography is reserved for headings; amounts and forms stay easy to scan. */
+h1 { font-family: "Prata", Georgia, serif; font-weight: 400; line-height: 1.35; color: var(--dona-brand); }
+h1:focus { outline: none; }
+button:not(:disabled), select, summary { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+input, textarea { caret-color: var(--dona-brand); }
+::selection { background: var(--dona-brand); color: #fff8fa; }
+.dona-logo { display: block; width: 156px; height: 76px; object-fit: contain; }
+.dona-boot-logo { display: block; width: 220px; height: 110px; object-fit: contain; margin: 0 auto 16px; }

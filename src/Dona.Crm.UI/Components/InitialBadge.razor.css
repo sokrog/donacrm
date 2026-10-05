@@ -8,15 +8,15 @@
     margin: 0;
     padding: 0;
     border-radius: 14px;
-    background: rgba(159,92,255,.14);
-    color: #d4b8ff;
+    background: rgba(var(--dona-brand-rgb), 0.14);
+    color: var(--dona-brand);
     font-weight: 800;
     line-height: 1;
     text-align: center;
 }
 
 .orbit-initial-badge.cyan {
-    background: rgba(98,220,235,.1);
+    background: rgba(var(--dona-success-rgb), 0.1);
     color: var(--dona-cyan);
 }
 

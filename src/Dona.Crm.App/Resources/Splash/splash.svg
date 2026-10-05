@@ -1,8 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="128" cy="128" r="92" fill="#151020"/>
-    <circle cx="128" cy="128" r="84" fill="none" stroke="#9F5CFF" stroke-width="7"/>
-    <path d="M83 70H125C168 70 195 94 195 128C195 162 168 186 125 186H83V70ZM113 96V160H125C149 160 164 148 164 128C164 108 149 96 125 96H113Z" fill="#F7F1FF"/>
-    <path d="M44 154C71 182 111 194 149 185C178 178 201 159 214 134" fill="none" stroke="#62DCEB" stroke-width="8" stroke-linecap="round"/>
-    <circle cx="214" cy="134" r="10" fill="#F05BC8"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 456 456"><path fill="#630625" fill-rule="evenodd" d="M130 96H223C309 96 358 145 358 228S309 360 223 360H130V350H156V106H130ZM198 108V348H220C282 348 307 303 307 228S282 108 220 108Z"/></svg>

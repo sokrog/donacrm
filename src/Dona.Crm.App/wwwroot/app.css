@@ -16,8 +16,8 @@ h1:focus {
         calc(24px + env(safe-area-inset-right))
         calc(24px + env(safe-area-inset-bottom))
         calc(24px + env(safe-area-inset-left));
-    background: #09070f;
-    color: #f7f1ff;
+    background: var(--dona-bg);
+    color: var(--dona-text);
     text-align: center;
 }
 
@@ -27,10 +27,10 @@ h1:focus {
     height: 52px;
     margin-bottom: 8px;
     place-items: center;
-    border: 1px solid rgba(98, 220, 235, .34);
+    border: 1px solid rgba(var(--dona-success-rgb), 0.34);
     border-radius: 16px;
-    background: rgba(98, 220, 235, .08);
-    color: #62dceb;
+    background: rgba(var(--dona-success-rgb), 0.08);
+    color: var(--dona-success);
     font-size: .78rem;
     font-weight: 800;
     letter-spacing: .08em;
@@ -40,8 +40,8 @@ h1:focus {
     width: 24px;
     height: 24px;
     border: 2px solid rgba(247, 241, 255, .16);
-    border-top-color: #9f5cff;
-    border-right-color: #62dceb;
+    border-top-color: var(--dona-brand);
+    border-right-color: var(--dona-success);
     border-radius: 50%;
     animation: app-boot-spin .8s linear infinite;
 }
@@ -52,7 +52,7 @@ h1:focus {
 }
 
 .app-boot small {
-    color: #aaa0b8;
+    color: var(--dona-muted);
     font-size: .78rem;
 }
 
@@ -80,7 +80,7 @@ h1:focus {
     color-scheme: light only;
     background: lightyellow;
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -1px 2px var(--dona-shadow);
     box-sizing: border-box;
     display: none;
     left: 0;
