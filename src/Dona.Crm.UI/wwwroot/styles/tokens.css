@@ -44,8 +44,8 @@
     --dona-radius-xl: 22px;
     --dona-radius-pill: 999px;
 
-    /* font weight: only Manrope Regular is bundled; "strong" is synthesized by the
-       browser until a Bold face is added to brand/fonts.css. Use only these two. */
+    /* font weight: Manrope Regular (400) and Bold (700) are bundled in brand/fonts.css.
+       Use only these two; any other weight would be synthesized by the browser. */
     --dona-weight-regular: 400;
     --dona-weight-strong: 700;
 

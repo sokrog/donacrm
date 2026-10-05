@@ -6,6 +6,13 @@
   src: url("manrope.ttf") format('truetype');
 }
 @font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("manrope-bold.ttf") format('truetype');
+}
+@font-face {
   font-family: 'Prata';
   font-style: normal;
   font-weight: 400;

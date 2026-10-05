@@ -19,7 +19,7 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
 ## Tokens
 - Space (4px grid): `--dona-space-1..8` = 4, 8, 12, 16, 20, 24, 32, 40px.
 - Radius: `--dona-radius-sm/md/lg/xl/pill` = 10 / 12 / 18 / 22 / 999px (md = fields and buttons, lg = cards, xl = big sections).
-- Weight: `--dona-weight-regular` 400, `--dona-weight-strong` 700. Only Manrope Regular is bundled; strong is synthesized until a Bold face is added to `brand/fonts.css`.
+- Weight: `--dona-weight-regular` 400, `--dona-weight-strong` 700. Both faces are bundled in `brand/fonts.css` (`manrope.ttf`, `manrope-bold.ttf`); other weights would be synthesized.
 - Shadow: `--dona-shadow-sm/md/lg`, `--dona-shadow-brand`. Colour on brand fills: `--dona-on-brand`.
 - Layout: `--dona-page-narrow` 520, `--dona-page-form` 960, `--dona-page-wide` 1180, `--dona-page-inline`, `--dona-section-gap`.
 - Controls: `--dona-tap` 44px, `--dona-control-height` 50/52px.
