@@ -61,11 +61,14 @@ public sealed class ProductEditingService(
         product.SourceUrl = Merge(baseline, value => value.SourceUrl, edited, product);
         product.ImageUrl = edited.ImageUrl;
         product.Notes = Merge(baseline, value => value.Notes, edited, product);
+        var previousCost = (product.PurchasePriceCny, product.PurchaseCurrencyCode, product.CnyRateUzs, product.AgentCommissionPercent, product.DeliveryCostUzs);
         product.PurchasePriceCny = Merge(baseline, value => value.PurchasePriceCny, edited, product);
         product.PurchaseCurrencyCode = Merge(baseline, value => value.PurchaseCurrencyCode, edited, product);
         product.CnyRateUzs = Merge(baseline, value => value.CnyRateUzs, edited, product);
         product.AgentCommissionPercent = Merge(baseline, value => value.AgentCommissionPercent, edited, product);
         product.DeliveryCostUzs = Merge(baseline, value => value.DeliveryCostUzs, edited, product);
+        if (previousCost != (product.PurchasePriceCny, product.PurchaseCurrencyCode, product.CnyRateUzs, product.AgentCommissionPercent, product.DeliveryCostUzs))
+            product.CostPurchaseId = null;
         product.SellingPriceUzs = Merge(baseline, value => value.SellingPriceUzs, edited, product);
         product.Images = edited.Images;
         product.Status = archive ? ProductStatus.Archived : edited.Status;

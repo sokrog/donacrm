@@ -78,6 +78,7 @@ public sealed class SqliteInventoryStore(SqliteAggregateStore store) : IInventor
         operations.AddRange(commit.Purchases.Select(value => AggregateOperation.Upsert(Purchases, value.Id, value)));
         operations.AddRange(commit.Movements.Select(value => AggregateOperation.InsertIfMissing(Movements, value.Id, value)));
         operations.AddRange(commit.ProductCosts.Select(value => AggregateOperation.InsertIfMissing(ProductCosts, value.Id, value)));
+        operations.AddRange(commit.CostCorrections.Select(value => AggregateOperation.Upsert(ProductCosts, value.Id, value)));
         if (commit.ExchangeRate is { } rate) operations.Add(AggregateOperation.InsertIfMissing(ExchangeRates, rate.Id, rate));
         return store.ApplyAsync(operations, cancellationToken);
     }

@@ -14,9 +14,11 @@ public sealed record InventoryCommit(
     IReadOnlyList<ProductCostHistoryEntry> ProductCosts,
     ExchangeRateHistoryEntry? ExchangeRate)
 {
+    // Explicit corrections replace cost snapshots without adding another receipt or stock movement.
+    public IReadOnlyList<ProductCostHistoryEntry> CostCorrections { get; init; } = [];
     public static InventoryCommit Empty { get; } = new([], [], [], [], [], null);
 
-    public bool IsEmpty => Products.Count == 0 && Sales.Count == 0 && Purchases.Count == 0 && Movements.Count == 0 && ProductCosts.Count == 0 && ExchangeRate is null;
+    public bool IsEmpty => Products.Count == 0 && Sales.Count == 0 && Purchases.Count == 0 && Movements.Count == 0 && ProductCosts.Count == 0 && CostCorrections.Count == 0 && ExchangeRate is null;
 
     public static InventoryCommit Create(
         IEnumerable<Product>? products = null,

@@ -94,6 +94,7 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
         snapshot.StockMovements.AddRange(commit.Movements.Where(value => movementIds.Add(value.Id)));
         var costIds = snapshot.PurchaseHistory.ProductCosts.Select(value => value.Id).ToHashSet();
         snapshot.PurchaseHistory.ProductCosts.AddRange(commit.ProductCosts.Where(value => costIds.Add(value.Id)));
+        foreach (var correction in commit.CostCorrections) Upsert(snapshot.PurchaseHistory.ProductCosts, correction, value => value.Id);
         if (commit.ExchangeRate is { } rate && snapshot.PurchaseHistory.ExchangeRates.All(value => value.Id != rate.Id)) snapshot.PurchaseHistory.ExchangeRates.Add(rate);
     }, cancellationToken);
 

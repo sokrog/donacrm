@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/Dona.Crm.Web.Client",
+        "--launch-profile",
+        "Dona.Crm.Web.Client",
+        "--urls",
+        "http://localhost:64345"
+      ],
+      "port": 64345
+    }
+  ]
+}

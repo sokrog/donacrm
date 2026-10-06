@@ -44,6 +44,36 @@
     gap: 9px;
 }
 
+.expense-line {
+    display: grid;
+    gap: var(--dona-space-2);
+    padding: var(--dona-space-3) 0;
+    border-top: 1px solid var(--dona-line);
+}
+
+details summary {
+    cursor: pointer;
+    padding: 12px 0;
+    color: var(--dona-text);
+}
+
+details summary:focus-visible {
+    outline: 2px solid var(--dona-brand);
+    outline-offset: 2px;
+}
+
+.cost-confirm {
+    display: flex;
+    align-items: center;
+    gap: var(--dona-space-2);
+    min-height: 44px;
+}
+
+.cost-hint, .unit-cost p {
+    color: var(--dona-muted);
+    font-size: var(--dona-type-small);
+}
+
 .cost-summary {
     display: grid;
     gap: 9px;

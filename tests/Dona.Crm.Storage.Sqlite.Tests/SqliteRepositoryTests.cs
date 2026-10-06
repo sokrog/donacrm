@@ -56,6 +56,32 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Purchase_expenses_and_corrected_receipt_costs_persist_atomically()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var product = new Product { Name = "Товар", Sku = "EXP" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "EXP", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 2, UnitPriceCny = 100 }] };
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 1, 0)]);
+        purchase.Expenses.Add(new() { Name = "Доставка", Amount = 2, CurrencyCode = "USD", RateUzs = 12000 });
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 1, 0)]);
+        await store!.CloseAsync();
+        var restored = (await commerce.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(24200, restored.TotalCostUzs);
+        Assert.Single(restored.Expenses);
+        Assert.Equal(2, restored.Receipts.Count);
+        Assert.Equal(2, (await catalog.GetProductAsync(product.Id))!.Quantity);
+        Assert.Equal(12100, (await catalog.GetProductAsync(product.Id))!.CostUzs);
+        var history = await new SqlitePurchaseHistoryRepository(store).GetAsync();
+        Assert.Equal(2, history.ProductCosts.Count);
+        Assert.All(history.ProductCosts, x => Assert.Equal(12100, x.UnitLandedCostUzs));
+    }
+
+    [Fact]
     public async Task Deleting_every_product_does_not_restore_data()
     {
         var repository = new SqliteCatalogRepository(store!);

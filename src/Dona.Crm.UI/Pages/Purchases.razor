@@ -51,7 +51,8 @@
                             <span><strong>@item.Number</strong><small>@(item.SupplierName ?? "Поставщик не указан")</small></span>
                             <span class="dona-badge">@item.Status.Display()</span>
                         </div>
-                        <div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@Money(item.TotalCostUzs) UZS</span></div>
+                        <div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@(item.HasCompleteCostInputs ? $"{Money(item.TotalCostUzs)} UZS" : "Расчет не заполнен")</span></div>
+                        <small>@(item.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</small>
                         <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : item.TrackingCode)</span><span>@Delivery(item)</span></div>
                     </a>
                 }

@@ -9,6 +9,68 @@ namespace Dona.Crm.Storage.Browser.Tests;
 public sealed class BrowserCrmRepositoryTests
 {
     [Fact]
+    public async Task Late_expense_updates_costs_without_receiving_twice_and_survives_reload()
+    {
+        var js = new KeyValueJsRuntime();
+        var repository = new BrowserCrmRepository(js);
+        var product = new Product { Sku = "COST", Name = "Товар" };
+        await repository.UpsertProductAsync(product);
+        var item = new PurchaseItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2, UnitPriceCny = 100 };
+        var purchase = new Purchase { Number = "COST", CurrencyCode = "UZS", Items = [item] };
+        var service = new PurchaseReceivingService(repository, repository, repository);
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(item.Id, 2, 0)]);
+        var sale = new Sale { Number = "OLD", Items = [new() { ProductId = product.Id, Quantity = 1, UnitCostUzs = 100 }] };
+        await repository.UpsertSaleAsync(sale);
+
+        purchase.Expenses.Add(new() { Name = "Доставка", Amount = 60 });
+        purchase.IsCostFinalized = true;
+        await service.SaveAsync(purchase);
+        await service.SaveAsync(purchase);
+
+        var reloaded = new BrowserCrmRepository(js);
+        var restored = (await reloaded.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(260, restored.TotalCostUzs);
+        Assert.True(restored.IsCostFinalized);
+        Assert.Equal(2, restored.CostRevisions.Count);
+        var actual = (await reloaded.GetProductAsync(product.Id))!;
+        Assert.Equal(2, actual.Quantity);
+        Assert.Equal(130, actual.CostUzs);
+        var history = await ((IPurchaseHistoryRepository)reloaded).GetAsync();
+        Assert.Equal(130, Assert.Single(history.ProductCosts).UnitLandedCostUzs);
+        Assert.Single(await ((IStockMovementRepository)reloaded).GetAsync());
+        Assert.Equal(100, (await reloaded.GetSaleAsync(sale.Id))!.Items[0].UnitCostUzs);
+    }
+
+    [Fact]
+    public async Task Failed_cost_save_is_atomic_and_old_purchase_does_not_override_new_purchase_price()
+    {
+        var js = new KeyValueJsRuntime();
+        var repository = new BrowserCrmRepository(js);
+        var product = new Product { Sku = "T", Name = "Товар" };
+        await repository.UpsertProductAsync(product);
+        var service = new PurchaseReceivingService(repository, repository, repository);
+        var old = new Purchase { Number = "OLD", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 1, UnitPriceCny = 100 }] };
+        await service.SaveAsync(old);
+        await service.ReceiveAsync(old, [new(old.Items[0].Id, 1, 0)]);
+        old.Expenses.Add(new() { Name = "Поздняя доставка", Amount = 50 });
+        js.QuotaExceeded = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(old));
+        js.QuotaExceeded = false;
+        Assert.Single(old.CostRevisions);
+        Assert.Empty((await repository.GetPurchaseAsync(old.Id))!.Expenses);
+        Assert.Equal(100, (await repository.GetProductAsync(product.Id))!.CostUzs);
+        Assert.Equal(100, Assert.Single((await ((IPurchaseHistoryRepository)repository).GetAsync()).ProductCosts).UnitLandedCostUzs);
+
+        var newer = new Purchase { Number = "NEW", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 1, UnitPriceCny = 200 }] };
+        await service.SaveAsync(newer);
+        await service.ReceiveAsync(newer, [new(newer.Items[0].Id, 1, 0)]);
+        await service.SaveAsync(old);
+        Assert.Equal(200, (await repository.GetProductAsync(product.Id))!.CostUzs);
+        Assert.Equal(150, (await ((IPurchaseHistoryRepository)repository).GetAsync()).ProductCosts.Single(x => x.PurchaseId == old.Id).UnitLandedCostUzs);
+    }
+
+    [Fact]
     public async Task Snapshot_survives_a_new_repository_instance()
     {
         var javascript = new KeyValueJsRuntime();

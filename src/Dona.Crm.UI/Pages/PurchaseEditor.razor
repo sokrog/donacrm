@@ -47,7 +47,10 @@
                     <label class="dona-field">Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
                 </div>
                 <label class="dona-field">Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label>
-                <label class="dona-field">Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label>
+                <details open="@(purchase.IntermediaryId is not null)">
+                    <summary>Посредник — если участвует</summary>
+                    <label class="dona-field">Посредник<OrbitSelect TValue="Guid?" @bind-Value="purchase.IntermediaryId" @bind-Value:after="IntermediaryChanged" Options="@IntermediaryOptions" Label="Посредник" Searchable="true" /></label>
+                </details>
                 <a class="manage-partners" href="/partners">Управлять поставщиками и посредниками →</a>
                 <div class="dona-field-row">
                     <label class="dona-field">Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
@@ -59,23 +62,76 @@
                 <div class="dona-section-title">
                     <div>
                         <h2>Стоимость партии</h2>
-                        <p>@purchase.TotalQuantity ед. · @Money(purchase.TotalCostUzs) UZS</p>
+                        <p>@purchase.TotalQuantity ед. · @(purchase.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</p>
                     </div>
                 </div>
                 <div class="dona-field-row">
-                    <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="CurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
-                    <label class="dona-field">Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
+                    <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="PurchaseCurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
+                    @if (purchase.CurrencyCode != "UZS")
+                    {
+                        <label class="dona-field">Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
+                    }
                 </div>
-                <div class="cost-grid">
-                    <label class="dona-field">Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
-                    <label class="dona-field">Доставка, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
-                    <label class="dona-field">Другие расходы<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
+                @if (HasLegacyCosts)
+                {
+                    <details open>
+                        <summary>Ранее указанные расходы — уже включены в итог</summary>
+                        <div class="cost-grid">
+                            <label class="dona-field">Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
+                            <label class="dona-field">Доставка по весу, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
+                            <label class="dona-field">Другие расходы, UZS<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
+                        </div>
+                    </details>
+                }
+                <div class="dona-section-title">
+                    <h3>Дополнительные расходы</h3>
+                    <button type="button" @onclick="AddExpense">Добавить расход</button>
                 </div>
+                @if (purchase.Expenses.Count == 0 && !HasLegacyCosts)
+                {
+                    <p>Если расходов нет, себестоимость равна закупочной цене.</p>
+                }
+                @foreach (var expense in purchase.Expenses)
+                {
+                    <article class="expense-line" @key="expense.Id">
+                        <label class="dona-field">Название<InputText @bind-Value="expense.Name" placeholder="Например, доставка" /></label>
+                        <div class="dona-field-row">
+                            <label class="dona-field">Сумма<InputNumber @bind-Value="expense.Amount" min="0" /></label>
+                            <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="expense.CurrencyCode" @bind-Value:after="() => ExpenseCurrencyChanged(expense)" Options="@CurrencyOptions" Label="Валюта расхода" /></label>
+                        </div>
+                        @if (expense.CurrencyCode != "UZS")
+                        {
+                            <label class="dona-field">Курс этого расхода в UZS<InputNumber @bind-Value="expense.RateUzs" min="0" /></label>
+                        }
+                        <details>
+                            <summary>Распределение: @AllocationLabel(expense.Allocation)</summary>
+                            <label class="dona-field">Как распределить<OrbitSelect TValue="ExpenseAllocation" @bind-Value="expense.Allocation" Options="@AllocationOptions" Label="Распределение расхода" /></label>
+                            @if (expense.Allocation == ExpenseAllocation.Item)
+                            {
+                                <label class="dona-field">На какую позицию<OrbitSelect TValue="Guid?" @bind-Value="expense.PurchaseItemId" Options="@ExpenseItemOptions" Label="Позиция для расхода" /></label>
+                            }
+                        </details>
+                        <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => RemoveExpense(expense)">Убрать расход</button>
+                    </article>
+                }
                 <div class="cost-summary">
-                    <span>Товар<strong>@Money(purchase.GoodsCostUzs)</strong></span>
-                    <span>Комиссия<strong>@Money(purchase.AgentCommissionUzs)</strong></span>
-                    <span class="total">Итого<strong>@Money(purchase.TotalCostUzs) UZS</strong></span>
+                    @if (purchase.HasCompleteCostInputs)
+                    {
+                        <span>Товары<strong>@Money(purchase.GoodsCostUzs) UZS</strong></span>
+                        <span>Дополнительные расходы<strong>@Money(purchase.AdditionalCostsUzs) UZS</strong></span>
+                        <span class="total">Итого<strong>@Money(purchase.TotalCostUzs) UZS</strong></span>
+                    }
+                    else
+                    {
+                        <p role="status">Для расчета заполните цены, количество, курсы и настройки расходов.</p>
+                    }
                 </div>
+                <label class="cost-confirm"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Все расходы учтены</label>
+                <p class="cost-hint">Доставку можно добавить позже и пересчитать себестоимость.</p>
+                @if (purchase.Receipts.Count > 0)
+                {
+                    <p class="cost-hint">Изменения обновят историю приемок и стоимость товара, если эта закупка задает его текущую цену. Себестоимость уже оформленных продаж сохранится.</p>
+                }
             </section>
             <section class="dona-section">
                 <div class="dona-section-title">
@@ -97,8 +153,18 @@
                         <div class="line-fields">
                             <label class="dona-field">Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
                             <label class="dona-field">Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label>
-                            <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
+                            @if (purchase.NeedsWeight)
+                            {
+                                <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
+                            }
                         </div>
+                        @if (purchase.HasCompleteCostInputs)
+                        {
+                            <details class="unit-cost">
+                                <summary>Себестоимость: @Money(purchase.ItemUnitLandedCostUzs(item)) UZS / ед.</summary>
+                                <p>Товары: @Money(purchase.ItemGoodsCostUzs(item)) UZS. Расходы: @Money(purchase.ItemLandedCostUzs(item) - purchase.ItemGoodsCostUzs(item)) UZS. Всего за позицию: @Money(purchase.ItemLandedCostUzs(item)) UZS.</p>
+                            </details>
+                        }
                         @if ((item.ReceivedQuantity ?? 0) > 0)
                         {
                             <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · на складе @item.StockedQuantity</div>
@@ -167,6 +233,16 @@
                 </section>
             }
             <ValidationSummary />
+            @if (purchase.CostRevisions.Count > 0)
+            {
+                <details class="dona-section">
+                    <summary>История расчета</summary>
+                    @foreach (var revision in purchase.CostRevisions.OrderByDescending(x => x.ChangedAt))
+                    {
+                        <p>@revision.ChangedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @Money(revision.TotalCostUzs) UZS · @(revision.IsFinalized ? "Все расходы учтены" : "Предварительно")</p>
+                    }
+                </details>
+            }
             @if (message is not null)
             {
                 <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
@@ -201,6 +277,30 @@
     private static readonly PurchaseStatus[] Flow = [PurchaseStatus.Draft, PurchaseStatus.Ordered, PurchaseStatus.Shipped, PurchaseStatus.Received];
 
     private bool IsNew => Id is null;
+    private bool HasLegacyCosts => purchase.AgentCommissionPercent > 0 || purchase.InternationalShippingUzs > 0 || purchase.OtherCostsUzs > 0;
+    private static string AllocationLabel(ExpenseAllocation value) => value switch
+    {
+        ExpenseAllocation.Quantity => "по количеству",
+        ExpenseAllocation.Weight => "по весу",
+        ExpenseAllocation.Item => "на одну позицию",
+        _ => "по стоимости товаров"
+    };
+    private static readonly IReadOnlyList<OrbitSelectOption<ExpenseAllocation>> AllocationOptions =
+        OrbitSelectOptions.From(Enum.GetValues<ExpenseAllocation>(), AllocationLabel);
+    private IReadOnlyList<OrbitSelectOption<Guid?>> ExpenseItemOptions =>
+        [new(null, "Выберите позицию"), .. purchase.Items.Select(x => new OrbitSelectOption<Guid?>(x.Id, $"{x.ProductName} {VariantLabel(x)}"))];
+    private void AddExpense()
+    {
+        purchase.Expenses.Add(new PurchaseExpense { CurrencyCode = purchase.CurrencyCode, RateUzs = purchase.CnyRateUzs });
+        purchase.IsCostFinalized = false;
+        unsavedGuard?.MarkDirty();
+    }
+    private void RemoveExpense(PurchaseExpense expense)
+    {
+        purchase.Expenses.Remove(expense);
+        purchase.IsCostFinalized = false;
+        unsavedGuard?.MarkDirty();
+    }
 
     private static readonly IReadOnlyList<OrbitSelectOption<PurchaseStatus?>> PurchaseStatusOptions =
         OrbitSelectOptions.Optional(Enum.GetValues<PurchaseStatus>(), "Не указан", value => value.Display());
@@ -324,6 +424,19 @@
         }
     }
 
+    private void PurchaseCurrencyChanged()
+    {
+        purchase.CnyRateUzs = purchase.CurrencyCode == "UZS" ? 1 : null;
+        purchase.IsCostFinalized = false;
+    }
+
+    private void ExpenseCurrencyChanged(PurchaseExpense expense)
+    {
+        expense.RateUzs = expense.CurrencyCode == "UZS" ? 1
+            : expense.CurrencyCode == purchase.CurrencyCode ? purchase.CnyRateUzs : null;
+        purchase.IsCostFinalized = false;
+    }
+
     private async Task SaveAsync()
     {
         await RunAsync(async () =>
@@ -335,7 +448,7 @@
                 throw new InvalidOperationException("Закупка с таким номером уже существует.");
             }
 
-            await Commerce.UpsertPurchaseAsync(purchase);
+            await Receiving.SaveAsync(purchase);
             if (IsNew)
             {
                 unsavedGuard?.MarkClean();
@@ -349,7 +462,9 @@
         await RunAsync(async () =>
         {
             ValidatePurchase();
-            await Commerce.UpsertPurchaseAsync(purchase);
+            if (!purchase.HasCompleteCostInputs)
+                throw new InvalidOperationException("Перед приемкой укажите закупочные цены, курсы и расходы.");
+            await Receiving.SaveAsync(purchase);
             var input = receiptLines.Select(value =>
                 new PurchaseReceiptInput(value.Key, value.Value.ReceivedQuantity ?? 0, value.Value.DefectQuantity ?? 0));
             DateTimeOffset? at = receiptDate is null
@@ -395,7 +510,7 @@
     {
         if (!receiptLines.TryGetValue(id, out var value))
         {
-            receiptLines[id] = value = new();
+            receiptLines[id] = value = new() { ReceivedQuantity = purchase.Items.First(x => x.Id == id).MissingQuantity };
         }
 
         return value;

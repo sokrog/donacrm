@@ -47,7 +47,7 @@ public sealed class Category
 
 public enum PurchaseStatus { Draft, Ordered, ChinaWarehouse, Shipped, PartiallyReceived, Received, Cancelled }
 
-public sealed class Purchase : IValidatableObject
+public sealed partial class Purchase : IValidatableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required] public string Number { get; set; } = string.Empty;
@@ -68,21 +68,32 @@ public sealed class Purchase : IValidatableObject
     public List<PurchaseItem> Items { get; set; } = [];
     public List<PurchaseReceipt> Receipts { get; set; } = [];
     public decimal GoodsCostCny => Items.Sum(x => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0));
-    public decimal GoodsCostUzs => Math.Round(GoodsCostCny * (CnyRateUzs ?? 0));
+    public decimal GoodsCostUzs => Items.Sum(ItemGoodsCostUzs);
     public decimal AgentCommissionUzs => Math.Round(GoodsCostUzs * (AgentCommissionPercent ?? 0) / 100);
-    public decimal TotalCostUzs => GoodsCostUzs + AgentCommissionUzs + (InternationalShippingUzs ?? 0) + (OtherCostsUzs ?? 0);
+    public decimal TotalCostUzs => GoodsCostUzs + AgentCommissionUzs + (InternationalShippingUzs ?? 0) + (OtherCostsUzs ?? 0) + Expenses.Sum(x => x.AmountUzs);
     public int TotalQuantity => Items.Sum(x => x.Quantity ?? 0);
     public decimal TotalWeightKg => Items.Sum(x => (x.UnitWeightKg ?? 0) * (x.Quantity ?? 0));
-    public decimal ItemGoodsCostUzs(PurchaseItem item) => Math.Round((item.UnitPriceCny ?? 0) * (item.Quantity ?? 0) * (CnyRateUzs ?? 0));
-    public decimal ItemCommissionUzs(PurchaseItem item) => Allocate(ItemGoodsCostUzs(item), GoodsCostUzs, AgentCommissionUzs, item.Quantity ?? 0);
-    public decimal ItemShippingUzs(PurchaseItem item) => Allocate((item.UnitWeightKg ?? 0) * (item.Quantity ?? 0), TotalWeightKg, InternationalShippingUzs ?? 0, item.Quantity ?? 0);
-    public decimal ItemOtherCostsUzs(PurchaseItem item) => Allocate(ItemGoodsCostUzs(item), GoodsCostUzs, OtherCostsUzs ?? 0, item.Quantity ?? 0);
-    public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemCommissionUzs(item) + ItemShippingUzs(item) + ItemOtherCostsUzs(item);
+    public decimal ItemGoodsCostUzs(PurchaseItem item) => Math.Round((item.UnitPriceCny ?? 0) * (item.Quantity ?? 0) * (CurrencyCode == "UZS" ? 1 : CnyRateUzs ?? 0), 2);
+    public decimal ItemCommissionUzs(PurchaseItem item) => AllocateLegacy(item, ItemGoodsCostUzs, AgentCommissionUzs);
+    public decimal ItemShippingUzs(PurchaseItem item) => AllocateLegacy(item, x => (x.UnitWeightKg ?? 0) * (x.Quantity ?? 0), InternationalShippingUzs ?? 0);
+    public decimal ItemOtherCostsUzs(PurchaseItem item) => AllocateLegacy(item, ItemGoodsCostUzs, OtherCostsUzs ?? 0);
+    public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemCommissionUzs(item) + ItemShippingUzs(item) + ItemOtherCostsUzs(item) + ItemExpensesUzs(item);
     public decimal ItemUnitLandedCostUzs(PurchaseItem item) => (item.Quantity ?? 0) == 0 ? 0 : Math.Round(ItemLandedCostUzs(item) / item.Quantity!.Value);
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
-        NestedValidation.ValidateItems(Items, nameof(Items), "Позиция");
+        NestedValidation.ValidateItems(Items, nameof(Items), "Позиция")
+            .Concat(NestedValidation.ValidateItems(Expenses, nameof(Expenses), "Расход"))
+            .Concat(ValidateExpenses())
+            .Concat(IsCostFinalized ? ValidateCostInputs() : []);
 
-    private decimal Allocate(decimal basis, decimal totalBasis, decimal totalCost, int fallbackQuantity) => totalCost == 0 ? 0 : totalBasis > 0 ? Math.Round(totalCost * basis / totalBasis) : TotalQuantity > 0 ? Math.Round(totalCost * fallbackQuantity / TotalQuantity) : 0;
+    private decimal AllocateLegacy(PurchaseItem item, Func<PurchaseItem, decimal> basis, decimal totalCost)
+    {
+        if (!Items.Contains(item) || totalCost == 0) return 0;
+        if (Items.Sum(basis) <= 0) basis = x => x.Quantity ?? 0;
+        var total = Items.Sum(basis);
+        if (total <= 0) return 0;
+        var previous = Items.Take(Items.IndexOf(item)).Sum(basis);
+        return Math.Round(totalCost * (previous + basis(item)) / total, 2) - Math.Round(totalCost * previous / total, 2);
+    }
 }
 
 public sealed class PurchaseReceipt
