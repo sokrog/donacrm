@@ -32,6 +32,7 @@ jobs:
           node --check design/dona-brandbook/instagram.js
           node --check design/dona-brandbook/assets.js
           node design/dona-brandbook/test-assets.cjs
+          node design/dona-brandbook/test-instagram-downloads.cjs
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Build static site

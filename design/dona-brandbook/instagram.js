@@ -147,7 +147,15 @@ window.createDonaInstagram = function(api) {
     if(format==='edit'){const current=sourceItem(target);$('#ig-edit-title').textContent=target.label;$('#ig-edit-headline').value=current.title||'';$('#ig-edit-subtitle').value=current.subtitle||'';$('#ig-edit-caption').value=current.caption||'';$('#ig-photo-options').hidden=!target.photo;$('#ig-edit-photo').value='';pendingPhoto=null;$('#ig-photo-status').textContent='Фото хранится до закрытия страницы. Скачайте результат после замены.';$('#ig-edit-dialog').showModal();return;}
     if(busy){status('Дождитесь завершения текущего скачивания.');return;}
     busy=true;status('Готовим '+target.label+'…');
-    try{await document.fonts.ready;const src=artwork(target);let blob;if(format==='caption')blob=new Blob([caption(target)],{type:'text/plain;charset=utf-8'});else blob=await makeFile(src,target,format);saveFile(blob,`DONA-${target.id}.${format==='caption'?'txt':format}`);status('Готово: '+target.label+'. Файл доступен по ссылке выше.');}catch(error){console.error(error);status('Не удалось подготовить файл. Проверьте загрузку изображений и повторите.');}finally{busy=false;}
+    try{
+      const extension=format==='caption'?'txt':format,name=`DONA-${target.id}.${extension}`;
+      // Open while the menu click still has user activation, before rendering PNG.
+      const handle=await chooseFile(name,extension);
+      await document.fonts.ready;const src=artwork(target);let blob;
+      if(format==='caption')blob=new Blob([caption(target)],{type:'text/plain;charset=utf-8'});else blob=await makeFile(src,target,format);
+      if(handle)await writeFile(handle,blob);
+      saveFile(blob,name,!handle);status('Готово: '+target.label+'. Файл доступен по ссылке выше.');
+    }catch(error){if(error.name==='AbortError')status('Скачивание отменено.');else{console.error(error);status('Не удалось подготовить файл. Проверьте загрузку изображений и повторите.');}}finally{busy=false;}
   }
   function checkedSvg(source){const doc=new DOMParser().parseFromString(source,'image/svg+xml');if(doc.querySelector('parsererror'))throw new Error('Invalid export SVG');return source;}
   async function makeFile(source,item,format){
@@ -155,7 +163,27 @@ window.createDonaInstagram = function(api) {
     checkedSvg(source);const png=await api.png(source,item.w,item.h);if(format==='png')return png;
     const url=URL.createObjectURL(png);try{const image=new Image();image.src=url;await image.decode();const canvas=document.createElement('canvas');canvas.width=item.w;canvas.height=item.h;const ctx=canvas.getContext('2d');ctx.fillStyle=paper;ctx.fillRect(0,0,item.w,item.h);ctx.drawImage(image,0,0);const jpg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.95));if(!jpg)throw new Error('JPG export');return jpg;}finally{URL.revokeObjectURL(url);}
   }
-  function saveFile(blob,name){if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(blob);const a=$('#ig-last-download');a.href=downloadUrl;a.download=name;a.hidden=false;a.textContent='Скачать ещё раз: '+name;a.click();}
+  async function chooseFile(name,extension){
+    if(typeof window.showSaveFilePicker!=='function')return null;
+    const mime={png:'image/png',jpg:'image/jpeg',svg:'image/svg+xml',txt:'text/plain',zip:'application/zip'}[extension];
+    try{return await window.showSaveFilePicker({suggestedName:name,types:[{description:extension.toUpperCase(),accept:{[mime]:['.'+extension]}}]});}
+    catch(error){if(error.name==='SecurityError'||error.name==='NotAllowedError')return null;throw error;}
+  }
+  async function writeFile(handle,blob){
+    const stream=await handle.createWritable();
+    try{await stream.write(blob);await stream.close();}catch(error){try{await stream.abort();}catch{}throw error;}
+  }
+  function saveFile(blob,name,automatic=true){
+    if(downloadUrl)URL.revokeObjectURL(downloadUrl);
+    downloadUrl=URL.createObjectURL(new File([blob],name,{type:blob.type}));
+    const a=$('#ig-last-download');a.href=downloadUrl;a.download=name;a.hidden=false;a.textContent='Скачать ещё раз: '+name;
+    a.onclick=event=>{
+      if(!event.isTrusted||typeof window.showSaveFilePicker!=='function')return;
+      event.preventDefault();
+      chooseFile(name,name.split('.').pop()).then(async handle=>{if(handle)await writeFile(handle,blob);else a.click();}).catch(error=>{if(error.name!=='AbortError'){console.error(error);status('Не удалось сохранить файл. Повторите скачивание.');}});
+    };
+    if(automatic)a.click();
+  }
   let pendingPhoto=null;
   async function loadPhoto(){
     const file=$('#ig-edit-photo').files[0];if(!file)return;const save=$('#ig-edit-save');save.disabled=true;
