@@ -53,4 +53,4 @@ for expression, suffix, folder in [
 assert (root / 'dona-brandbook.html').read_bytes() == (root / 'index.html').read_bytes()
 assert (root / '.nojekyll').is_file()
 assert not any((root / name).exists() for name in ['source-artwork', '.git', 'README.md'])
-print('Pages artifact valid: six screens, local links, images, fonts and legacy entry URL.')
+print('Pages artifact valid: five screens, local links, images, fonts and legacy entry URL.')

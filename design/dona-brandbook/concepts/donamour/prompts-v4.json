@@ -1,0 +1,47 @@
+{
+  "tool": "built-in image_gen",
+  "brand": "DONAmour",
+  "method": "ImageGen produces lettering only; native SVG assembly embeds original symbol bytes without modification and applies uniform #66021F to lettering.",
+  "variants": [
+    {
+      "id": "bow",
+      "title": "Шёлковый бант",
+      "prompt": "Use case: logo-brand, precise typography edit. The attached DONAmour logo is an EDIT TARGET for its lettering only. Create ONLY a new bespoke lettered wordmark, remove the pictorial symbol completely. Exact text \"DONAmour\" (uppercase D O N A then lowercase m o u r), all eight letters fully visible, no space. Keep the refined serif character from the reference and improve artistic transitions between selected neighboring letters. This is expressive custom lettering, not merely a typed font. Sophisticated subtle ligatures, still instantly readable, no overlapping unreadable counters. One word, one baseline, generous clear margins. IMPORTANT: every letter is a single uniform flat solid ruby #66021F, absolutely NO gradients, tonal shading, 3D, gloss, metallic effects, textures, inner highlights, shadows or transparency inside ink strokes. Background completely TRANSPARENT, with a clean alpha channel, no white or pale-pink rectangle. Only typography: no bow, fruit, lips, bird, flower, icon, monogram, slogan, border, extra text, watermark. Horizontal canvas. Do not imitate a known designer or trademark. A graceful ribbon-like joining stroke flows from the lower D into the O, and the A has a softly curved crossbar echoing a silk fold. Keep both ligatures short and controlled, no underline, no actual ribbon illustration. Upright refined serif with delicate but printable hairlines.",
+      "reference": "D:/projects/maui/own/donacrm/design/dona-brandbook/assets/donamour-bow-v3.png",
+      "source": "C:\\Users\\Sokrog\\.codex\\generated_images\\01a11713-cbf6-7133-be06-33a260ede168\\exec-8677e2aa-0be2-452a-8f53-a219461516b9.png",
+      "file": "lettering-v4/bow.png"
+    },
+    {
+      "id": "cherry",
+      "title": "Вишня",
+      "prompt": "Use case: logo-brand, precise typography edit. The attached DONAmour logo is an EDIT TARGET for its lettering only. Create ONLY a new bespoke lettered wordmark, remove the pictorial symbol completely. Exact text \"DONAmour\" (uppercase D O N A then lowercase m o u r), all eight letters fully visible, no space. Keep the refined serif character from the reference and improve artistic transitions between selected neighboring letters. This is expressive custom lettering, not merely a typed font. Sophisticated subtle ligatures, still instantly readable, no overlapping unreadable counters. One word, one baseline, generous clear margins. IMPORTANT: every letter is a single uniform flat solid ruby #66021F, absolutely NO gradients, tonal shading, 3D, gloss, metallic effects, textures, inner highlights, shadows or transparency inside ink strokes. Background completely TRANSPARENT, with a clean alpha channel, no white or pale-pink rectangle. Only typography: no bow, fruit, lips, bird, flower, icon, monogram, slogan, border, extra text, watermark. Horizontal canvas. Do not imitate a known designer or trademark. A fine ascending connector subtly joins the adjacent N and A; the lowercase ou share one beautiful optical connecting gesture, their counters remaining open. Balanced rounded fruit-like rhythm in o, but absolutely no fruit drawings. Elegant upright or very slightly inclined serif.",
+      "reference": "D:/projects/maui/own/donacrm/design/dona-brandbook/assets/donamour-cherry-v3.png",
+      "source": "C:\\Users\\Sokrog\\.codex\\generated_images\\01a11713-cbf6-7133-be06-33a260ede168\\exec-f5381613-fd7b-4158-a2d8-26e6413d6ca5.png",
+      "file": "lettering-v4/cherry.png"
+    },
+    {
+      "id": "kiss",
+      "title": "Поцелуй",
+      "prompt": "Use case: logo-brand, precise typography edit. The attached DONAmour logo is an EDIT TARGET for its lettering only. Create ONLY a new bespoke lettered wordmark, remove the pictorial symbol completely. Exact text \"DONAmour\" (uppercase D O N A then lowercase m o u r), all eight letters fully visible, no space. Keep the refined serif character from the reference and improve artistic transitions between selected neighboring letters. This is expressive custom lettering, not merely a typed font. Sophisticated subtle ligatures, still instantly readable, no overlapping unreadable counters. One word, one baseline, generous clear margins. IMPORTANT: every letter is a single uniform flat solid ruby #66021F, absolutely NO gradients, tonal shading, 3D, gloss, metallic effects, textures, inner highlights, shadows or transparency inside ink strokes. Background completely TRANSPARENT, with a clean alpha channel, no white or pale-pink rectangle. Only typography: no bow, fruit, lips, bird, flower, icon, monogram, slogan, border, extra text, watermark. Horizontal canvas. Do not imitate a known designer or trademark. Keep the sensuous curved crossbar of A from the reference, and let the final r end in a restrained upward flick. Connect m and o with a tiny flowing serif transition, all letters unambiguous. No large flourishes; this will later accompany a very small kiss. Absolutely NO kiss in the generated output.",
+      "reference": "D:/projects/maui/own/donacrm/design/dona-brandbook/assets/donamour-kiss-v3.png",
+      "source": "C:\\Users\\Sokrog\\.codex\\generated_images\\01a11713-cbf6-7133-be06-33a260ede168\\exec-b99694ee-bc9f-49e2-bf9b-d157a841e9ee.png",
+      "file": "lettering-v4/kiss.png"
+    },
+    {
+      "id": "tulip",
+      "title": "Тюльпан",
+      "prompt": "Use case: logo-brand, precise typography edit. The attached DONAmour logo is an EDIT TARGET for its lettering only. Create ONLY a new bespoke lettered wordmark, remove the pictorial symbol completely. Exact text \"DONAmour\" (uppercase D O N A then lowercase m o u r), all eight letters fully visible, no space. Keep the refined serif character from the reference and improve artistic transitions between selected neighboring letters. This is expressive custom lettering, not merely a typed font. Sophisticated subtle ligatures, still instantly readable, no overlapping unreadable counters. One word, one baseline, generous clear margins. IMPORTANT: every letter is a single uniform flat solid ruby #66021F, absolutely NO gradients, tonal shading, 3D, gloss, metallic effects, textures, inner highlights, shadows or transparency inside ink strokes. Background completely TRANSPARENT, with a clean alpha channel, no white or pale-pink rectangle. Only typography: no bow, fruit, lips, bird, flower, icon, monogram, slogan, border, extra text, watermark. Horizontal canvas. Do not imitate a known designer or trademark. Sculptural organic serif lettering: a soft curved transition joins A to m at the baseline, and the terminal of r tapers gracefully like a pen stroke. The D remains classically readable with a small elegant inward entry. Fine botanical rhythm in the LETTER SHAPES ONLY, no leaf, stem or flower.",
+      "reference": "D:/projects/maui/own/donacrm/design/dona-brandbook/assets/donamour-tulip-v3.png",
+      "source": "C:\\Users\\Sokrog\\.codex\\generated_images\\01a11713-cbf6-7133-be06-33a260ede168\\exec-6fcb47f2-6723-4690-82fb-88c673fd9f44.png",
+      "file": "lettering-v4/tulip.png"
+    },
+    {
+      "id": "swan",
+      "title": "Лебедь",
+      "prompt": "Use case: logo-brand, precise typography edit. The attached DONAmour logo is an EDIT TARGET for its lettering only. Create ONLY a new bespoke lettered wordmark, remove the pictorial symbol completely. Exact text \"DONAmour\" (uppercase D O N A then lowercase m o u r), all eight letters fully visible, no space. Keep the refined serif character from the reference and improve artistic transitions between selected neighboring letters. This is expressive custom lettering, not merely a typed font. Sophisticated subtle ligatures, still instantly readable, no overlapping unreadable counters. One word, one baseline, generous clear margins. IMPORTANT: every letter is a single uniform flat solid ruby #66021F, absolutely NO gradients, tonal shading, 3D, gloss, metallic effects, textures, inner highlights, shadows or transparency inside ink strokes. Background completely TRANSPARENT, with a clean alpha channel, no white or pale-pink rectangle. Only typography: no bow, fruit, lips, bird, flower, icon, monogram, slogan, border, extra text, watermark. Horizontal canvas. Do not imitate a known designer or trademark. Lyrical custom serif with a gently ascending shared terminal between D and O and a fluid N-to-A transition, echoing the measured curves of a swan neck without drawing a swan. Balanced thick and thin strokes, calm posture, elegant open counters and one tiny curved terminal on r.",
+      "reference": "D:/projects/maui/own/donacrm/design/dona-brandbook/assets/donamour-swan-v3.png",
+      "source": "C:\\Users\\Sokrog\\.codex\\generated_images\\01a11713-cbf6-7133-be06-33a260ede168\\exec-9204ac1c-3bf7-4371-bca6-dc3edbc039dc.png",
+      "file": "lettering-v4/swan.png"
+    }
+  ]
+}

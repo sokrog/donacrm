@@ -1,0 +1,107 @@
+[
+  {
+    "id": "bow",
+    "originalSymbol": "assets/bow.png",
+    "sha256": "5888f71165db31dc9204912c278a242ea8f8315b3ec973e7c57c4fbd05b32186",
+    "lettering": "lettering-v4/bow.png",
+    "ink": "#66021F",
+    "background": "#FFE9EC",
+    "sourceSymbolEmbeddedUnchanged": true,
+    "word": {
+      "x": 260,
+      "y": 820,
+      "w": 2480,
+      "h": 396.0170006071645
+    },
+    "markBox": {
+      "x": 300,
+      "y": 185,
+      "w": 580,
+      "h": 565
+    }
+  },
+  {
+    "id": "cherry",
+    "originalSymbol": "assets/cherry.png",
+    "sha256": "6e7599fb0530b3813c8d14f875b71dc09ab7c9d8b42591917b8cb7691ff55e49",
+    "lettering": "lettering-v4/cherry.png",
+    "ink": "#66021F",
+    "background": "#FFE9EC",
+    "sourceSymbolEmbeddedUnchanged": true,
+    "word": {
+      "x": 260,
+      "y": 820,
+      "w": 2480,
+      "h": 367.52179327521793
+    },
+    "markBox": {
+      "x": 1210,
+      "y": 170,
+      "w": 540,
+      "h": 570
+    }
+  },
+  {
+    "id": "kiss",
+    "originalSymbol": "assets/kiss.png",
+    "sha256": "999bf4150b827a20f2c82d2a7324e9b6c5f80d728753b123543206841642c7fc",
+    "lettering": "lettering-v4/kiss.png",
+    "ink": "#66021F",
+    "background": "#FFE9EC",
+    "sourceSymbolEmbeddedUnchanged": true,
+    "word": {
+      "x": 260,
+      "y": 820,
+      "w": 2480,
+      "h": 355.19835136527564
+    },
+    "markBox": {
+      "x": 2480,
+      "y": 570,
+      "w": 270,
+      "h": 245
+    }
+  },
+  {
+    "id": "tulip",
+    "originalSymbol": "assets/tulip.png",
+    "sha256": "543a327424d8ba3101b6afbdbea44b8f3a31546d28c530591f6a9deb708199bc",
+    "lettering": "lettering-v4/tulip.png",
+    "ink": "#66021F",
+    "background": "#FFE9EC",
+    "sourceSymbolEmbeddedUnchanged": true,
+    "word": {
+      "x": 760,
+      "y": 650,
+      "w": 2040,
+      "h": 317.83985102420854
+    },
+    "markBox": {
+      "x": 225,
+      "y": 265,
+      "w": 490,
+      "h": 970
+    }
+  },
+  {
+    "id": "swan",
+    "originalSymbol": "assets/swan.png",
+    "sha256": "d2a17d153b5b560ee749ef05b2516cc98839b0fd28800f85ec6fabe3f631efc3",
+    "lettering": "lettering-v4/swan.png",
+    "ink": "#66021F",
+    "background": "#FFE9EC",
+    "sourceSymbolEmbeddedUnchanged": true,
+    "word": {
+      "x": 260,
+      "y": 820,
+      "w": 2480,
+      "h": 391.57894736842104
+    },
+    "markBox": {
+      "x": 1120,
+      "y": 160,
+      "w": 750,
+      "h": 600
+    }
+  }
+]

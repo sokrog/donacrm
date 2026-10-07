@@ -1,16 +1,19 @@
 /* A self-contained Instagram kit. Artwork uses a pinned, approved identity. */
 window.createDonaInstagram = function(api) {
   'use strict';
-  const root=document.getElementById('instagram'), $=s=>root.querySelector(s);
+  const root=document.getElementById(api.rootId||'instagram'), prefix=api.prefix||'ig-', $=s=>root.querySelector(s.replaceAll('#ig-', '#'+prefix));
+  const brand=api.brand||'DONA', brandify=s=>brand==='DONA'?s:s.replace(/DONA(?: · AVEC AMOUR| AVEC AMOUR|, avec amour)?/g,brand).replaceAll('avec amour','с любовью');
+  const snapshot=api.snapshot||window.DONA_IG_SNAPSHOT, storage=api.storage||'dona-instagram-v1';
   const ink='#66021F',paper='#FBE6ED',cream='#FFF9F4',muted='#775563';
-  const defaults={handle:'dona.avec.amour',name:'DONA | Женская одежда',bio:'Женственность в вашем ритме.\nОбразы, которые хочется носить.\nПодбор размера и заказ — в Direct.',link:'',avatar:'avatar-kiss',edits:{}};
+  const defaults={handle:'dona.avec.amour',name:'DONA | Женская одежда',bio:'Женственность в вашем ритме.\nОбразы, которые хочется носить.\nПодбор размера и заказ — в Direct.',link:'',avatar:api.brand?'avatar-logo':'avatar-kiss',edits:{}};
+  if(api.brand){defaults.handle='donamour.clothing';defaults.name=brand+' | Женская одежда';}
   let draft=structuredClone(defaults),photos={},ready=false,activeId=null,returnFocus=null,downloadUrl=null,busy=false;
-  try {const saved=window.DONA_IG_SNAPSHOT||JSON.parse(localStorage.getItem('dona-instagram-v1'));if(saved){for(const k of ['handle','name','bio','link','avatar'])if(typeof saved[k]==='string')draft[k]=saved[k];if(saved.edits&&typeof saved.edits==='object')draft.edits=saved.edits;if(window.DONA_IG_SNAPSHOT?.photos)photos=window.DONA_IG_SNAPSHOT.photos;}}catch{}
+  try {const saved=snapshot||JSON.parse(localStorage.getItem(storage));if(saved){for(const k of ['handle','name','bio','link','avatar'])if(typeof saved[k]==='string')draft[k]=saved[k];if(saved.edits&&typeof saved.edits==='object')draft.edits=saved.edits;if(snapshot?.photos)photos=snapshot.photos;}}catch{}
   const esc=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
   const items=[
-    {id:'logo',group:'identity',label:'Логотип · avec amour',kind:'logo',w:1900,h:940},
-    {id:'avatar-kiss',group:'identity',label:'Аватар · поцелуй',kind:'avatar',w:1080,h:1080,note:'Рекомендуем для маленького круга'},
-    {id:'avatar-logo',group:'identity',label:'Аватар · DONA',kind:'avatar',w:1080,h:1080,note:'Название без мелкой подписи'},
+    {id:'logo',group:'identity',label:'Логотип · выбранная композиция',kind:'logo',w:1900,h:940},
+    {id:'avatar-kiss',group:'identity',label:'Аватар · знак / композиция',kind:'avatar',w:1080,h:1080,note:'Рекомендуем для маленького круга'},
+    {id:'avatar-logo',group:'identity',label:'Аватар · логотип',kind:'avatar',w:1080,h:1080,note:'Название без мелкой подписи'},
     ...[['new','Новинки'],['looks','Образы'],['delivery','Доставка'],['love','Отзывы'],['fitting','Размеры'],['care','Уход'],['gift','Подарки'],['address','О нас']].map(([icon,label])=>({id:'highlight-'+icon,group:'highlights',label,kind:'highlight',icon,w:1080,h:1080})),
     ...[
       ['welcome','Знакомство','Одежда с вашим\nхарактером.','DONA · AVEC AMOUR','brand',null,'Знакомьтесь, DONA. Мы собираем образы, в которых легко оставаться собой. Здесь — новые сочетания, детали и вдохновение на каждый день. Расскажите, какой образ вы ищете.'],
@@ -31,11 +34,12 @@ window.createDonaInstagram = function(api) {
     ].map(([id,label,title,subtitle,photo])=>({id:'story-'+id,group:'stories',kind:'story',label,title,subtitle,photo,w:1080,h:1920})),
     ...[['looks','Образ дня','Образ\nв движении.','campaign'],['details','Детали','Ближе\nк деталям.','garment'],['styling','Стилизация','Носить\nпо-своему.','campaign']].map(([id,label,title,photo])=>({id:'reel-'+id,group:'reels',kind:'reel',label,title,subtitle:'DONA · AVEC AMOUR',photo,w:1080,h:1920}))
   ];
+  if(api.brand)for(const item of items)for(const key of ['label','title','subtitle','caption','note'])if(item[key])item[key]=brandify(item[key]);
   const find=id=>items.find(x=>x.id===id);
   const sourceItem=item=>({...item,...draft.edits[item.id]});
   const nested=(svg,x,y,w,h)=>svg.replace('<svg ',`<svg x="${x}" y="${y}" width="${w}" height="${h}" overflow="hidden" `);
-  const logo=(x,y,w,h,color=ink)=>nested(api.logo().replace(/style="color:[^"]+"/,`style="color:${color}"`),x,y,w,h);
-  const mark=(x,y,size,color=ink)=>`<g style="color:${color}" transform="translate(${x} ${y}) scale(${size/100})">${api.symbol('kiss')}</g>`;
+  const logo=(x,y,w,h,color=ink)=>nested(api.logo(color).replace(/style="color:[^"]+"/,`style="color:${color}"`),x,y,w,h);
+  const mark=(x,y,size,color=ink)=>api.mark?nested(api.mark(),x,y,size,size):`<g style="color:${color}" transform="translate(${x} ${y}) scale(${size/100})">${api.symbol('kiss')}</g>`;
   const label=(value,x,y,size=26,color=ink,anchor='middle',family='Manrope')=>`<text x="${x}" y="${y}" font-family="${family},sans-serif" font-size="${size}" fill="${color}" text-anchor="${anchor}">${esc(value)}</text>`;
   function lines(value,x,y,size=84,color=ink){return String(value).split('\n').slice(0,3).map((line,i)=>label(line,x,y+i*size*1.02,Math.min(size,850/(Math.max(1,line.length)*.53)),color,'middle','Cormorant Garamond')).join('');}
   function artwork(original){
@@ -93,8 +97,8 @@ window.createDonaInstagram = function(api) {
   function guide(){return 'DONA · Instagram / инструкция\nПодготовлено 07.10.2026\n\n'+steps.map(([title,body],i)=>`${i+1}. ${title}\n${body}`).join('\n\n')+'\n\nФОРМАТЫ\nPNG — готовые изображения для Instagram. JPG — компактная копия без прозрачности. SVG — исходник композиции для дизайнера, напрямую в Instagram не загружается; шрифты и растровый поцелуй встроены, это не полностью векторный логотип.\nАватар и актуальное: 1080×1080. Пост: 1080×1350. История и обложка Reel: 1080×1920. Наша рабочая зона для ключевого текста историй: x=90…990, y=300…1200. Это запас для интерфейса, не универсальная гарантия кадрирования.\nФото с пометкой ДЕМО созданы для брендбука. Перед публикацией товара замените их реальными. Отзывы, цены, адрес и сроки не выдумывайте.\n\nИСТОЧНИКИ\n'+sources.map(([t,u])=>t+'\n'+u).join('\n\n');}
   function caption(item){return sourceItem(item).caption||`${item.label} · DONA, avec amour.`;}
   function profileText(){return `Никнейм (проверьте доступность): ${draft.handle}\nИмя: ${draft.name}\n\nО себе:\n${draft.bio}\n\nСсылка: ${draft.link||'Добавьте свою ссылку в редакторе профиля Instagram'}\n\nКатегория: магазин одежды\nКонтакты: укажите рабочие телефон, email и адрес в Instagram.`;}
-  function saveDraft(){try{localStorage.setItem('dona-instagram-v1',JSON.stringify(draft));}catch{}}
-  function card(item){return `<article class="ig-card"><button class="ig-art ${item.kind==='avatar'||item.kind==='highlight'?'ig-round':''}" data-ig-item="${item.id}" aria-haspopup="menu" aria-label="${esc(item.label)} — открыть меню скачивания">${api.unique(artwork(item))}</button><div class="ig-card-title"><div><strong>${esc(item.label)}</strong><small>${item.w} × ${item.h} · ${item.kind==='logo'?'прозрачный фон':'PNG / JPG'}</small></div><button class="ig-more" data-ig-item="${item.id}" aria-haspopup="menu" aria-label="Меню: ${esc(item.label)}">⋯</button></div>${item.photo&&!photos[item.id]?'<span class="ig-demo">ДЕМО-ФОТО · замените перед публикацией</span>':''}${item.note?`<small class="ig-note">${esc(item.note)}</small>`:''}${item.pin?'<span class="ig-pin">Для закрепления</span>':''}</article>`;}
+  function saveDraft(){try{localStorage.setItem(storage,JSON.stringify(draft));}catch{}}
+  function card(item){return `<article class="ig-card"><button class="ig-art ${item.kind==='avatar'||item.kind==='highlight'?'ig-round':''}" data-ig-item="${item.id}" aria-haspopup="menu" aria-label="${esc(item.label)} — открыть меню скачивания">${api.unique(artwork(item))}</button><div class="ig-card-title"><div><strong>${esc(item.label)}</strong><small>${item.w} × ${item.h} · ${item.kind==='logo'?'фон выбранного логотипа':'PNG / JPG'}</small></div><button class="ig-more" data-ig-item="${item.id}" aria-haspopup="menu" aria-label="Меню: ${esc(item.label)}">⋯</button></div>${item.photo&&!photos[item.id]?'<span class="ig-demo">ДЕМО-ФОТО · замените перед публикацией</span>':''}${item.note?`<small class="ig-note">${esc(item.note)}</small>`:''}${item.pin?'<span class="ig-pin">Для закрепления</span>':''}</article>`;}
   function renderGallery(){for(const group of ['identity','highlights','posts','stories','reels'])$('#ig-'+group+'-grid').innerHTML=items.filter(x=>x.group===group).map(card).join('');renderProfile();}
   function renderProfile(){
     $('#ig-preview-handle').textContent=draft.handle||'Ваш никнейм';$('#ig-preview-name').textContent=draft.name;$('#ig-preview-bio').textContent=draft.bio;$('#ig-preview-link').textContent=draft.link||'Ссылка на ваш каталог';
@@ -116,6 +120,8 @@ window.createDonaInstagram = function(api) {
       <section id="ig-guide" class="ig-section"><div class="ig-section-head"><div><span class="ig-eyebrow">03 / БЕЗ ОПЫТА — ТОЖЕ ПОЛУЧИТСЯ</span><h2>От скачивания до первого поста.</h2></div><button id="ig-guide-download" class="quiet-button">Скачать инструкцию TXT ↓</button></div><div class="ig-format-grid"><article><b>PNG</b><p>Аватар, обложки, графика. Основной выбор для загрузки. Сохраняйте файл, а не скриншот макета.</p></article><article><b>JPG</b><p>Компактная версия с фоном. Подходит для фотографий и публикаций. Прозрачность заменяется розовым фоном.</p></article><article><b>SVG</b><p>Исходник для дизайнера. В Instagram напрямую не загружается. Поцелуй и фото внутри — растровые, шрифты встроены.</p></article><article><b>ZIP + TXT</b><p>Комплект PNG и исходников SVG, тексты, план публикаций и инструкция. Распакуйте ZIP на телефоне или компьютере.</p></article></div><div class="ig-steps">${steps.map(([t,b],i)=>`<details ${i===0?'open':''}><summary><span>${String(i+1).padStart(2,'0')}</span>${t}</summary><p>${b}</p></details>`).join('')}</div><div class="ig-guide-note"><h3>Размеры и кадрирование</h3><p>Аватары и обложки актуального — 1080 × 1080. Посты — 1080 × 1350 (4:5). Истории и обложки Reels — 1080 × 1920 (9:16). Instagram также поддерживает посты 3:4; для этого комплекта выбран 4:5. В сетке профиль может показывать обрезанное превью, поэтому важное остаётся в центре.</p><p>В вертикальных макетах ключевой текст находится в зоне x: 90–990, y: 300–1200. Это наш запас под интерфейс; расположение кнопок и стикеров зависит от экрана. Перед публикацией проверьте обрезку в приложении.</p><p>Демонстрационные фото не подтверждают наличие товара. Загружайте реальные снимки коллекции, честные цены и отзывы. Для доставки, возвратов и оплаты укажите свои действительные условия.</p></div><details class="ig-sources"><summary>Источники и актуальность · 07.10.2026</summary><p>Ваши статьи использованы для структуры профиля и визуального единства. Размеры дополнительно сверены с руководством Buffer 2026. Часть справки Meta требует входа, поэтому названия пунктов настроек могут отличаться. Советы о подписке на хештеги и обязательной мультиссылке из старых статей здесь не используются.</p><ul>${sources.map(([t,u])=>`<li><a href="${u}" target="_blank" rel="noopener noreferrer">${t} ↗</a></li>`).join('')}</ul></details></section>
       <div id="ig-context-menu" class="ig-context-menu" role="menu" aria-label="Действия с материалом" hidden><strong id="ig-menu-name"></strong><button role="menuitem" data-ig-action="png">Скачать PNG · для Instagram</button><button role="menuitem" data-ig-action="jpg">Скачать JPG · компактный</button><button role="menuitem" data-ig-action="svg">Скачать SVG · исходник</button><button role="menuitem" data-ig-action="caption">Скачать подпись TXT</button><button role="menuitem" data-ig-action="edit">Изменить текст / фото</button></div>
       <dialog id="ig-edit-dialog" aria-labelledby="ig-edit-title"><form method="dialog"><div class="ig-dialog-heading"><h2 id="ig-edit-title">Настроить карточку</h2><button value="cancel" aria-label="Закрыть">×</button></div><label>Заголовок · до трёх строк<textarea id="ig-edit-headline" maxlength="75" rows="3"></textarea></label><label>Короткая подпись<input id="ig-edit-subtitle" maxlength="48"></label><label>Текст публикации<textarea id="ig-edit-caption" rows="6" maxlength="2200"></textarea></label><div id="ig-photo-options"><label>Ваше фото · PNG, JPG или WebP<input id="ig-edit-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><p id="ig-photo-status" role="status">Фото хранится до закрытия страницы. Скачайте результат после замены.</p></div><p class="ig-note">Длинные заголовки разбивайте переносом строки. Проверяйте превью перед скачиванием.</p><div class="ig-actions"><button type="button" id="ig-edit-save" class="primary-button">Применить</button><button value="cancel" class="quiet-button">Отмена</button></div></form></dialog>`;
+    if(api.brand){root.innerHTML=brandify(root.innerHTML);root.querySelector('h1').textContent='Instagram '+brand;}
+    if(prefix!=='ig-'){for(const el of root.querySelectorAll('*'))for(const attr of ['id','href','for','aria-labelledby','aria-controls'])if(el.hasAttribute(attr))el.setAttribute(attr,el.getAttribute(attr).replaceAll('ig-',prefix).replaceAll('instagram-title',api.rootId+'-title'));}
     $('#ig-profile-form select').value=draft.avatar;
     $('#ig-profile-form').addEventListener('submit',e=>e.preventDefault());
     $('#ig-profile-form').addEventListener('input',e=>{if(Object.hasOwn(defaults,e.target.name)){draft[e.target.name]=e.target.value;saveDraft();renderProfile();$('#ig-preview-avatar').dataset.igItem=draft.avatar;}});
@@ -128,8 +134,8 @@ window.createDonaInstagram = function(api) {
     $('#ig-edit-save').addEventListener('click',applyEdit);
     $('#ig-edit-photo').addEventListener('change',loadPhoto);
     $('#ig-download-kit').addEventListener('click',downloadKit);
-    $('#ig-guide-download').addEventListener('click',()=>saveFile(new Blob([guide()],{type:'text/plain;charset=utf-8'}),'DONA-instagram-guide.txt'));
-    $('#ig-save-profile').addEventListener('click',()=>saveFile(new Blob([profileText()],{type:'text/plain;charset=utf-8'}),'DONA-profile.txt'));
+    $('#ig-guide-download').addEventListener('click',()=>saveFile(new Blob([brandify(guide())],{type:'text/plain;charset=utf-8'}),brand+'-instagram-guide.txt'));
+    $('#ig-save-profile').addEventListener('click',()=>saveFile(new Blob([profileText()],{type:'text/plain;charset=utf-8'}),brand+'-profile.txt'));
     $('#ig-copy-bio').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(draft.bio);status('Био скопировано. Вставьте в поле «О себе».');}catch{const textarea=$('[name="bio"]');textarea.focus();textarea.select();status('Текст выделен. Нажмите Ctrl+C или выберите «Копировать».');}});
     renderGallery();document.fonts.ready.then(renderGallery);
   }
@@ -148,7 +154,7 @@ window.createDonaInstagram = function(api) {
     if(busy){status('Дождитесь завершения текущего скачивания.');return;}
     busy=true;status('Готовим '+target.label+'…');
     try{
-      const extension=format==='caption'?'txt':format,name=`DONA-${target.id}.${extension}`;
+      const extension=format==='caption'?'txt':format,name=`${brand}-${target.id}.${extension}`;
       // Open while the menu click still has user activation, before rendering PNG.
       const handle=await chooseFile(name,extension);
       await document.fonts.ready;const src=artwork(target);let blob;
@@ -194,11 +200,11 @@ window.createDonaInstagram = function(api) {
   function applyEdit(){draft.edits[activeId]={title:$('#ig-edit-headline').value.split('\n').slice(0,3).join('\n'),subtitle:$('#ig-edit-subtitle').value,caption:$('#ig-edit-caption').value};if(pendingPhoto)photos[activeId]=pendingPhoto;saveDraft();$('#ig-edit-dialog').close();renderGallery();status('Карточка обновлена. Можно скачать через её меню.');}
   async function downloadKit(){
     if(busy)return;busy=true;const button=$('#ig-download-kit');button.disabled=true;
-    try{await document.fonts.ready;const batch=items.map(item=>({item,source:artwork(item)})),files=[['START-HERE.txt',guide()],['profile.txt',profileText()],['captions.txt',items.filter(i=>i.caption).map((i,n)=>`${n+1}. ${i.label}${i.pin?' · ЗАКРЕПИТЬ':''}\n${caption(i)}${i.photo&&!photos[i.id]?'\nДЕМО-ФОТО: замените реальным перед публикацией.':''}`).join('\n\n')],['selection.json',JSON.stringify({brand:'DONA',ink,paper,profile:draft},null,2)]];
+    try{await document.fonts.ready;const batch=items.map(item=>({item,source:artwork(item)})),files=[['START-HERE.txt',brandify(guide())],['profile.txt',profileText()],['captions.txt',items.filter(i=>i.caption).map((i,n)=>`${n+1}. ${i.label}${i.pin?' · ЗАКРЕПИТЬ':''}\n${caption(i)}${i.photo&&!photos[i.id]?'\nДЕМО-ФОТО: замените реальным перед публикацией.':''}`).join('\n\n')],['selection.json',JSON.stringify({brand,ink,paper,profile:draft},null,2)]];
       for(let i=0;i<batch.length;i++){const {item,source}=batch[i];status(`Готовим комплект: ${i+1} / ${batch.length} · ${item.label}`);const prefix=`${item.group}/${item.id}`;files.push([prefix+'.png',await makeFile(source,item,'png')],['sources/'+prefix+'.svg',await makeFile(source,item,'svg')]);}
       for(const [name,text] of Object.entries(window.DONA_LICENSES||{}))files.push(['licenses/'+name+'.txt',text]);
-      saveFile(await api.zip(files),'DONA-instagram-kit.zip');status('Комплект готов: 27 PNG, 27 SVG, тексты, инструкция и лицензии.');
+      saveFile(await api.zip(files),brand+'-instagram-kit.zip');status('Комплект готов: 27 PNG, 27 SVG, тексты, инструкция и лицензии.');
     }catch(e){console.error(e);status('Комплект не собрался. Повторите попытку или скачайте нужные карточки по отдельности.');}finally{busy=false;button.disabled=false;}
   }
-  return {render,snapshot:()=>({...draft,photos})};
+  return {render,refresh:()=>{if(ready)renderGallery();},snapshot:()=>({...draft,photos})};
 };

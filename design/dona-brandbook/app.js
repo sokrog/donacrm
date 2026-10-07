@@ -1,6 +1,7 @@
 (async () => {
   'use strict';
   const names = [
+    ['DONAmour','С ЛЮБОВЬЮ','Авторские соединения букв и оригинальные символы.','ДОНАМУР'],
     ['DONA','ЛАКОНИЧНО','Короткое имя с выразительной модной типографикой.','ДОНА'],
     ['Dona Muse','ВДОХНОВЕНИЕ','Личный стиль, искусство сочетаний и мягкая уверенность.','ДОНА МЬЮЗ'],
     ['Dona Belle','ЖЕНСТВЕННОСТЬ','Мелодичное имя для женственного современного гардероба.','ДОНА БЕЛЬ'],
@@ -15,6 +16,7 @@
   };
   let symbolSequence=0;
   function symbolBody(id){
+    if(state.name==='DONAmour')return dmImage(id,0,0,100,100);
     const uid='ink-'+(++symbolSequence),src=window.DONA_MEDIA[id];
     return `<defs><filter id="${uid}-density"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 -.2126 -.7152 -.0722 1 0"/></filter><mask id="${uid}" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><image filter="url(#${uid}-density)" href="${src}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid meet"/></mask></defs><rect width="100" height="100" fill="currentColor" stroke="none" mask="url(#${uid})"/>`;
   }
@@ -74,6 +76,19 @@
     'Плавная ботаническая форма и лёгкий набор. Тюльпан подчёркивает движение ткани и женственность без излишнего декора.',
     'Лебедь с изогнутой шеей и тонким рисунком перьев сочетается с пластичной антиквой. Рубиновый цвет и розово-молочная основа поддерживают сдержанную элегантность. Для струящихся тканей, лаконичной упаковки и выразительных обложек.'
   ];
+  const dmLayouts=Object.fromEntries(Object.entries(symbols).flatMap(([id,item])=>[
+    ['dm-word-'+id,[item.name+' · надпись','Авторское начертание без символа']],
+    ['dm-compose-'+id,[item.name+' · своя композиция','Оригинальный символ можно переместить в редакторе']],
+    ...[4,3,2,1].map(v=>['dm-ready-'+id+'-v'+v,[item.name+' · вариант '+v,'Готовая композиция с исходным фоном']])
+  ]));
+  function dmImage(id,x,y,w,h){return `<image href="${window.DONA_MEDIA[id]}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/>`;}
+  function dmWord(layout,w,h){const id=layout.replace(/^dm-(?:word|compose)-/,'');return dmImage('donamour-wordmark-'+id,w*.08,h*.46,w*.84,h*.24);}
+  function dmLogo(layout,applyPlacement){
+    if(layout.startsWith('dm-ready-'))return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3000 1500">${dmImage(layout.replace('dm-ready-','donamour-'),0,0,3000,1500)}</svg>`;
+    const q=applyPlacement&&state.brandPlacement,formats={post:[1080,1350],story:[1080,1920],card:[1600,1000],avatar:[1080,1080]},[w,h]=q?formats[q.format]:[3000,1500];
+    const mark=layout.startsWith('dm-compose-')?(q?placedSymbol(w,h,q):`<g transform="translate(1150 70)">${dmImage(state.symbol,0,0,700,600)}</g>`):'';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${dmWord(layout,w,h)}${mark}</svg>`;
+  }
   const initial = {concept:0,name:'DONA',symbol:'kiss',font:'cormorant',season:'summer',theme:'light',layout:'imagegen-0',avecAmour:true,signatureVersion:2,customName:'',choices:{},custom:{},symbolStyle:'filled',brandPlacement:null,editor:{format:'post',x:50,y:25,angle:0,size:25,transparent:false,showName:true}};
   let state = structuredClone(initial);
   const storageKey = 'dona-brandbook-client-v2';
@@ -82,7 +97,7 @@
     if(Number.isInteger(raw.concept)&&concepts[raw.concept])state.concept=raw.concept;
     if(typeof raw.name==='string'&&raw.name.trim())state.name=raw.name.trim().slice(0,32);
     if(typeof raw.customName==='string')state.customName=raw.customName.slice(0,32);
-    if(['classic','side','signature','imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4'].includes(raw.layout))state.layout=raw.layout;
+    if(['classic','side','signature',...Object.keys(dmLayouts),'imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4'].includes(raw.layout))state.layout=raw.layout;
     state.symbolStyle='filled';
     state.avecAmour=raw.signatureVersion===2?raw.avecAmour===true:true;
     if(raw.editor&&typeof raw.editor==='object'){
@@ -165,8 +180,8 @@
   };
   const generatedLabels=['Помадная подпись','Шёлковая каллиграфия','Ботаническая композиция','Вишнёвая гравюра','Лебединая пластика'];
   const generatedSymbols=['kiss','bow','tulip','cherry','swan'];
-  function isFixed(){return state.layout.startsWith('imagegen-')&&!!generatedBoards[state.name];}
-  function availableLayouts(){return ['classic','side','signature',...(generatedBoards[state.name]?['imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4']:[])];}
+  function isFixed(){return state.layout.startsWith('dm-ready-')||state.layout.startsWith('imagegen-')&&!!generatedBoards[state.name];}
+  function availableLayouts(){if(state.name==='DONAmour')return Object.keys(dmLayouts);return ['classic','side','signature',...(generatedBoards[state.name]?['imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4']:[])];}
   function signatureLogoSvg(ink,avecAmour=true){
     const h=avecAmour?940:800;
     const measure=document.createElement('canvas').getContext('2d');
@@ -181,6 +196,7 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" role="img" aria-label="${esc(state.name)} — ${generatedLabels[index]}" style="color:${palette()[1]}"><title>${esc(state.name)} — ImageGen · ${generatedLabels[index]}</title><defs><filter id="${uid}-ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1536" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 -1.3 0 0 1.05"/><feComposite in2="SourceAlpha" operator="in"/></filter><mask id="${uid}" maskUnits="userSpaceOnUse" x="${x-16}" y="${y-16}" width="${w+32}" height="${h+32}" style="mask-type:alpha"><image href="${window.DONA_MEDIA[source]}" width="1024" height="1536" filter="url(#${uid}-ink)"/></mask></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" stroke="none" mask="url(#${uid})"/></svg>`;
   }
   function logoSvg(layout,applyPlacement=true){
+    if(layout.startsWith('dm-'))return dmLogo(layout,applyPlacement);
     if(layout.startsWith('imagegen-')&&generatedBoards[state.name])return generatedLogoSvg(layout);
     const f=fonts.find(f=>f.id===state.font),p=palette(),text=state.name;
     const ctx=document.createElement('canvas').getContext('2d');ctx.font=`100px ${f.family}`;
@@ -221,15 +237,16 @@
     const logo=logoSvg(state.layout),focused=$('#layouts').contains(document.activeElement)?document.activeElement.closest('[data-layout]')?.dataset.layout:null;
     $('#hero-logo').innerHTML=logo;$$('[data-lockup]').forEach(el=>el.innerHTML=logoSvg(state.layout));
     $('#layouts').innerHTML=allowed.map(id=>{
-      const fixed=id.startsWith('imagegen-'),title=fixed?generatedLabels[Number(id.slice(-1))]:layouts[id][0];
-      const choice=`<button data-layout="${id}" aria-pressed="${id===state.layout&&!state.brandPlacement}">${logoSvg(id,false)}<strong>${title}</strong><span>${fixed?'ImageGen · фиксированный эскиз':layouts[id][1]}</span></button>`;
+      const fixed=id.startsWith('imagegen-'),title=fixed?generatedLabels[Number(id.slice(-1))]:(dmLayouts[id]||layouts[id])[0];
+      const choice=`<button data-layout="${id}" aria-pressed="${id===state.layout&&!state.brandPlacement}">${logoSvg(id,false)}<strong>${title}</strong><span>${fixed?'ImageGen · фиксированный эскиз':(dmLayouts[id]||layouts[id])[1]}</span></button>`;
       return `<article class="logo-option">${choice}${fixed?`<div class="sketch-downloads" aria-label="Скачать ${title}"><button data-sketch="${id}" data-export="png">PNG · 4000 px</button><button data-sketch="${id}" data-export="svg">SVG</button><button data-sketch="${id}" data-export="kit">Комплект ZIP ↓</button><small>Прозрачный фон · ZIP: цветной, светлый, чёрный и белый. SVG содержит растровый рисунок.</small><span data-sketch-status role="status"></span></div>`:''}</article>`;
     }).join('');
     if(focused)$('#layouts').querySelector(`[data-layout="${focused}"]`)?.focus({preventScroll:true});
     $('#layout-note').textContent=isFixed()?'Выбран эскиз ImageGen. Рисунок, шрифт и размещение внутри логотипа зафиксированы. Палитру и носители можно менять.':'Три редактируемые конструкции'+(generatedBoards[state.name]?' и пять самостоятельных эскизов ImageGen для выбранного названия.':'. Для собственного названия доступны общие конструкции.');
     $('#avec-amour-setting').hidden=state.name!=='DONA';
     $('#avec-amour').checked=state.avecAmour;
-    $('#font').disabled=isFixed();
+    $('#font').disabled=isFixed()||state.layout.startsWith('dm-');
+    if(state.name==='DONAmour')$('#font-hint').textContent='Авторское начертание выбирается в вариантах логотипа. Буквы: однотонный #66021F; палитра меняет оформление носителей.';
     $$('#symbols button,#symbol-gallery button').forEach(el=>el.disabled=isFixed());
     $('#symbol-study').innerHTML=svg(state.symbol);$('#symbol-title').textContent=symbols[state.symbol].name;$('#symbol-description').textContent=symbols[state.symbol].hint;
     renderEditor();
@@ -240,9 +257,9 @@
   }
   let toastTimer;
   function toast(text){$('#toast').textContent=text;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
-  $('#name').addEventListener('change',e=>{if(e.target.value==='__custom'){state.name=state.customName.trim()||'Ваш бренд';}else state.name=e.target.value;render();if(e.target.value==='__custom')$('#custom-name').focus();});
+  $('#name').addEventListener('change',e=>{if(e.target.value==='__custom'){state.name=state.customName.trim()||'Ваш бренд';}else state.name=e.target.value;if(state.name==='DONAmour')state.layout='dm-compose-bow';state.brandPlacement=null;render();if(e.target.value==='__custom')$('#custom-name').focus();});
   $('#custom-name').addEventListener('input',e=>{const start=e.target.selectionStart,end=e.target.selectionEnd;state.customName=e.target.value;state.name=state.customName.trim()||'Ваш бренд';render();e.target.setSelectionRange(start,end);});
-  $('#layouts').addEventListener('click',e=>{const b=e.target.closest('[data-layout]');if(b){state.layout=b.dataset.layout;if(state.name==='DONA'&&state.layout==='imagegen-0')state.font='cormorant';if(isFixed())state.symbol=generatedSymbols[Number(state.layout.slice(-1))];state.brandPlacement=null;render();}});
+  $('#layouts').addEventListener('click',e=>{const b=e.target.closest('[data-layout]');if(b){state.layout=b.dataset.layout;if(state.name==='DONA'&&state.layout==='imagegen-0')state.font='cormorant';if(state.layout.startsWith('imagegen-'))state.symbol=generatedSymbols[Number(state.layout.slice(-1))];if(state.layout.startsWith('dm-compose-'))state.symbol=state.layout.slice(11);state.brandPlacement=null;render();}});
   $('#symbol-style').addEventListener('click',e=>{const b=e.target.closest('[data-style]');if(b){state.symbolStyle=b.dataset.style;render();}});
   $('#avec-amour').addEventListener('change',event=>{state.avecAmour=event.target.checked;state.layout='imagegen-0';state.symbol='kiss';state.font='cormorant';render();});
   $('#font').addEventListener('change',e=>{state.font=e.target.value;render();document.fonts.load(`100px ${fonts.find(f=>f.id===state.font).family}`).then(renderLogos);});
@@ -276,7 +293,7 @@
       clone.querySelector('#instagram').innerHTML='<h1 id="instagram-title" tabindex="-1">Instagram</h1>';clone.querySelector('#last-download').hidden=true;clone.querySelector('#last-download-link').removeAttribute('href');clone.querySelector('#toast').classList.remove('visible');clone.querySelector('#png-result').hidden=true;clone.querySelector('#png-result').removeAttribute('href');clone.querySelector('#png-preview').hidden=true;clone.querySelector('#png-preview').removeAttribute('src');
       clone.querySelector('#donamour-last-download').hidden=true;clone.querySelector('#donamour-last-download').removeAttribute('href');clone.querySelector('#donamour-dialog').removeAttribute('open');clone.querySelector('#donamour-status').textContent='PNG с розовым фоном · нажмите на логотип, чтобы рассмотреть оригинал.';
       const style=document.createElement('style');style.textContent=css;clone.querySelector('head').append(style);
-      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_IG_SNAPSHOT=${JSON.stringify(instagramStudio.snapshot()).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
+      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_LOGO_LIBRARY=${JSON.stringify(igLibrary).replaceAll('<','\\u003c')};window.DONA_IG_SNAPSHOT=${JSON.stringify(instagramStudio.snapshot()).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
       clone.querySelector('body').append(snapshot);
       const script=document.createElement('script');script.textContent=js;clone.querySelector('body').append(script);
       download('<!doctype html>\n'+clone.outerHTML,'text/html;charset=utf-8','dona-brandbook.html');toast('Интерактивный брендбук сохранён для просмотра офлайн');
@@ -302,6 +319,10 @@
     return {w,h,title,size,x:e.x*w/100,y:e.y*h/100,angle:e.angle,ink:p[1],paper:p[2],family,fontSize,textY:h*.54,captionY:h*.60,showName:e.format!=='avatar'&&e.showName!==false,transparent:e.transparent};
   }
   function artworkMark(a){return `<g transform="translate(${a.x} ${a.y}) rotate(${a.angle}) scale(${a.size/100}) translate(-50 -50)" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">${symbolBody(state.symbol)}</g>`;}
+  function artworkName(a){
+    return a.showName&&state.layout.startsWith('dm-')?dmWord(state.layout,a.w,a.h):a.showName?`<text x="${a.w/2}" y="${a.textY}" text-anchor="middle" font-family="${esc(a.family)}" font-size="${a.fontSize}" fill="${a.ink}">${esc(state.name)}</text><text x="${a.w/2}" y="${a.captionY}" text-anchor="middle" font-family="Manrope,sans-serif" font-size="${a.w*.016}" fill="${a.ink}">ЖЕНСКАЯ ОДЕЖДА</text>`:'';
+  }
+  function editorLogo(){const a=artworkSpec();return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}">${artworkName(a)}${state.layout.startsWith('dm-word-')?'':artworkMark(a)}</svg>`;}
   function renderEditor(){
     const a=artworkSpec(),e=state.editor;
     const fixed=isFixed();
@@ -311,7 +332,7 @@
       $('#artwork-canvas').style.aspectRatio='auto';
       $('#editor-symbol-name').textContent='Фиксированный эскиз ImageGen · размещение не редактируется';
       $('#artwork-size-label').textContent='Авторская композиция';
-      $('#brand-placement-status').textContent='Чтобы редактировать размещение, выберите одну из трёх конструкций логотипа.';
+      $('#brand-placement-status').textContent='Для размещения выберите редактируемую конструкцию; у DONAmour — вариант «своя композиция».';
       $('#clear-brand-placement').disabled=true;
       $('#artwork-canvas').setAttribute('aria-label','Фиксированный эскиз ImageGen');
       return;
@@ -323,8 +344,8 @@
     $('#artwork-size-label').textContent=`${a.w} × ${a.h} px`;
     $('#editor-symbol-name').textContent=`${symbols[state.symbol].name} · ${state.symbolStyle==='filled'?'заливка':'контур'}`;
     $$('[data-position]').forEach(button=>{const p=presets.find(p=>p[0]===button.dataset.position);button.setAttribute('aria-pressed',Math.abs(e.x-p[3])<.6&&Math.abs(e.y-p[4])<.6);});
-    const name=a.showName?`<text x="${a.w/2}" y="${a.textY}" text-anchor="middle" font-family="${esc(a.family)}" font-size="${a.fontSize}" fill="${a.ink}">${esc(state.name)}</text><text x="${a.w/2}" y="${a.captionY}" text-anchor="middle" font-family="Manrope,sans-serif" font-size="${a.w*.016}" fill="${a.ink}">ЖЕНСКАЯ ОДЕЖДА</text>`:'';
-    $('#artwork-canvas').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}" aria-label="${esc(a.title)}: ${esc(state.name)}"><rect width="${a.w}" height="${a.h}" fill="${a.transparent?'transparent':a.paper}"/>${name}${artworkMark(a)}<g transform="translate(${a.x} ${a.y}) rotate(${a.angle})"><rect data-drag-symbol x="${-a.size/2}" y="${-a.size/2}" width="${a.size}" height="${a.size}" fill="transparent" stroke="${a.ink}" stroke-opacity=".3" stroke-width="1.5" stroke-dasharray="8 8"/></g></svg>`;
+    const name=artworkName(a);
+    $('#artwork-canvas').innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}" aria-label="${esc(a.title)}: ${esc(state.name)}"><rect width="${a.w}" height="${a.h}" fill="${a.transparent?'transparent':a.paper}"/>${name}${state.layout.startsWith('dm-word-')?'':artworkMark(a)}<g transform="translate(${a.x} ${a.y}) rotate(${a.angle})"><rect data-drag-symbol x="${-a.size/2}" y="${-a.size/2}" width="${a.size}" height="${a.size}" fill="transparent" stroke="${a.ink}" stroke-opacity=".3" stroke-width="1.5" stroke-dasharray="8 8"/></g></svg>`;
     $('#artwork-canvas').style.maxWidth=`min(100%, ${720*a.w/a.h}px)`;
     $('#artwork-canvas').style.aspectRatio=`${a.w}/${a.h}`;
     $('#png-result').textContent=$('#png-result').hidden?'':'Предыдущий PNG · скачать ↗';
@@ -370,6 +391,7 @@
       if(isFixed()){saveBlob(await pngBlob(logoSvg(state.layout)), 'dona-imagegen.png');return;}
       // Capture both vector artwork and text before awaiting; later UI edits do not alter the export.
       const a=artworkSpec(),name=state.name,format=state.editor.format;
+      if(state.layout.startsWith('dm-')){const clean=editorLogo().replace('>',`>${a.transparent?'':`<rect width="${a.w}" height="${a.h}" fill="${a.paper}"/>`}`);saveBlob(await pngBlob(clean,a.w,a.h),'DONAmour-composition.png');return;}
       const vector=await portableSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${a.w}" height="${a.h}" viewBox="0 0 ${a.w} ${a.h}" style="color:${a.ink}">${artworkMark(a)}</svg>`);
       await document.fonts.load(`${a.fontSize}px ${a.family}`,name);await document.fonts.load('20px Manrope','ЖЕНСКАЯ ОДЕЖДА');
       const url=URL.createObjectURL(new Blob([vector],{type:'image/svg+xml'})),img=new Image();
@@ -448,7 +470,7 @@
     }
     }
     if(!$('#files').hidden){
-    $('#generated-directions').innerHTML=names.flatMap(([name])=>[generatedBoards[name].id,generatedBoards[name].id+'-cherry-swan'].map(id=>`<figure><img loading="lazy" src="${window.DONA_MEDIA[id]}" alt="Эскизы логотипа ${name}"><figcaption>${name} · ${id.endsWith('swan')?'вишня и лебедь':'поцелуй, бант, тюльпан'} <button data-download-media="${id}" class="text-button">PNG ↗</button></figcaption></figure>`)).join('');
+    $('#generated-directions').innerHTML=names.filter(([name])=>generatedBoards[name]).flatMap(([name])=>[generatedBoards[name].id,generatedBoards[name].id+'-cherry-swan'].map(id=>`<figure><img loading="lazy" src="${window.DONA_MEDIA[id]}" alt="Эскизы логотипа ${name}"><figcaption>${name} · ${id.endsWith('swan')?'вишня и лебедь':'поцелуй, бант, тюльпан'} <button data-download-media="${id}" class="text-button">PNG ↗</button></figcaption></figure>`)).join('');
     }
     $('#social-highlights').innerHTML=Object.entries(themedIcons).slice(0,5).map(([id,[label]])=>`<span><i>${iconSvg(id,'inherit')}</i>${label}</span>`).join('');
     $('#icon-downloads').innerHTML=Object.entries(themedIcons).map(([id,[label]])=>`<article>${iconSvg(id)}<strong>${label}</strong><div><button data-download-icon="${id}" data-format="svg">SVG</button><button data-download-icon="${id}" data-format="png">PNG</button><button data-download-icon="${id}" data-format="png" data-tone="light">PNG для тёмного фона</button></div></article>`).join('');
@@ -522,7 +544,7 @@
     }catch(error){console.error(error);toast('Не удалось сохранить файл. Попробуйте ещё раз.');}finally{button.disabled=false;}
   });
   $('#download-current-svg').addEventListener('click',()=>downloadSvg(logoSvg(state.layout),'dona-logo.svg'));
-  $('#download-current-png').addEventListener('click',async()=>{const button=$('#download-current-png');button.disabled=true;try{const source=logoSvg(state.layout);saveBlob(await pngBlob(source,...(isFixed()?sketchDimensions(source):[1800,612])),'dona-logo.png');}catch(e){console.error(e);toast('Не удалось сохранить PNG');}finally{button.disabled=false;}});
+  $('#download-current-png').addEventListener('click',async()=>{const button=$('#download-current-png');button.disabled=true;try{const source=logoSvg(state.layout);saveBlob(await pngBlob(source,...((isFixed()||state.layout.startsWith('dm-'))?sketchDimensions(source):[1800,612])),'dona-logo.png');}catch(e){console.error(e);toast('Не удалось сохранить PNG');}finally{button.disabled=false;}});
   // Standard ZIP container. Compression is native; stored entries are the fallback.
   async function zipFiles(files){
     const enc=new TextEncoder(),local=[],central=[];let offset=0;
@@ -542,8 +564,10 @@
       for(const [name] of names)for(const symbol of Object.keys(symbols))for(const layout of ['classic','side','signature']){
         state={...saved,name,symbol,layout,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/${symbol}-${layout}.svg`,logoSvg(layout,false)]);
       }
-      for(const [name] of names)for(let i=0;i<5;i++){state={...saved,name,layout:`imagegen-${i}`,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/imagegen-${i+1}.svg`,logoSvg(state.layout)]);}
-      state=saved;files.push(['current-selection.svg',logoSvg(state.layout)],['palettes.json',JSON.stringify(seasonalPalettes,null,2)],['selection.json',JSON.stringify(saved,null,2)],['README.txt','Dona Brand Studio — 60 editable compositions + 20 fixed ImageGen sketches. SVG files contain embedded raster ImageGen symbols and editable text, not fully vector marks. Fonts are embedded under OFL. PNG symbols are original transparent assets. Icons are vector. Review final artwork and minimum detail size with your printer.']);
+      for(const [name] of names.filter(([name])=>generatedBoards[name]))for(let i=0;i<5;i++){state={...saved,name,layout:`imagegen-${i}`,brandPlacement:null};files.push([`logos/${name.replaceAll(' ','-')}/imagegen-${i+1}.svg`,logoSvg(state.layout)]);}
+      for(const layout of Object.keys(dmLayouts)){state={...saved,name:'DONAmour',layout,brandPlacement:null};files.push(['logos/DONAmour/'+layout+'.svg',logoSvg(layout)]);}
+      for(const symbol of Object.keys(symbols))files.push(['logos/DONAmour/wordmark-'+symbol+'.png',await mediaBlob('donamour-wordmark-'+symbol)]);
+      state=saved;files.push(['current-selection.svg',logoSvg(state.layout)],['palettes.json',JSON.stringify(seasonalPalettes,null,2)],['selection.json',JSON.stringify(saved,null,2)],['README.txt','Dona Brand Studio — Editable compositions, ImageGen sketches and DONAmour series. SVG files contain embedded raster ImageGen symbols and editable text, not fully vector marks. Fonts are embedded under OFL. PNG symbols are original transparent assets. Icons are vector. Review final artwork and minimum detail size with your printer.']);
       status.textContent='Загружаем оригиналы для архива…';
       for(const file of files)if(file[0].endsWith('.svg'))file[1]=await portableSvg(file[1]);
       for(const [family,license] of Object.entries(window.DONA_LICENSES||{}))files.push([`licenses/${family}-OFL.txt`,license]);
@@ -553,10 +577,20 @@
     }catch(error){console.error(error);status.textContent='Не удалось собрать архив. Отдельные материалы можно скачать кнопками выше.';}finally{button.disabled=false;}
   });
 
-  const instagramStudio=window.createDonaInstagram({logo:()=>signatureLogoSvg('#66021F',true),symbol:symbolBody,icon:iconSvg,unique:uniqueSvgIds,portable:portableSvg,png:pngBlob,zip:zipFiles});
-  const donamourItems=Object.entries(symbols).flatMap(([symbol,item])=>[1,2].map(version=>({id:`donamour-${symbol}-v${version}`,title:`${item.name} · вариант ${version}`,symbol,version})));
+  let igLibrary={selection:'approved',saved:[]};try{igLibrary=window.DONA_LOGO_LIBRARY||JSON.parse(localStorage.getItem('dona-logo-library-v1'))||igLibrary;}catch{}
+  function inBrand(snapshot,fn){const previous=state;try{state=structuredClone(snapshot);return fn();}finally{state=previous;}}
+  function igLogoSource(){if(igLibrary.selection==='approved')return signatureLogoSvg('#66021F',true);if(igLibrary.selection==='current')return logoSvg(state.layout);const saved=igLibrary.saved.find(x=>x.id===igLibrary.selection);if(saved)return inBrand(saved.state,()=>saved.editor?editorLogo():logoSvg(state.layout));const option=igOptions.find(x=>x.id===igLibrary.selection);return option?inBrand({...state,...option.state,brandPlacement:null},()=>logoSvg(state.layout)):signatureLogoSvg('#66021F',true);}
+  function igLogo(color){const source=igLogoSource();if(color&&color!=='#66021F'&&!source.includes('<text')&&!source.includes('<mask')){const box=source.match(/viewBox="([^"]+)"/)[1].split(/\s+/).map(Number);return source.replace('>',`><rect x="${box[0]}" y="${box[1]}" width="${box[2]}" height="${box[3]}" fill="#FFE9EC"/>`);}return source;}
+  const igOptions=names.flatMap(([name])=>name==='DONAmour'?Object.entries(dmLayouts).map(([layout,[label]])=>({id:layout,label:'DONAmour · '+label,state:{name,layout,symbol:layout.replace(/^dm-(word|compose|ready)-/,'').split('-')[0]}})):['classic','side','signature',...Array.from({length:5},(_,i)=>'imagegen-'+i)].map(layout=>({id:name+'-'+layout,label:name+' · '+(layouts[layout]?.[0]||generatedLabels[Number(layout.slice(-1))]),state:{name,layout}})));
+  function persistLibrary(){try{localStorage.setItem('dona-logo-library-v1',JSON.stringify(igLibrary));return true;}catch{toast('Память браузера недоступна. Сохраните HTML, чтобы не потерять логотипы.');return false;}}
+  function renderIgPicker(){instagramStudio.render();let panel=$('#ig-logo-picker');if(!panel){panel=document.createElement('div');panel.id='ig-logo-picker';panel.className='ig-logo-picker';$('#instagram .page-heading').after(panel);}panel.innerHTML=`<label for="ig-logo-choice">Логотип для Instagram</label><select id="ig-logo-choice">${[{id:'approved',label:'DONA · утверждённая подпись'}, {id:'current',label:'Текущий выбор в брендбуке'},...igLibrary.saved.map(x=>({id:x.id,label:x.label})),...igOptions].map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</select><a href="#editor-page">Настроить расположение ↗</a><p>Сохранённые композиции доступны ниже в списке. Скачивайте выбранный логотип через карточку «Логотип».</p>`;$('#ig-logo-choice').value=igLibrary.selection;$('#ig-logo-choice').onchange=e=>{igLibrary.selection=e.target.value;persistLibrary();instagramStudio.refresh();};}
+  const instagramStudio=window.createDonaInstagram({logo:igLogo,mark:()=>igLibrary.selection==='approved'?`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${symbolBody('kiss')}</svg>`:igLogo(),symbol:symbolBody,icon:iconSvg,unique:uniqueSvgIds,portable:portableSvg,png:pngBlob,zip:zipFiles});
+  function saveEditorLogo(apply){const editor=!isFixed(),id='saved-'+Date.now(),label=state.name+' · композиция '+(igLibrary.saved.length+1);igLibrary.saved.push({id,label,state:structuredClone(state),editor});igLibrary.selection=id;const ok=persistLibrary();if(ok)toast('Логотип сохранён и выбран для Instagram');if(apply){location.hash='instagram';renderIgPicker();instagramStudio.refresh();}}
+  $('#save-editor-logo').onclick=()=>saveEditorLogo(false);
+  $('#apply-editor-instagram').onclick=()=>saveEditorLogo(true);
+  const donamourItems=Object.entries(symbols).flatMap(([symbol,item])=>[4,3,1,2].map(version=>({id:`donamour-${symbol}-v${version}`,title:`${item.name} · вариант ${version}`,symbol,version})));
   function renderDonamour(){
-    $('#donamour-gallery').innerHTML=Object.entries(symbols).map(([symbol,item])=>`<section class="donamour-group" aria-labelledby="dm-${symbol}"><h2 id="dm-${symbol}">${item.name}</h2><div class="donamour-pair">${donamourItems.filter(i=>i.symbol===symbol).map(i=>`<article class="donamour-card"><button class="donamour-preview" data-dm-preview="${i.id}" aria-label="Увеличить: ${i.title}"><img loading="lazy" src="${window.DONA_MEDIA[i.id]}" alt="DONAmour — ${i.title}"></button><div class="donamour-caption"><div><h3>Вариант ${i.version}</h3><p>${i.version===1?'Спокойная антиква':'Пластичное начертание'}</p></div><button class="quiet-button" data-dm-download="${i.id}">Скачать PNG ↓</button></div></article>`).join('')}</div></section>`).join('');
+    $('#donamour-gallery').innerHTML='<h3>Начертания без символа · прозрачный PNG</h3><div class="donamour-pair">'+Object.entries(symbols).map(([id,item])=>`<article class="donamour-card"><img style="width:100%;height:150px;object-fit:contain" src="${window.DONA_MEDIA['donamour-wordmark-'+id]}" alt="DONAmour — ${item.name} — без символа"><button class="quiet-button" data-download-media="donamour-wordmark-${id}">${item.name} · PNG без символа ↓</button></article>`).join('')+'</div>'+Object.entries(symbols).map(([symbol,item])=>`<section class="donamour-group" aria-labelledby="dm-${symbol}"><h2 id="dm-${symbol}">${item.name}</h2><div class="donamour-pair">${donamourItems.filter(i=>i.symbol===symbol).map(i=>`<article class="donamour-card${i.version>=3?' donamour-final':''}"><button class="donamour-preview" data-dm-preview="${i.id}" aria-label="Увеличить: ${i.title}"><img loading="lazy" src="${window.DONA_MEDIA[i.id]}" alt="DONAmour — ${i.title}"></button><div class="donamour-caption"><div><h3>${i.version===4?'Вариант 4 · оригинальные символы':'Вариант '+i.version}</h3><p>${i.version===4?'Авторские соединения букв · однотонный рубиновый':i.version===3?'Генерация по образцу символа':i.version===1?'Спокойная антиква':'Пластичное начертание'}</p></div><button class="quiet-button" data-dm-download="${i.id}">Скачать PNG ↓</button></div></article>`).join('')}</div></section>`).join('');
   }
   let donamourBusy=false,donamourUrl=null;
   async function downloadDonamour(id){
@@ -564,7 +598,7 @@
     const items=id?donamourItems.filter(i=>i.id===id):donamourItems;
     if(!items.length)return;
     donamourBusy=true;
-    const name=id?`${id}.png`:'DONAmour-10-logos.zip',mime=id?'image/png':'application/zip',extension=id?'.png':'.zip',status=$('#donamour-status');
+    const name=id?`${id}.png`:'DONAmour-20-logos.zip',mime=id?'image/png':'application/zip',extension=id?'.png':'.zip',status=$('#donamour-status');
     status.textContent='Подготавливаем файл…';
     try{
       let handle=null;
@@ -581,7 +615,7 @@
       const link=$('#donamour-last-download');link.href=donamourUrl;link.download=name;link.textContent=`Скачать ещё раз: ${name}`;link.hidden=false;
       link.onclick=e=>{if(e.isTrusted&&typeof window.showSaveFilePicker==='function'){e.preventDefault();downloadDonamour(id);}};
       if(!handle)link.click();
-      status.textContent=id?'PNG готов.':'Архив готов: все 10 логотипов PNG.';
+      status.textContent=id?'PNG готов.':'Архив готов: все 20 логотипов PNG.';
     }catch(e){status.textContent=e.name==='AbortError'?'Скачивание отменено.':'Не удалось сохранить файл. Повторите скачивание.';if(e.name!=='AbortError')console.error(e);}
     finally{donamourBusy=false;}
   }
@@ -607,17 +641,18 @@
   window.addEventListener('resize',revealActiveRoute);
   function showBookPage(focus=false){
     const id=decodeURIComponent(location.hash.slice(1)||'identity');
-    if(id==='instagram'||id.startsWith('ig-'))instagramStudio.render();
+    if(id==='instagram'||id.startsWith('ig-'))renderIgPicker();
     const target=document.getElementById(id),page=target?.closest('[data-page]')||$('#identity');
     $$('[data-page]').forEach(el=>el.hidden=el!==page);
     $$('[data-route]').forEach(link=>{const active=link.dataset.route===page.id;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
     revealActiveRoute();
-    if(page.id==='instagram')instagramStudio.render();
+    if(page.id==='instagram'){renderIgPicker();instagramStudio.refresh();}
     document.title=`${page.querySelector('h1').textContent} — Dona Brand Studio`;
     renderClient();
-    $('#route-selection').textContent=page.id==='donamour'?'DONAmour · 5 символов · 10 логотипов':page.id==='instagram'?'DONA · avec amour · комплект Instagram':`${state.name} · ${symbols[state.symbol].name} · ${state.season==='summer'?'Лето':'Зима'}`;
+    $('#route-selection').textContent=page.id==='donamour'?'DONAmour · 5 символов · 20 логотипов':page.id==='instagram'?'Instagram · выбранный логотип':`${state.name} · ${symbols[state.symbol].name} · ${state.season==='summer'?'Лето':'Зима'}`;
     requestAnimationFrame(()=>{
       refreshPlacementSurfaces();
+      if(id==='donamour')$('#donamour-archive').open=true;
       (target&&page.contains(target)?target:page).scrollIntoView({block:'start',behavior:'instant'});
       if(focus){const heading=page.querySelector('h1');heading.focus({preventScroll:true});}
     });

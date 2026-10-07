@@ -72,6 +72,8 @@ html{scroll-padding-top:115px}.header{position:sticky;top:0;z-index:50;backgroun
 .donamour-group h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:32px;margin:0 0 20px}
 .donamour-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
 .donamour-card{min-width:0;background:#fff;border:1px solid #eadde1}
+.donamour-final{grid-column:1/-1;border-color:#b98193}
+.donamour-final .donamour-preview img{aspect-ratio:2/1;max-height:520px}
 .donamour-preview{display:block;width:100%;padding:0;border:0;background:#ffe9ec;cursor:zoom-in}
 .donamour-preview img{display:block;width:100%;aspect-ratio:3/2;object-fit:contain}
 .donamour-caption{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;flex-wrap:wrap}

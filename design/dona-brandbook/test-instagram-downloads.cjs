@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(__dirname+'/instagram.js','utf8').replace(
-  'return {render,snapshot:', 'return {chooseFile,writeFile,saveFile,snapshot:');
+  'return {render,refresh:()=>{if(ready)renderGallery();},snapshot:', 'return {chooseFile,writeFile,saveFile,snapshot:');
 const link={click(){this.clicks=(this.clicks||0)+1;this.onclick?.({isTrusted:false});}};
 const urls=[],revoked=[];
 const context={window:{},document:{getElementById:()=>({querySelector:()=>link})},
