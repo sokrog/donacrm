@@ -1,5 +1,5 @@
 // Lightweight previews are the only images requested while browsing.
-const mediaIds=['kiss','bow','cherry','tulip','swan','packaging','garment','apparel','store-day','store-night','campaign','direction-dona','direction-muse','direction-belle','direction-belledona','direction-dona-cherry-swan','direction-muse-cherry-swan','direction-belle-cherry-swan','direction-belledona-cherry-swan'];
+const mediaIds=['dona-kiss-signature','kiss','bow','cherry','tulip','swan','packaging','garment','apparel','store-day','store-night','campaign','direction-dona','direction-muse','direction-belle','direction-belledona','direction-dona-cherry-swan','direction-muse-cherry-swan','direction-belle-cherry-swan','direction-belledona-cherry-swan'];
 const licenseIds=['cormorantgaramond','prata','manrope','marckscript','greatvibes'];
 const assetUrl=path=>`${path}?v=${window.DONA_RESOURCE_VERSIONS?.[path]||window.DONA_BUILD||'dev'}`;
 window.DONA_MEDIA=Object.fromEntries(mediaIds.map(id=>[id,assetUrl(`previews/${id}.webp`)]));

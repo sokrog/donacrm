@@ -12,7 +12,7 @@ for source in sorted((root / 'assets').glob('*.png')):
     with Image.open(source) as original:
         preview = original.convert('RGBA')
         photo = source.stem in photos
-        preview.thumbnail((960, 960) if photo else (640, 960))
+        preview.thumbnail((960, 960) if photo or source.stem == 'dona-kiss-signature' else (640, 960))
         preview.save(preview_dir / (source.stem + '.webp'), format='WEBP',
                      quality=80 if photo else 92, method=6)
 print('Preview bytes:', sum(p.stat().st_size for p in preview_dir.glob('*.webp')))
