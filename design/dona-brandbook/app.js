@@ -274,6 +274,7 @@
       clone.querySelectorAll('script,style,link[rel=stylesheet]').forEach(el=>el.remove());
       clone.querySelectorAll('svg').forEach(el=>el.remove());clone.querySelectorAll('img').forEach(el=>el.removeAttribute('src'));clone.querySelectorAll('[style]').forEach(el=>{if(el.style.backgroundImage)el.style.removeProperty('background-image');});
       clone.querySelector('#instagram').innerHTML='<h1 id="instagram-title" tabindex="-1">Instagram</h1>';clone.querySelector('#last-download').hidden=true;clone.querySelector('#last-download-link').removeAttribute('href');clone.querySelector('#toast').classList.remove('visible');clone.querySelector('#png-result').hidden=true;clone.querySelector('#png-result').removeAttribute('href');clone.querySelector('#png-preview').hidden=true;clone.querySelector('#png-preview').removeAttribute('src');
+      clone.querySelector('#donamour-last-download').hidden=true;clone.querySelector('#donamour-last-download').removeAttribute('href');clone.querySelector('#donamour-dialog').removeAttribute('open');clone.querySelector('#donamour-status').textContent='PNG с розовым фоном · нажмите на логотип, чтобы рассмотреть оригинал.';
       const style=document.createElement('style');style.textContent=css;clone.querySelector('head').append(style);
       const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_IG_SNAPSHOT=${JSON.stringify(instagramStudio.snapshot()).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
       clone.querySelector('body').append(snapshot);
@@ -553,16 +554,68 @@
   });
 
   const instagramStudio=window.createDonaInstagram({logo:()=>signatureLogoSvg('#66021F',true),symbol:symbolBody,icon:iconSvg,unique:uniqueSvgIds,portable:portableSvg,png:pngBlob,zip:zipFiles});
+  const donamourItems=Object.entries(symbols).flatMap(([symbol,item])=>[1,2].map(version=>({id:`donamour-${symbol}-v${version}`,title:`${item.name} · вариант ${version}`,symbol,version})));
+  function renderDonamour(){
+    $('#donamour-gallery').innerHTML=Object.entries(symbols).map(([symbol,item])=>`<section class="donamour-group" aria-labelledby="dm-${symbol}"><h2 id="dm-${symbol}">${item.name}</h2><div class="donamour-pair">${donamourItems.filter(i=>i.symbol===symbol).map(i=>`<article class="donamour-card"><button class="donamour-preview" data-dm-preview="${i.id}" aria-label="Увеличить: ${i.title}"><img loading="lazy" src="${window.DONA_MEDIA[i.id]}" alt="DONAmour — ${i.title}"></button><div class="donamour-caption"><div><h3>Вариант ${i.version}</h3><p>${i.version===1?'Спокойная антиква':'Пластичное начертание'}</p></div><button class="quiet-button" data-dm-download="${i.id}">Скачать PNG ↓</button></div></article>`).join('')}</div></section>`).join('');
+  }
+  let donamourBusy=false,donamourUrl=null;
+  async function downloadDonamour(id){
+    if(donamourBusy)return;
+    const items=id?donamourItems.filter(i=>i.id===id):donamourItems;
+    if(!items.length)return;
+    donamourBusy=true;
+    const name=id?`${id}.png`:'DONAmour-10-logos.zip',mime=id?'image/png':'application/zip',extension=id?'.png':'.zip',status=$('#donamour-status');
+    status.textContent='Подготавливаем файл…';
+    try{
+      let handle=null;
+      if(typeof window.showSaveFilePicker==='function'){
+        try{handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:id?'PNG':'ZIP',accept:{[mime]:[extension]}}]});}
+        catch(e){if(!['SecurityError','NotAllowedError'].includes(e.name))throw e;}
+      }
+      const files=[];
+      for(const item of items){status.textContent=`Подготавливаем: ${item.title}`;files.push([`${item.id}.png`,await mediaBlob(item.id)]);}
+      const blob=id?files[0][1]:await zipFiles(files);
+      if(handle){const stream=await handle.createWritable();try{await stream.write(blob);await stream.close();}catch(e){try{await stream.abort();}catch{}throw e;}}
+      if(donamourUrl)URL.revokeObjectURL(donamourUrl);
+      donamourUrl=URL.createObjectURL(new File([blob],name,{type:mime}));
+      const link=$('#donamour-last-download');link.href=donamourUrl;link.download=name;link.textContent=`Скачать ещё раз: ${name}`;link.hidden=false;
+      link.onclick=e=>{if(e.isTrusted&&typeof window.showSaveFilePicker==='function'){e.preventDefault();downloadDonamour(id);}};
+      if(!handle)link.click();
+      status.textContent=id?'PNG готов.':'Архив готов: все 10 логотипов PNG.';
+    }catch(e){status.textContent=e.name==='AbortError'?'Скачивание отменено.':'Не удалось сохранить файл. Повторите скачивание.';if(e.name!=='AbortError')console.error(e);}
+    finally{donamourBusy=false;}
+  }
+  $('#donamour-download-all').addEventListener('click',()=>downloadDonamour());
+  $('#donamour').addEventListener('click',async e=>{
+    const download=e.target.closest('[data-dm-download]');if(download){downloadDonamour(download.dataset.dmDownload);return;}
+    const button=e.target.closest('[data-dm-preview]');if(!button)return;
+    const item=donamourItems.find(i=>i.id===button.dataset.dmPreview);if(!item)return;
+    const dialog=$('#donamour-dialog'),img=$('#donamour-large');
+    $('#donamour-dialog-title').textContent=item.title;img.alt=`DONAmour — ${item.title}`;img.src=window.DONA_MEDIA[item.id];img.dataset.id=item.id;
+    dialog.showModal();
+    try{const src=window.DONA_ORIGINAL?await window.DONA_ORIGINAL(item.id):window.DONA_MEDIA[item.id];if(img.dataset.id===item.id&&dialog.open)img.src=src;}
+    catch{toast('Не удалось загрузить оригинал. Доступно превью.');}
+  });
+  renderDonamour();
+  function revealActiveRoute(){
+    const active=$('.header nav [aria-current="page"]');
+    if(!active)return;
+    const nav=active.parentElement,a=active.getBoundingClientRect(),n=nav.getBoundingClientRect();
+    if(a.right>n.right)nav.scrollLeft+=a.right-n.right;
+    else if(a.left<n.left)nav.scrollLeft-=n.left-a.left;
+  }
+  window.addEventListener('resize',revealActiveRoute);
   function showBookPage(focus=false){
     const id=decodeURIComponent(location.hash.slice(1)||'identity');
     if(id==='instagram'||id.startsWith('ig-'))instagramStudio.render();
     const target=document.getElementById(id),page=target?.closest('[data-page]')||$('#identity');
     $$('[data-page]').forEach(el=>el.hidden=el!==page);
     $$('[data-route]').forEach(link=>{const active=link.dataset.route===page.id;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+    revealActiveRoute();
     if(page.id==='instagram')instagramStudio.render();
     document.title=`${page.querySelector('h1').textContent} — Dona Brand Studio`;
     renderClient();
-    $('#route-selection').textContent=page.id==='instagram'?'DONA · avec amour · комплект Instagram':`${state.name} · ${symbols[state.symbol].name} · ${state.season==='summer'?'Лето':'Зима'}`;
+    $('#route-selection').textContent=page.id==='donamour'?'DONAmour · 5 символов · 10 логотипов':page.id==='instagram'?'DONA · avec amour · комплект Instagram':`${state.name} · ${symbols[state.symbol].name} · ${state.season==='summer'?'Лето':'Зима'}`;
     requestAnimationFrame(()=>{
       refreshPlacementSurfaces();
       (target&&page.contains(target)?target:page).scrollIntoView({block:'start',behavior:'instant'});

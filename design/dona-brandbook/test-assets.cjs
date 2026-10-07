@@ -21,7 +21,7 @@ vm.runInNewContext(fs.readFileSync(__dirname+'/assets.js','utf8'),context);
  await assert.rejects(context.window.DONA_ORIGINAL('cherry'));
  await context.window.DONA_ORIGINAL('cherry');
  const all=await context.window.DONA_ORIGINALS();
- assert.equal(Object.keys(all).length,20);assert.ok(peak<=3,'Original downloads must be bounded');
+ assert.equal(Object.keys(all).length,30);assert.ok(peak<=3,'Original downloads must be bounded');
  await context.window.DONA_LOAD_LICENSES();assert.equal(Object.keys(context.window.DONA_LICENSES).length,5);
  assert.ok(context.window.DONA_MEDIA.bow.startsWith('previews/'),'Export must not replace previews');
  console.log('Asset loader checks passed: lazy originals, full-quality embedding, concurrency, retry.');

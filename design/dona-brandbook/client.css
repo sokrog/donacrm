@@ -60,3 +60,27 @@ html{scroll-padding-top:115px}.header{position:sticky;top:0;z-index:50;backgroun
 .identity-preview .sketch-downloads{border:0}
 
 .signature-option{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:18px 0 24px;font-size:14px;cursor:pointer}.signature-option[hidden]{display:none}.signature-option input{width:18px;height:18px;accent-color:var(--accent,#66021f)}.signature-option small{flex-basis:100%;padding-left:28px;opacity:.7;font-size:12px}
+
+#donamour{color:#66021f;background:#fff9f7}
+#donamour .page-heading{display:block}
+#donamour .page-heading p{max-width:760px}
+#donamour .page-heading button{margin-top:16px}
+.donamour-note{padding:20px 32px;background:#ffe9ec;font-size:14px;line-height:1.65}
+.donamour-note p{max-width:900px;margin:0 0 10px}
+.donamour-note summary{cursor:pointer;min-height:32px}
+.donamour-group{padding:32px;border-top:1px solid #eadde1}
+.donamour-group h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:32px;margin:0 0 20px}
+.donamour-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.donamour-card{min-width:0;background:#fff;border:1px solid #eadde1}
+.donamour-preview{display:block;width:100%;padding:0;border:0;background:#ffe9ec;cursor:zoom-in}
+.donamour-preview img{display:block;width:100%;aspect-ratio:3/2;object-fit:contain}
+.donamour-caption{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px;flex-wrap:wrap}
+.donamour-caption h3{font-size:16px;margin:0 0 5px}.donamour-caption p{font-size:13px;margin:0;color:#775563}
+#donamour button{min-height:44px}#donamour button:focus-visible{outline:3px solid #66021f;outline-offset:3px}
+#donamour-dialog{width:min(1200px,94vw);max-width:94vw;max-height:92dvh;padding:20px;border:1px solid #eadde1;background:#fff9f7;color:#66021f}
+#donamour-dialog::backdrop{background:#240711aa}
+#donamour-dialog form{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+#donamour-dialog h2{font-size:20px;margin:0}
+#donamour-large{display:block;width:100%;max-height:74dvh;object-fit:contain}
+@media(max-width:700px){.donamour-pair{grid-template-columns:1fr}.donamour-group,.donamour-note{padding:22px 16px}.donamour-group h2{font-size:28px}.donamour-caption{padding:14px}}
+@media(max-width:700px){.header nav{overflow-x:auto;min-width:0;gap:4px}.header nav a{flex:0 0 auto;min-height:44px;padding-inline:10px;white-space:nowrap}}
