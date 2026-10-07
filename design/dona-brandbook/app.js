@@ -25,14 +25,14 @@
   }
   function placedSymbol(w,h,placement=state.brandPlacement,id=state.symbol){
     const a=placementOn(w,h,placement);
-    return `<g data-placement-mark transform="translate(${a.x} ${a.y}) rotate(${a.angle}) scale(${a.size/100}) translate(-50 -50)" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">${symbolBody(id)}</g>`;
+    return `<g data-placement-mark="true" transform="translate(${a.x} ${a.y}) rotate(${a.angle}) scale(${a.size/100}) translate(-50 -50)" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">${symbolBody(id)}</g>`;
   }
 
   // Symbol-only slots inherit rotation, never composition offsets or scale.
   function standaloneSymbol(id=state.symbol){
     const angle=state.brandPlacement?.angle||0,r=angle*Math.PI/180;
     const size=80/(Math.abs(Math.cos(r))+Math.abs(Math.sin(r)));
-    return `<g data-standalone-symbol transform="translate(50 50) rotate(${angle}) scale(${size/100}) translate(-50 -50)">${symbolBody(id)}</g>`;
+    return `<g data-standalone-symbol="true" transform="translate(50 50) rotate(${angle}) scale(${size/100}) translate(-50 -50)">${symbolBody(id)}</g>`;
   }
   function proportionalLockup(ctx,label){
     const q=state.brandPlacement,formats={post:[1080,1350],story:[1080,1920],card:[1600,1000],avatar:[1080,1080]};
@@ -42,7 +42,7 @@
     const left=Math.min(a.x-extent,500-textWidth/2),right=Math.max(a.x+extent,500+textWidth/2);
     const top=Math.min(a.y-extent,baseline-size),bottom=Math.max(a.y+extent,baseline+size*.25);
     const scale=Math.min(900/(right-left),280/(bottom-top));
-    return {viewBox:`${(1000-(right-left)*scale)/2-18} 12 ${(right-left)*scale+36} 316`,body:`<g data-proportional-lockup transform="translate(${(1000-(right-left)*scale)/2} ${(340-(bottom-top)*scale)/2}) scale(${scale}) translate(${-left} ${-top})">${placedSymbol(w,h,q)}${label(state.name,500,baseline,size)}</g>`};
+    return {viewBox:`${(1000-(right-left)*scale)/2-18} 12 ${(right-left)*scale+36} 316`,body:`<g data-proportional-lockup="true" transform="translate(${(1000-(right-left)*scale)/2} ${(340-(bottom-top)*scale)/2}) scale(${scale}) translate(${-left} ${-top})">${placedSymbol(w,h,q)}${label(state.name,500,baseline,size)}</g>`};
   }
 
   const fonts = [
@@ -174,7 +174,7 @@
       measure.font='100px "Cormorant Garamond"';
       const wordSize=1440/measure.measureText('DONA').width*100;
       const tagline=state.avecAmour?'<text x="795" y="707" text-anchor="middle" font-family="Great Vibes,Marck Script,cursive" font-size="112" fill="currentColor">avec amour</text>':'';
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 0 1700 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 0 1700 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss="true" transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
     }
     const board=generatedBoards[state.name],index=Number(layout.slice(-1)),[x,y,w,h]=index<3?board.boxes[index]:board.extraBoxes[index-3],source=index<3?board.id:board.id+'-cherry-swan',uid='sketch-'+(++symbolSequence);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" role="img" aria-label="${esc(state.name)} — ${generatedLabels[index]}" style="color:${palette()[1]}"><title>${esc(state.name)} — ImageGen · ${generatedLabels[index]}</title><defs><filter id="${uid}-ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1536" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 -1.3 0 0 1.05"/><feComposite in2="SourceAlpha" operator="in"/></filter><mask id="${uid}" maskUnits="userSpaceOnUse" x="${x-16}" y="${y-16}" width="${w+32}" height="${h+32}" style="mask-type:alpha"><image href="${window.DONA_MEDIA[source]}" width="1024" height="1536" filter="url(#${uid}-ink)"/></mask></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" stroke="none" mask="url(#${uid})"/></svg>`;
