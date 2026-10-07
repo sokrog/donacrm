@@ -169,12 +169,12 @@
   function availableLayouts(){return ['classic','side','signature',...(generatedBoards[state.name]?['imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4']:[])];}
   function generatedLogoSvg(layout){
     if(state.name==='DONA'&&layout==='imagegen-0'){
-      const h=state.avecAmour?800:660;
+      const h=state.avecAmour?940:800;
       const measure=document.createElement('canvas').getContext('2d');
       measure.font='100px "Cormorant Garamond"';
       const wordSize=1440/measure.measureText('DONA').width*100;
       const tagline=state.avecAmour?'<text x="795" y="707" text-anchor="middle" font-family="Great Vibes,Marck Script,cursive" font-size="112" fill="currentColor">avec amour</text>':'';
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 0 1700 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss="true" transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="25 -110 1900 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss="true" transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
     }
     const board=generatedBoards[state.name],index=Number(layout.slice(-1)),[x,y,w,h]=index<3?board.boxes[index]:board.extraBoxes[index-3],source=index<3?board.id:board.id+'-cherry-swan',uid='sketch-'+(++symbolSequence);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" role="img" aria-label="${esc(state.name)} — ${generatedLabels[index]}" style="color:${palette()[1]}"><title>${esc(state.name)} — ImageGen · ${generatedLabels[index]}</title><defs><filter id="${uid}-ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1536" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 -1.3 0 0 1.05"/><feComposite in2="SourceAlpha" operator="in"/></filter><mask id="${uid}" maskUnits="userSpaceOnUse" x="${x-16}" y="${y-16}" width="${w+32}" height="${h+32}" style="mask-type:alpha"><image href="${window.DONA_MEDIA[source]}" width="1024" height="1536" filter="url(#${uid}-ink)"/></mask></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" stroke="none" mask="url(#${uid})"/></svg>`;
