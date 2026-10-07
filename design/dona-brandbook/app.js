@@ -74,7 +74,7 @@
     'Плавная ботаническая форма и лёгкий набор. Тюльпан подчёркивает движение ткани и женственность без излишнего декора.',
     'Лебедь с изогнутой шеей и тонким рисунком перьев сочетается с пластичной антиквой. Рубиновый цвет и розово-молочная основа поддерживают сдержанную элегантность. Для струящихся тканей, лаконичной упаковки и выразительных обложек.'
   ];
-  const initial = {concept:0,name:'DONA',symbol:'kiss',font:'prata',season:'summer',theme:'light',layout:'classic',avecAmour:false,customName:'',choices:{},custom:{},symbolStyle:'filled',brandPlacement:null,editor:{format:'post',x:50,y:25,angle:0,size:25,transparent:false,showName:true}};
+  const initial = {concept:0,name:'DONA',symbol:'kiss',font:'cormorant',season:'summer',theme:'light',layout:'imagegen-0',avecAmour:true,signatureVersion:2,customName:'',choices:{},custom:{},symbolStyle:'filled',brandPlacement:null,editor:{format:'post',x:50,y:25,angle:0,size:25,transparent:false,showName:true}};
   let state = structuredClone(initial);
   const storageKey = 'dona-brandbook-client-v2';
   function validate(raw) {
@@ -84,7 +84,7 @@
     if(typeof raw.customName==='string')state.customName=raw.customName.slice(0,32);
     if(['classic','side','signature','imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4'].includes(raw.layout))state.layout=raw.layout;
     state.symbolStyle='filled';
-    state.avecAmour=raw.avecAmour===true;
+    state.avecAmour=raw.signatureVersion===2?raw.avecAmour===true:true;
     if(raw.editor&&typeof raw.editor==='object'){
       const e=raw.editor;for(const [k,min,max]of [['x',0,100],['y',0,100],['angle',-180,180],['size',8,70]])if(typeof e[k]==='number'&&Number.isFinite(e[k]))state.editor[k]=Math.max(min,Math.min(max,e[k]));
       if(['post','story','card','avatar'].includes(e.format))state.editor.format=e.format;
@@ -103,6 +103,7 @@
   }
   function selectSymbol(id){state.symbol=id;}
   try {validate(window.DONA_SNAPSHOT || JSON.parse(localStorage.getItem(storageKey)));}catch{}
+  if(state.name==='DONA'&&state.layout==='imagegen-0')state.font='cormorant';
   const $ = s=>document.querySelector(s);
   const $$ = s=>document.querySelectorAll(s);
   function svg(id,positioned=false){return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${positioned?standaloneSymbol(id):symbolBody(id)}</svg>`;}
@@ -168,9 +169,12 @@
   function availableLayouts(){return ['classic','side','signature',...(generatedBoards[state.name]?['imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4']:[])];}
   function generatedLogoSvg(layout){
     if(state.name==='DONA'&&layout==='imagegen-0'){
-      const uid='signature-'+(++symbolSequence),h=state.avecAmour?880:740;
+      const h=state.avecAmour?800:660;
+      const measure=document.createElement('canvas').getContext('2d');
+      measure.font='100px "Cormorant Garamond"';
+      const wordSize=1440/measure.measureText('DONA').width*100;
       const tagline=state.avecAmour?'<text x="795" y="707" text-anchor="middle" font-family="Great Vibes,Marck Script,cursive" font-size="112" fill="currentColor">avec amour</text>':'';
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 -130 1700 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><defs><filter id="${uid}-ink" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 -.2126 -.7152 -.0722 1 0"/><feComposite in2="SourceAlpha" operator="in"/></filter><clipPath id="${uid}-kiss"><rect x="1505" y="245" width="400" height="300"/></clipPath><clipPath id="${uid}-word"><path d="M50 180H1500V540L1560 555V610H50Z"/></clipPath><mask id="${uid}" maskUnits="userSpaceOnUse" x="50" y="180" width="1880" height="430" style="mask-type:alpha"><image href="${window.DONA_MEDIA['dona-kiss-signature']}" width="1942" height="809" filter="url(#${uid}-ink)"/></mask><g id="${uid}-art"><rect x="50" y="180" width="1880" height="430" fill="currentColor" mask="url(#${uid})"/></g></defs><g clip-path="url(#${uid}-word)"><use href="#${uid}-art"/></g><g transform="rotate(40 1510 90)"><svg x="1330" y="-45" width="360" height="270" viewBox="1505 245 400 300" overflow="hidden"><g clip-path="url(#${uid}-kiss)"><use href="#${uid}-art"/></g></svg></g>${tagline}</svg>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="50 0 1700 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
     }
     const board=generatedBoards[state.name],index=Number(layout.slice(-1)),[x,y,w,h]=index<3?board.boxes[index]:board.extraBoxes[index-3],source=index<3?board.id:board.id+'-cherry-swan',uid='sketch-'+(++symbolSequence);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" role="img" aria-label="${esc(state.name)} — ${generatedLabels[index]}" style="color:${palette()[1]}"><title>${esc(state.name)} — ImageGen · ${generatedLabels[index]}</title><defs><filter id="${uid}-ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1536" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 -1.3 0 0 1.05"/><feComposite in2="SourceAlpha" operator="in"/></filter><mask id="${uid}" maskUnits="userSpaceOnUse" x="${x-16}" y="${y-16}" width="${w+32}" height="${h+32}" style="mask-type:alpha"><image href="${window.DONA_MEDIA[source]}" width="1024" height="1536" filter="url(#${uid}-ink)"/></mask></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" stroke="none" mask="url(#${uid})"/></svg>`;
@@ -237,9 +241,9 @@
   function toast(text){$('#toast').textContent=text;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
   $('#name').addEventListener('change',e=>{if(e.target.value==='__custom'){state.name=state.customName.trim()||'Ваш бренд';}else state.name=e.target.value;render();if(e.target.value==='__custom')$('#custom-name').focus();});
   $('#custom-name').addEventListener('input',e=>{const start=e.target.selectionStart,end=e.target.selectionEnd;state.customName=e.target.value;state.name=state.customName.trim()||'Ваш бренд';render();e.target.setSelectionRange(start,end);});
-  $('#layouts').addEventListener('click',e=>{const b=e.target.closest('[data-layout]');if(b){state.layout=b.dataset.layout;if(isFixed())state.symbol=generatedSymbols[Number(state.layout.slice(-1))];state.brandPlacement=null;render();}});
+  $('#layouts').addEventListener('click',e=>{const b=e.target.closest('[data-layout]');if(b){state.layout=b.dataset.layout;if(state.name==='DONA'&&state.layout==='imagegen-0')state.font='cormorant';if(isFixed())state.symbol=generatedSymbols[Number(state.layout.slice(-1))];state.brandPlacement=null;render();}});
   $('#symbol-style').addEventListener('click',e=>{const b=e.target.closest('[data-style]');if(b){state.symbolStyle=b.dataset.style;render();}});
-  $('#avec-amour').addEventListener('change',event=>{state.avecAmour=event.target.checked;state.layout='imagegen-0';state.symbol='kiss';render();});
+  $('#avec-amour').addEventListener('change',event=>{state.avecAmour=event.target.checked;state.layout='imagegen-0';state.symbol='kiss';state.font='cormorant';render();});
   $('#font').addEventListener('change',e=>{state.font=e.target.value;render();document.fonts.load(`100px ${fonts.find(f=>f.id===state.font).family}`).then(renderLogos);});
   $('#accent').addEventListener('input',e=>{state.custom[`${state.concept}-${state.season}`]=e.target.value;render();});
   for(const id of ['#symbols','#symbol-gallery'])$(id).addEventListener('click',e=>{const b=e.target.closest('[data-symbol]');if(b){selectSymbol(b.dataset.symbol);render();}});
