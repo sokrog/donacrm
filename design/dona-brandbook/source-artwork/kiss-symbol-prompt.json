@@ -1,0 +1,6 @@
+{
+  "tool": "built-in image_gen",
+  "prompt": "Edit target: supplied DONA logo. Extract ONLY the existing lipstick kiss at the far right as a standalone high-resolution transparent PNG brand symbol. Remove ALL letters completely. Preserve the identity of this EXACT kiss: same asymmetric lip shape, same diagonal tilt, same cupid bow, narrow diagonal open separation and distinctive dense fine broken vertical pigment creases. Do not invent a different lip silhouette. Enlarge the isolated imprint to fill about 85% of a square canvas with balanced transparent margins. Deep ruby #66021F lipstick pigment, highly detailed realistic dry lipstick transfer, clearly transparent gaps and fissures, clean edges without white halo. All non-pigment areas must be truly transparent, including between the lips and the texture gaps. No solid white patches, no backdrop, no text, no letter fragments, no drop shadow or 3D effect. Crisp large master-quality isolated asset for a womenswear brand.",
+  "reference": "assets/dona-kiss-signature.png",
+  "output": "assets/kiss.png"
+}
