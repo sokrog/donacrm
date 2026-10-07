@@ -29,6 +29,7 @@ jobs:
       - name: Check JavaScript
         run: |
           node --check design/dona-brandbook/app.js
+          node --check design/dona-brandbook/instagram.js
           node --check design/dona-brandbook/assets.js
           node design/dona-brandbook/test-assets.cjs
       - name: Configure Pages

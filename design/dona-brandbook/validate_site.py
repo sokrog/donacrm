@@ -25,7 +25,7 @@ class Page(HTMLParser):
 page = Page()
 page.feed((root / 'index.html').read_text(encoding='utf-8'))
 assert len(page.ids) == len(set(page.ids)), 'Duplicate HTML IDs'
-assert {'identity', 'applications', 'editor-page', 'files'} <= set(page.ids)
+assert {'identity', 'applications', 'editor-page', 'files', 'instagram'} <= set(page.ids)
 for ref in page.refs:
     url = urlsplit(ref)
     if url.scheme or url.netloc:
@@ -53,4 +53,4 @@ for expression, suffix, folder in [
 assert (root / 'dona-brandbook.html').read_bytes() == (root / 'index.html').read_bytes()
 assert (root / '.nojekyll').is_file()
 assert not any((root / name).exists() for name in ['source-artwork', '.git', 'README.md'])
-print('Pages artifact valid: four screens, local links, images, fonts and legacy entry URL.')
+print('Pages artifact valid: five screens, local links, images, fonts and legacy entry URL.')

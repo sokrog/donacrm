@@ -167,15 +167,16 @@
   const generatedSymbols=['kiss','bow','tulip','cherry','swan'];
   function isFixed(){return state.layout.startsWith('imagegen-')&&!!generatedBoards[state.name];}
   function availableLayouts(){return ['classic','side','signature',...(generatedBoards[state.name]?['imagegen-0','imagegen-1','imagegen-2','imagegen-3','imagegen-4']:[])];}
+  function signatureLogoSvg(ink,avecAmour=true){
+    const h=avecAmour?940:800;
+    const measure=document.createElement('canvas').getContext('2d');
+    measure.font='100px "Cormorant Garamond"';
+    const wordSize=1440/measure.measureText('DONA').width*100;
+    const tagline=avecAmour?'<text x="795" y="707" text-anchor="middle" font-family="Great Vibes,Marck Script,cursive" font-size="112" fill="currentColor">avec amour</text>':'';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="25 -110 1900 ${h}" role="img" aria-label="DONA — Помадная подпись${avecAmour?' · avec amour':''}" style="color:${ink}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss="true" transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
+  }
   function generatedLogoSvg(layout){
-    if(state.name==='DONA'&&layout==='imagegen-0'){
-      const h=state.avecAmour?940:800;
-      const measure=document.createElement('canvas').getContext('2d');
-      measure.font='100px "Cormorant Garamond"';
-      const wordSize=1440/measure.measureText('DONA').width*100;
-      const tagline=state.avecAmour?'<text x="795" y="707" text-anchor="middle" font-family="Great Vibes,Marck Script,cursive" font-size="112" fill="currentColor">avec amour</text>':'';
-      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="25 -110 1900 ${h}" role="img" aria-label="DONA — Помадная подпись${state.avecAmour?' · avec amour':''}" style="color:${palette()[1]}"><title>DONA — Помадная подпись</title><text x="795" y="575" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-weight="400" font-size="${wordSize}" fill="currentColor">DONA</text><g data-signature-kiss="true" transform="translate(1580 205) rotate(40) scale(4.05) translate(-50 -50)">${symbolBody('kiss')}</g>${tagline}</svg>`;
-    }
+    if(state.name==='DONA'&&layout==='imagegen-0')return signatureLogoSvg(palette()[1],state.avecAmour);
     const board=generatedBoards[state.name],index=Number(layout.slice(-1)),[x,y,w,h]=index<3?board.boxes[index]:board.extraBoxes[index-3],source=index<3?board.id:board.id+'-cherry-swan',uid='sketch-'+(++symbolSequence);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" role="img" aria-label="${esc(state.name)} — ${generatedLabels[index]}" style="color:${palette()[1]}"><title>${esc(state.name)} — ImageGen · ${generatedLabels[index]}</title><defs><filter id="${uid}-ink" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1536" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 -1.3 0 0 1.05"/><feComposite in2="SourceAlpha" operator="in"/></filter><mask id="${uid}" maskUnits="userSpaceOnUse" x="${x-16}" y="${y-16}" width="${w+32}" height="${h+32}" style="mask-type:alpha"><image href="${window.DONA_MEDIA[source]}" width="1024" height="1536" filter="url(#${uid}-ink)"/></mask></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" stroke="none" mask="url(#${uid})"/></svg>`;
   }
@@ -267,14 +268,14 @@
         const fetchVersioned=path=>fetch(path+'?v='+encodeURIComponent(window.DONA_BUILD||'dev'));
         const responses=await Promise.all(['styles.css','app.js','fonts.css','social.css','media.css'].map(fetchVersioned));
         if(responses.some(r=>!r.ok))throw new Error('assets');
-        const texts=await Promise.all(responses.map(r=>r.text()));css=texts[2]+'\n'+texts[0]+'\n'+texts[3]+'\n'+texts[4]+'\n'+await (await fetchVersioned('client.css')).text();js=texts[1];
+        const texts=await Promise.all(responses.map(r=>r.text()));css=texts[2]+'\n'+texts[0]+'\n'+texts[3]+'\n'+texts[4]+'\n'+await (await fetchVersioned('client.css')).text();js=await (await fetchVersioned('instagram.js')).text()+'\n'+texts[1];css+='\n'+await (await fetchVersioned('instagram.css')).text();
       }
       const clone=document.documentElement.cloneNode(true);
       clone.querySelectorAll('script,style,link[rel=stylesheet]').forEach(el=>el.remove());
       clone.querySelectorAll('svg').forEach(el=>el.remove());clone.querySelectorAll('img').forEach(el=>el.removeAttribute('src'));clone.querySelectorAll('[style]').forEach(el=>{if(el.style.backgroundImage)el.style.removeProperty('background-image');});
-      clone.querySelector('#last-download').hidden=true;clone.querySelector('#last-download-link').removeAttribute('href');clone.querySelector('#toast').classList.remove('visible');clone.querySelector('#png-result').hidden=true;clone.querySelector('#png-result').removeAttribute('href');clone.querySelector('#png-preview').hidden=true;clone.querySelector('#png-preview').removeAttribute('src');
+      clone.querySelector('#instagram').innerHTML='<h1 id="instagram-title" tabindex="-1">Instagram</h1>';clone.querySelector('#last-download').hidden=true;clone.querySelector('#last-download-link').removeAttribute('href');clone.querySelector('#toast').classList.remove('visible');clone.querySelector('#png-result').hidden=true;clone.querySelector('#png-result').removeAttribute('href');clone.querySelector('#png-preview').hidden=true;clone.querySelector('#png-preview').removeAttribute('src');
       const style=document.createElement('style');style.textContent=css;clone.querySelector('head').append(style);
-      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
+      const snapshot=document.createElement('script');snapshot.textContent=`window.DONA_LICENSES=${JSON.stringify(window.DONA_LICENSES||{}).replaceAll('<','\\u003c')};window.DONA_MEDIA=${JSON.stringify(fullMedia).replaceAll('<','\\u003c')};window.DONA_IG_SNAPSHOT=${JSON.stringify(instagramStudio.snapshot()).replaceAll('<','\\u003c')};window.DONA_SNAPSHOT=${JSON.stringify(state).replaceAll('<','\\u003c')};window.DONA_ASSETS=${JSON.stringify({css,js}).replaceAll('<','\\u003c')};`;
       clone.querySelector('body').append(snapshot);
       const script=document.createElement('script');script.textContent=js;clone.querySelector('body').append(script);
       download('<!doctype html>\n'+clone.outerHTML,'text/html;charset=utf-8','dona-brandbook.html');toast('Интерактивный брендбук сохранён для просмотра офлайн');
@@ -551,13 +552,17 @@
     }catch(error){console.error(error);status.textContent='Не удалось собрать архив. Отдельные материалы можно скачать кнопками выше.';}finally{button.disabled=false;}
   });
 
+  const instagramStudio=window.createDonaInstagram({logo:()=>signatureLogoSvg('#66021F',true),symbol:symbolBody,icon:iconSvg,unique:uniqueSvgIds,portable:portableSvg,png:pngBlob,zip:zipFiles});
   function showBookPage(focus=false){
     const id=decodeURIComponent(location.hash.slice(1)||'identity');
+    if(id==='instagram'||id.startsWith('ig-'))instagramStudio.render();
     const target=document.getElementById(id),page=target?.closest('[data-page]')||$('#identity');
     $$('[data-page]').forEach(el=>el.hidden=el!==page);
     $$('[data-route]').forEach(link=>{const active=link.dataset.route===page.id;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+    if(page.id==='instagram')instagramStudio.render();
     document.title=`${page.querySelector('h1').textContent} — Dona Brand Studio`;
     renderClient();
+    $('#route-selection').textContent=page.id==='instagram'?'DONA · avec amour · комплект Instagram':`${state.name} · ${symbols[state.symbol].name} · ${state.season==='summer'?'Лето':'Зима'}`;
     requestAnimationFrame(()=>{
       refreshPlacementSurfaces();
       (target&&page.contains(target)?target:page).scrollIntoView({block:'start',behavior:'instant'});

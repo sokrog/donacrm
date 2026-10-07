@@ -118,3 +118,14 @@ SVG композиций содержит **растровый знак ImageGen
 The Pages build uses committed `previews/*.webp` (about 1.1 MB in total). Carrier images are rendered when the Applications screen opens. Full-size `assets/*.png` are fetched on demand for export, cached for the session, and embedded into SVG/PNG/offline HTML. Original downloads are limited to three concurrent requests and can be retried after errors. Each image URL uses its own content hash, so a code-only deployment preserves image caching.
 
 After updating PNG artwork, regenerate previews with `python prepare_previews.py` (requires Pillow), and commit both versions. CI runs `node test-assets.cjs` to check lazy loading, deduplication, concurrency, and retries.
+
+
+## Instagram kit (07.10.2026)
+
+The fifth page, `#instagram`, is pinned to the approved DONA / Cormorant Garamond / kiss / avec amour identity. Its profile draft and card text edits are stored separately under `dona-instagram-v1`; global concept changes do not modify this kit. `instagram.js` and `instagram.css` are included in both Pages and standalone/offline exports.
+
+27 assets: one transparent logo, two avatars, eight highlight covers, nine feed cards (1080×1350), four Stories and three Reel covers (1080×1920). Click, right-click or the visible ellipsis opens the export menu (PNG, JPG, embedded SVG; captions where applicable). The menu supports arrows, Escape and keyboard buttons. ZIP includes 27 PNG, 27 SVG, profile copy, captions, a beginner guide and font licenses.
+
+Photo cards accept a local PNG/JPG/WebP up to 25 MB; the image is fitted to at most 2400 px and held in memory until the tab closes. An exported HTML includes that photo snapshot. Demo pictures are marked outside the artwork; substitute actual inventory photos before posting. No real Instagram account is accessed or modified. The profile grid is an approximate 3:4 crop of independent 4:5 cards.
+
+Validation: build and `validate_site.py`, JavaScript syntax and existing asset-loader checks; browser checks of mobile reflow, context menu/keyboard, profile/card editing and photo replacement. Verify exported ZIP CRC, PNG dimensions, SVG XML parsing and embedded image URLs when changing the export pipeline.

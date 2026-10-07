@@ -14,7 +14,7 @@ args = parser.parse_args()
 if args.pages:
     # Explicit public-file list: never upload the repository or design drafts.
     files = [Path(name) for name in (
-        'index.html', 'app.js', 'assets.js', 'fonts.css', 'styles.css', 'social.css', 'media.css', 'client.css',
+        'index.html', 'app.js', 'instagram.js', 'instagram.css', 'assets.js', 'fonts.css', 'styles.css', 'social.css', 'media.css', 'client.css',
     )]
     files += sorted(path.relative_to(root) for path in (root / 'licenses').glob('*.txt'))
     files += sorted(path.relative_to(root) for path in (root / 'assets').glob('*.png'))
@@ -49,13 +49,14 @@ if args.pages:
     raise SystemExit(0)
 
 html = (root / 'index.html').read_text(encoding='utf-8')
-css = '\n'.join((root / filename).read_text(encoding='utf-8') for filename in ['fonts.css', 'styles.css', 'social.css', 'media.css', 'client.css'])
-js = (root / 'app.js').read_text(encoding='utf-8')
+css = '\n'.join((root / filename).read_text(encoding='utf-8') for filename in ['fonts.css', 'styles.css', 'social.css', 'media.css', 'client.css', 'instagram.css'])
+js = (root / 'instagram.js').read_text(encoding='utf-8') + '\n' + (root / 'app.js').read_text(encoding='utf-8')
 media = {path.stem: 'data:image/png;base64,' + base64.b64encode(path.read_bytes()).decode('ascii')
          for path in sorted((root / 'assets').glob('*.png'))}
 licenses = {path.stem: path.read_text(encoding='utf-8') for path in (root / 'licenses').glob('*.txt')}
 html = html.replace('<script src="assets.js"></script>', '<script>window.DONA_MEDIA=' + json.dumps(media) + ';window.DONA_LICENSES=' + json.dumps(licenses).replace('<', r'\u003c') + ';</script>')
 assets = json.dumps({'css': css, 'js': js}, ensure_ascii=False).replace('<', r'\u003c')
+html = html.replace('<link rel="stylesheet" href="instagram.css">', '').replace('<script src="instagram.js"></script>', '')
 html = html.replace('<link rel="stylesheet" href="client.css">', '')
 html = html.replace('<link rel="stylesheet" href="media.css">', '')
 html = html.replace('<link rel="stylesheet" href="fonts.css">', '')
