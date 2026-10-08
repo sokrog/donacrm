@@ -32,7 +32,7 @@ internal sealed class CloningCatalog : ICatalogRepository
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
     private readonly Dictionary<Guid, string> items = [];
 
-    public CloningCatalog(params Product[] products) { foreach (var product in products) Put(product); }
+    public CloningCatalog(params Product[] products) { foreach (var product in products) Put(FifoFixtures.OpeningBalance(product)); }
     public void Put(Product product) => items[product.Id] = JsonSerializer.Serialize(product, Options);
     public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>(items.Values.Select(x => JsonSerializer.Deserialize<Product>(x, Options)!).ToList());
     public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(items.TryGetValue(id, out var json) ? JsonSerializer.Deserialize<Product>(json, Options) : null);
@@ -140,6 +140,7 @@ public sealed class InventoryAtomicityTests
         var variant = new ProductVariant { Quantity = 7 };
         var product = new Product { Name = "Футболка", Sku = "TS-RET", Variants = [variant] };
         var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 3, SoldQuantity = 3, UnitPriceUzs = 100 };
+        FifoFixtures.CompletedSale(variant, item);
         var sale = new Sale { Number = "SALE-RR", Status = SaleStatus.Completed, Items = [item] };
         var catalog = new CloningCatalog(product);
         var store = new MemoryInventoryStore(catalog) { FailWith = new IOException("сбой") };

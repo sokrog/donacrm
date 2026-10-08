@@ -51,6 +51,15 @@
                         <strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@DeltaText ед.</strong>
                     </div>
                 }
+                @if (Delta > 0)
+                {
+                    <label class="dona-field">Себестоимость единицы<InputNumber @bind-Value="model.UnitCost" min="0" /></label>
+                    <small>Если стоимость неизвестна, оставьте поле пустым. Ноль означает бесплатный товар.</small>
+                }
+                @if (Delta < 0)
+                {
+                    <p>@LossPreview()</p>
+                }
             </section>
             <section class="dona-section">
                 <h2>Причина</h2>
@@ -85,6 +94,16 @@
     ];
     private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
     private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0);
+    private string LossPreview()
+    {
+        if (SelectedVariant is null) return string.Empty;
+        try
+        {
+            var cost = FifoCostCalculator.Cost(FifoCostCalculator.Preview(SelectedVariant, -Delta));
+            return cost.TotalValue is { } total ? $"Будет списано по себестоимости: {total:N2}" : $"Известная стоимость списания: {cost.KnownValue:N2}; без оценки: {cost.UnvaluedQuantity} ед.";
+        }
+        catch (InventoryException ex) { return ex.Message; }
+    }
     private string DeltaText => Delta>0?$"+{Delta}":Delta.ToString();
     protected override async Task OnInitializedAsync(){
         products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();

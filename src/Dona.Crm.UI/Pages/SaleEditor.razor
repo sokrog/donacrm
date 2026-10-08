@@ -70,6 +70,28 @@
                     }
                 </section>
             </fieldset>
+            <details class="dona-section">
+                <summary>Себестоимость по партиям</summary>
+                @if (sale.Items.Any(x => x.Consumptions.Count > 0))
+                {
+                    @foreach (var item in sale.Items)
+                    {
+                        <strong>@item.ProductName</strong>
+                        @foreach (var part in item.Consumptions)
+                        {
+                            var layer = products.SelectMany(x => x.Variants).SelectMany(x => x.Layers).FirstOrDefault(x => x.Id == part.LayerId);
+                            <p>@part.Quantity ед. · @(layer?.SourceNumber ?? "Партия") · @(part.TotalCost is null ? "Стоимость неизвестна" : $"Стоимость {part.TotalCost:N2}")</p>
+                        }
+                    }
+                    <p>С учётом возвратов: @(sale.HasUnknownCost ? "оценка неполная" : $"{sale.CostUzs:N2}")</p>
+                }
+                else
+                {
+                    <p>Предварительный расчёт по текущим партиям. При завершении продажи стоимость проверяется повторно.</p>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="PreviewCostAsync">Рассчитать себестоимость</button>
+                    @if (previewCostText is not null) { <p>@previewCostText</p> }
+                }
+            </details>
             <section class="dona-section total-card">
                 <span>Товары<strong>@Money(sale.SubtotalUzs)</strong></span>
                 <span>Скидка<strong>− @Money(sale.DiscountUzs ?? 0)</strong></span>
@@ -324,6 +346,19 @@
         unsavedGuard?.MarkDirty();
     }
 
+    private string? previewCostText;
+    private async Task PreviewCostAsync()
+    {
+        try
+        {
+            var costs = (await Inventory.PreviewAsync(sale)).Values;
+            var value = costs.Sum(x => x.KnownValue);
+            var unknown = costs.Sum(x => x.UnvaluedQuantity);
+            previewCostText = $"Расчёт {DateTime.Now:HH:mm:ss}: {value:N2}" + (unknown > 0 ? $"; без оценки {unknown} ед." : string.Empty);
+        }
+        catch (Exception ex) { previewCostText = UserErrors.Describe(ex, "Не удалось рассчитать себестоимость."); }
+    }
+
     private void RemoveItem(SaleItem item)
     {
         sale.Items.Remove(item);
@@ -345,7 +380,7 @@
         item.ProductId = product?.Id;
         item.ProductName = product?.Name ?? string.Empty;
         item.UnitPriceUzs = product?.SellingPriceUzs;
-        item.UnitCostUzs = product?.CostUzs;
+        item.UnitCostUzs = null;
         item.ProductVariantId = null;
         item.Color = string.Empty;
         item.Size = string.Empty;
@@ -530,7 +565,10 @@
             return;
         }
 
-        var below = sale.Items.FirstOrDefault(item => (item.UnitPriceUzs ?? 0) < (item.UnitCostUzs ?? 0));
+        var costs = await Inventory.PreviewAsync(sale);
+        if (costs.Values.Any(x => !x.IsComplete)) throw new InvalidOperationException("Себестоимость неизвестна. Проверка продажи ниже себестоимости невозможна.");
+        var discountFactor = sale.SubtotalUzs <= 0 ? 0 : Math.Max(0, sale.SubtotalUzs - (sale.DiscountUzs ?? 0)) / sale.SubtotalUzs;
+        var below = sale.Items.FirstOrDefault(item => (item.UnitPriceUzs ?? 0) * (item.Quantity ?? 0) * discountFactor < costs[item.Id].TotalValue);
         if (below is not null)
         {
             throw new InvalidOperationException(

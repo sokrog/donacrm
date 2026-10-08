@@ -106,6 +106,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ProductStatusService>();
 		builder.Services.AddSingleton<IProductImagePicker, MauiProductImagePicker>();
 		builder.Services.AddSingleton<StockAdjustmentService>();
+		builder.Services.AddSingleton<StockValuationService>();
 		builder.Services.AddSingleton<SalesInventoryService>();
 		builder.Services.AddSingleton<SalesPaymentService>();
 		builder.Services.AddSingleton<SalesReturnService>();

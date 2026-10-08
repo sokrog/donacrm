@@ -33,6 +33,7 @@ public sealed class ProductEditingService(
         const string hint = "Заархивируйте товар или обнулите остаток через «Корректировка остатка».";
         if ((stored.Quantity ?? 0) > 0) return $"Нельзя удалить вариант «{name}»: на складе {stored.Quantity} шт. {hint}";
         if (stored.ReservedQuantity > 0) return $"Нельзя удалить вариант «{name}»: он зарезервирован ({stored.ReservedQuantity} шт.). {hint}";
+        if (stored.Layers.Count > 0) return $"Нельзя удалить вариант «{name}»: у него есть история партий. {hint}";
         if (allSales.Any(sale => sale.Items.Any(item => item.ProductVariantId == stored.Id))) return $"Нельзя удалить вариант «{name}»: он используется в продажах. {hint}";
         if (allPurchases.Any(purchase => purchase.Items.Any(item => item.ProductVariantId == stored.Id))) return $"Нельзя удалить вариант «{name}»: он используется в закупках. {hint}";
         return null;
@@ -86,9 +87,17 @@ public sealed class ProductEditingService(
                 continue;
             }
             var initial = variant.Quantity ?? 0;
-            var created = new ProductVariant { Id = variant.Id, Color = variant.Color, Size = variant.Size, Quantity = initial };
+            var created = new ProductVariant { Id = variant.Id, Color = variant.Color, Size = variant.Size, Quantity = 0, StockLayerVersion = FifoCostCalculator.CurrentVersion };
+            decimal? initialCost = product.PurchasePriceCny is not null && (product.PurchaseCurrencyCode == "UZS" || product.CnyRateUzs > 0)
+                ? Math.Round(product.PurchasePriceCny.Value * (product.PurchaseCurrencyCode == "UZS" ? 1 : product.CnyRateUzs!.Value) * (1 + (product.AgentCommissionPercent ?? 0) / 100) + (product.DeliveryCostUzs ?? 0), 2) : null;
+            if (initial > 0) StockLayerOperations.Add(created, initial, initialCost * initial, StockLayerSource.OpeningBalance, DateTimeOffset.UtcNow, product.Sku);
             variants.Add(created);
-            if (initial > 0) movements.Add(new StockMovement { Type = StockMovementType.Adjustment, ProductId = product.Id, ProductVariantId = created.Id, ProductName = product.Name, Sku = product.Sku, Color = created.Color, Size = created.Size, QuantityDelta = initial, SourceType = "Product", SourceId = product.Id, SourceNumber = product.Sku, Note = "Начальный остаток" });
+            if (initial > 0)
+            {
+                var movement = new StockMovement { Type = StockMovementType.Adjustment, ProductId = product.Id, ProductVariantId = created.Id, ProductName = product.Name, Sku = product.Sku, Color = created.Color, Size = created.Size, QuantityDelta = initial, SourceType = "Product", SourceId = product.Id, SourceNumber = product.Sku, Note = "Начальный остаток" };
+                StockLayerOperations.SetValue(movement, FifoCostCalculator.Value(created), 1);
+                movements.Add(movement);
+            }
         }
 
         var missing = storedVariants.Values.Where(variant => variants.All(kept => kept.Id != variant.Id)).ToList();
@@ -103,6 +112,8 @@ public sealed class ProductEditingService(
                 if (VariantRemovalBlocker(variant, allSales, allPurchases) is { } reason) throw new InvalidOperationException(reason);
         }
 
+        foreach (var movement in movements)
+            StockLayerOperations.SetValue(movement, FifoCostCalculator.Value(variants.Single(x => x.Id == movement.ProductVariantId)), 1);
         product.Variants = variants;
         if (!archive) product.Status = statuses.Calculate(product, await settings.GetAsync(cancellationToken));
         await store.CommitAsync(InventoryCommit.Create(products: [product], movements: movements), cancellationToken);

@@ -143,3 +143,5 @@ details summary:focus-visible {
 @media (max-width: 390px) {
     .cost-grid, .line-fields { grid-template-columns: 1fr; }
 }
+
+.purchase-report-action { margin-bottom: var(--dona-section-gap); }

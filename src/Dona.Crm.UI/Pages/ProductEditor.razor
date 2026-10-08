@@ -113,6 +113,30 @@
                     <button type="button" class="dona-btn dona-btn--link dona-btn--danger archive-toggle" @onclick="() => confirmArchive = true">Переместить товар в архив</button>
                 }
             }
+            @if (model.Variants.Any(x => x.Layers.Count > 0))
+            {
+                <section class="dona-section">
+                    <h2>Остаток по партиям</h2>
+                    @foreach (var variant in model.Variants)
+                    {
+                        @foreach (var layer in variant.Layers.Where(x => x.RemainingQuantity > 0 || x.InitialValue is null).OrderBy(x => x.ReceivedAt).ThenBy(x => x.Sequence).ThenBy(x => x.Id))
+                        {
+                            <p><strong>@variant.Color @variant.Size · @layer.RemainingQuantity ед.</strong><br />
+                                @layer.SourceNumber · @(layer.ReceivedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "Дата неизвестна") ·
+                                @(layer.RemainingValue is null ? "Себестоимость неизвестна" : $"Стоимость {layer.RemainingValue:N2}")
+                                @if (layer.ReceivedAt is { } receivedAt)
+                                {
+                                    <small> · возраст @Math.Max(0, (DateTimeOffset.Now.Date - receivedAt.LocalDateTime.Date).Days) дн.</small>
+                                }
+                            </p>
+                            @if (layer.InitialValue is null && layer.Source is (StockLayerSource.OpeningBalance or StockLayerSource.InventorySurplus))
+                            {
+                                <a href="/inventory/valuation/@model.Id/@variant.Id/@layer.Id">Указать стоимость партии</a>
+                            }
+                        }
+                    }
+                </section>
+            }
             <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/products">Отмена</a><button type="submit" class="dona-btn dona-btn--primary" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button></div>
         </EditForm>
     }

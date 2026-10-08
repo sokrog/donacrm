@@ -18,6 +18,12 @@ public sealed record InventoryCommit(
     public IReadOnlyList<ProductCostHistoryEntry> CostCorrections { get; init; } = [];
     public static InventoryCommit Empty { get; } = new([], [], [], [], [], null);
 
+    public void ValidateLayers()
+    {
+        foreach (var variant in Products.SelectMany(x => x.Variants).Where(x => x.StockLayerVersion != 0 || x.Layers.Count > 0))
+            Services.FifoCostCalculator.Validate(variant);
+    }
+
     public bool IsEmpty => Products.Count == 0 && Sales.Count == 0 && Purchases.Count == 0 && Movements.Count == 0 && ProductCosts.Count == 0 && CostCorrections.Count == 0 && ExchangeRate is null;
 
     public static InventoryCommit Create(

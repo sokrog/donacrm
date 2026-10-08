@@ -1,0 +1,97 @@
+@page "/purchases/{Id:guid}/late-receipt/{SettlementId:guid}"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICommerceRepository Commerce
+@inject PurchaseReceivingService Receiving
+@inject NavigationManager Navigation
+
+<PageTitle>Поздняя поставка — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form" aria-busy="@loading">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
+        <div><p>Закупка @purchase?.Number</p><h1>Поздняя поставка</h1></div>
+    </header>
+    <div class="dona-stack">
+    @if (loading) { <p role="status">Загружаем недостачу…</p> }
+    else if (purchase is not null && settlement is not null)
+    {
+        <section class="dona-section dona-section--document" aria-label="Данные поздней поставки">
+            <h2>@purchase.Items.Single(x => x.Id == settlement.PurchaseItemId).ProductName</h2>
+            <p>Осталось недопоставлено: @missing ед. Компенсация: @purchase.CurrentRefund(settlement).ToString("N2") UZS.</p>
+            @foreach (var document in purchase.LateReceipts.Where(x => x.SettlementId == SettlementId))
+            {
+                <p>@document.RecognizedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · получено @document.Quantity, брак @document.Defects · @document.Reason</p>
+            }
+        </section>
+        @if (missing > 0)
+        {
+            <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+                <UnsavedChangesGuard @ref="guard" />
+                <section class="dona-section dona-section--document" aria-label="Данные поздней поставки">
+                    <label class="dona-field">Получено, включая брак<InputNumber @bind-Value="form.Quantity" min="1" max="@missing" /></label>
+                    <label class="dona-field">Из них брак<InputNumber @bind-Value="form.Defects" min="0" /></label>
+                    <label class="dona-field">Причина поздней поставки<InputTextArea @bind-Value="form.Reason" /></label>
+                    <p>@Preview()</p>
+                    <p>Поставка учитывается сегодняшней датой. Закрытие сохраняется в истории. Если компенсация превышает стоимость оставшейся недостачи, сначала оформите её фактическое уменьшение.</p>
+                    <button type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Провести позднюю поставку")</button>
+                </section>
+            </EditForm>
+        }
+    }
+    @if (error is not null) { <p role="alert" class="dona-message dona-message--error">@error</p> }
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Parameter] public Guid SettlementId { get; set; }
+    private Purchase? purchase;
+    private PurchaseShortageSettlement? settlement;
+    private sealed class Form { public int Quantity { get; set; } public int Defects { get; set; } public string Reason { get; set; } = ""; }
+    private Form form = new();
+    private int missing;
+    private Guid operationId;
+    private UnsavedChangesGuard? guard;
+    private bool loading, saving;
+    private string? error;
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true; error = null; settlement = null; operationId = Guid.NewGuid();
+        try
+        {
+            purchase = await Commerce.GetPurchaseAsync(Id) ?? throw new InvalidOperationException("Закупка не найдена.");
+            settlement = purchase.ShortageSettlements.SingleOrDefault(x => x.Id == SettlementId) ?? throw new InvalidOperationException("Недостача не найдена.");
+            missing = purchase.UnresolvedShortage(settlement);
+            form = new() { Quantity = missing };
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось открыть документ."); }
+        finally { loading = false; }
+    }
+    private string Preview()
+    {
+        if (purchase is null || settlement is null || form.Quantity <= 0 || form.Quantity > missing || form.Defects < 0 || form.Defects > form.Quantity)
+            return "Укажите допустимое количество и брак.";
+        var item = purchase.Items.Single(x => x.Id == settlement.PurchaseItemId);
+        var value = FifoCostCalculator.Allocate(purchase.HasCompleteCostInputs ? purchase.ItemLandedCostUzs(item) : null,
+            item.Quantity!.Value, item.ReceivedQuantity ?? 0, form.Quantity);
+        if (value is null) return "Стоимость неизвестна — заполните стоимость закупки.";
+        return form.Quantity == form.Defects
+            ? $"На склад: 0 ед. Потеря недостачи уменьшится на {value:N2} UZS; такая же сумма будет учтена как брак."
+            : $"На склад: {form.Quantity - form.Defects} ед. стоимостью {value:N2} UZS. Потери недостачи уменьшатся на {value:N2} UZS.";
+    }
+    private async Task SaveAsync()
+    {
+        if (saving) return;
+        saving = true; error = null;
+        try
+        {
+            await Receiving.ReceiveLateAsync(Id, SettlementId, operationId, missing, form.Quantity, form.Defects, form.Reason);
+            guard?.MarkClean();
+            Navigation.NavigateTo($"/purchases/{Id}");
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось провести поставку."); }
+        finally { saving = false; }
+    }
+}

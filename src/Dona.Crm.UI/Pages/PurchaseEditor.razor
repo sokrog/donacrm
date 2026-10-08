@@ -30,6 +30,7 @@
     {
         @if (!IsNew)
         {
+            <div class="purchase-report-action"><a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/reconciliation">Сверка партий и стоимости</a></div>
             <ol class="purchase-flow" aria-label="Этап закупки">
                 @foreach (var value in Flow)
                 {
@@ -167,7 +168,7 @@
                         }
                         @if ((item.ReceivedQuantity ?? 0) > 0)
                         {
-                            <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · на складе @item.StockedQuantity</div>
+                            <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · оприходовано @item.StockedQuantity</div>
                         }
                         else if (removeCandidate == item.Id)
                         {
@@ -184,7 +185,7 @@
                     </article>
                 }
             </section>
-            @if (!IsNew && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(value => value.MissingQuantity > 0))
+            @if (!IsNew && purchase.ClosedAt is null && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(value => value.MissingQuantity > 0))
             {
                 <section class="dona-section receipt-card">
                     <div class="dona-section-title">
@@ -212,6 +213,32 @@
                         </article>
                     }
                     <button type="button" class="dona-btn dona-btn--ghost" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button>
+                </section>
+            }
+            @if (!IsNew && purchase.Status != PurchaseStatus.Cancelled)
+            {
+                <section class="dona-section">
+                    <h2>Закрытие закупки</h2>
+                    @if (purchase.ClosedAt is { } closedAt)
+                    {
+                        <p>Закрыта @closedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+                        @foreach (var settlement in purchase.ShortageSettlements)
+                        {
+                            <p>@purchase.Items.Single(x => x.Id == settlement.PurchaseItemId).ProductName · недостача @settlement.Quantity шт. · при закрытии: компенсация @Money(settlement.SupplierRefund), потеря @Money(settlement.Loss ?? 0). Текущая компенсация: @Money(purchase.CurrentRefund(settlement)).</p>
+                            <a href="/purchases/@purchase.Id/compensation/@settlement.Id">Исправить компенсацию и посмотреть историю</a>
+                            <p>Осталось недопоставлено: @purchase.UnresolvedShortage(settlement) ед. <a href="/purchases/@purchase.Id/late-receipt/@settlement.Id">Поздняя поставка и история</a></p>
+                        }
+                    }
+                    else
+                    {
+                        <p>Укажите фактически возвращённую поставщиком сумму. Оставшаяся стоимость недостачи станет потерей текущего периода. После закрытия приёмка недоступна.</p>
+                        @foreach (var item in purchase.Items.Where(x => x.MissingQuantity > 0))
+                        {
+                            var form = ShortageInput(item.Id);
+                            <label class="dona-field">@item.ProductName · недостача @item.MissingQuantity шт. · компенсация<InputNumber @bind-Value="form.Refund" min="0" /></label>
+                        }
+                        <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ClosePurchaseAsync">Закрыть закупку и учесть недостачу</button>
+                    }
                 </section>
             }
             @if (purchase.Receipts.Count > 0)
@@ -456,6 +483,22 @@
             }
         }, "Закупка сохранена.");
     }
+
+    private readonly Dictionary<Guid, ShortageForm> shortageForms = [];
+    private readonly Guid closingOperationId = Guid.NewGuid();
+    private sealed class ShortageForm { public decimal Refund { get; set; } }
+    private ShortageForm ShortageInput(Guid id)
+    {
+        if (!shortageForms.TryGetValue(id, out var value)) shortageForms[id] = value = new();
+        return value;
+    }
+    private Task ClosePurchaseAsync() => RunAsync(async () =>
+    {
+        ValidatePurchase();
+        await Receiving.SaveAsync(purchase);
+        await Receiving.CloseAsync(purchase, purchase.Items.Where(x => x.MissingQuantity > 0)
+            .Select(x => new PurchaseShortageInput(x.Id, ShortageInput(x.Id).Refund)).ToList(), closingOperationId);
+    }, "Закупка закрыта, недостача учтена.");
 
     private async Task ReceiveAsync()
     {

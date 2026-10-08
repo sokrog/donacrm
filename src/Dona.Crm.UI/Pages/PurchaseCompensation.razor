@@ -1,0 +1,87 @@
+@page "/purchases/{Id:guid}/compensation/{SettlementId:guid}"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICommerceRepository Commerce
+@inject PurchaseReceivingService Receiving
+@inject NavigationManager Navigation
+
+<PageTitle>Компенсация недостачи — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form" aria-busy="@loading">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
+        <div><p>Закупка @purchase?.Number</p><h1>Компенсация недостачи</h1></div>
+    </header>
+    <div class="dona-stack">
+    @if (loading) { <p role="status">Загружаем документ…</p> }
+    else if (settlement is not null && purchase is not null)
+    {
+        <section class="dona-section dona-section--document">
+            <h2>@purchase.Items.Single(x => x.Id == settlement.PurchaseItemId).ProductName</h2>
+            <p>Недостача: @settlement.Quantity ед. Текущая компенсация: @currentRefund.ToString("N2") UZS.</p>
+            <p>При закрытии @settlement.RecognizedAt.ToLocalTime().ToString("dd.MM.yyyy"): @settlement.SupplierRefund.ToString("N2") UZS.</p>
+            @foreach (var correction in purchase.CompensationCorrections.Where(x => x.SettlementId == SettlementId))
+            {
+                <p>@correction.RecognizedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @correction.PreviousRefund.ToString("N2") → @correction.NewRefund.ToString("N2") UZS · @correction.Reason</p>
+            }
+        </section>
+        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+            <UnsavedChangesGuard @ref="guard" />
+            <section class="dona-section dona-section--document">
+                <h2>Новое исправление</h2>
+                <label class="dona-field">Итоговая компенсация, UZS<InputNumber @bind-Value="form.Total" min="0" step="0.01" /></label>
+                <p>Укажите всю фактически полученную компенсацию, включая ранее учтённую сумму.</p>
+                <label class="dona-field">Причина<InputTextArea @bind-Value="form.Reason" /></label>
+                @if (form.Total is >= 0)
+                {
+                    <p role="status">Изменение расходов текущего периода: @((currentRefund - form.Total)?.ToString("N2")) UZS. Минус означает уменьшение расходов.</p>
+                }
+                <p>Исправление сохранится сегодняшней датой. История закрытия и прошлые отчёты сохраняются.</p>
+                <button type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить исправление")</button>
+            </section>
+        </EditForm>
+    }
+    @if (error is not null) { <p role="alert" class="dona-message dona-message--error">@error</p> }
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [Parameter] public Guid SettlementId { get; set; }
+    private Purchase? purchase;
+    private PurchaseShortageSettlement? settlement;
+    private sealed class Form { public decimal? Total { get; set; } public string Reason { get; set; } = ""; }
+    private Form form = new();
+    private decimal currentRefund;
+    private Guid operationId = Guid.NewGuid();
+    private UnsavedChangesGuard? guard;
+    private bool loading, saving;
+    private string? error;
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true; settlement = null; error = null; operationId = Guid.NewGuid();
+        try
+        {
+            purchase = await Commerce.GetPurchaseAsync(Id) ?? throw new InvalidOperationException("Закупка не найдена.");
+            settlement = purchase.ShortageSettlements.SingleOrDefault(x => x.Id == SettlementId) ?? throw new InvalidOperationException("Недостача не найдена.");
+            currentRefund = purchase.CurrentRefund(settlement);
+            form = new() { Total = currentRefund };
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось открыть документ."); }
+        finally { loading = false; }
+    }
+    private async Task SaveAsync()
+    {
+        if (saving || form.Total is null) return;
+        saving = true; error = null;
+        try
+        {
+            await Receiving.CorrectCompensationAsync(Id, SettlementId, operationId, currentRefund, form.Total.Value, form.Reason);
+            guard?.MarkClean();
+            Navigation.NavigateTo($"/purchases/{Id}");
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось сохранить исправление."); }
+        finally { saving = false; }
+    }
+}

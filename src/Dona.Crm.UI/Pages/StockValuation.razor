@@ -1,0 +1,87 @@
+@page "/inventory/valuation/{ProductId:guid}/{VariantId:guid}/{LayerId:guid}"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICatalogRepository Catalog
+@inject StockValuationService Service
+@inject NavigationManager Navigation
+
+<PageTitle>Оценка партии — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form" aria-busy="@loading">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/products/@ProductId" aria-label="Вернуться к товару"><OrbitIcon Name="back" /></a>
+        <div><p>Склад</p><h1>Стоимость партии</h1></div>
+    </header>
+    <div class="dona-stack">
+    @if (loading) { <p role="status">Загружаем партию…</p> }
+    else if (layer is not null)
+    {
+        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+            <UnsavedChangesGuard @ref="guard" />
+            <section class="dona-section dona-section--document">
+                <h2>@product!.Name · @variant!.Color @variant.Size</h2>
+                <p>@layer.SourceNumber · @(layer.ReceivedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "Дата неизвестна")</p>
+                <p>Поступило @layer.InitialQuantity ед. Осталось @layer.RemainingQuantity ед.</p>
+                @if (layer.InitialValue is null)
+                {
+                    <label class="dona-field">Стоимость всей партии, UZS<InputNumber @bind-Value="form.Total" min="0" step="0.01" /></label>
+                    <p>Укажите сумму за все @layer.InitialQuantity ед., включая уже проданные или списанные. Ноль означает бесплатный товар.</p>
+                    @if (form.Total is >= 0)
+                    {
+                        var remaining = FifoCostCalculator.Allocate(form.Total, layer.InitialQuantity, 0, layer.RemainingQuantity);
+                        <p role="status">Оценка остатка: @remaining?.ToString("N2") UZS. Расход текущего периода: @((form.Total - remaining)?.ToString("N2")) UZS.</p>
+                    }
+                    <p>Прошлые продажи сохранят исходную отметку о неизвестной стоимости. Оценка будет записана сегодняшней датой.</p>
+                    <button type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить оценку")</button>
+                }
+                else { <p>Партия уже оценена: @layer.InitialValue?.ToString("N2") UZS.</p> }
+            </section>
+        </EditForm>
+    }
+    @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid ProductId { get; set; }
+    [Parameter] public Guid VariantId { get; set; }
+    [Parameter] public Guid LayerId { get; set; }
+    private Product? product;
+    private ProductVariant? variant;
+    private StockLayer? layer;
+    private sealed class Form { public decimal? Total { get; set; } }
+    private Form form = new();
+    private Guid operationId = Guid.NewGuid();
+    private UnsavedChangesGuard? guard;
+    private bool loading = true, saving;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true; error = null; layer = null; form = new(); operationId = Guid.NewGuid();
+        try
+        {
+            product = await Catalog.GetProductAsync(ProductId) ?? throw new InventoryException("Товар не найден.");
+            variant = product.Variants.SingleOrDefault(x => x.Id == VariantId) ?? throw new InventoryException("Вариант не найден.");
+            layer = variant.Layers.SingleOrDefault(x => x.Id == LayerId) ?? throw new InventoryException("Партия не найдена.");
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось загрузить партию."); }
+        finally { loading = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (saving || layer is null || form.Total is null) return;
+        saving = true; error = null;
+        try
+        {
+            await Service.ValueAsync(new(ProductId, VariantId, LayerId, operationId,
+                layer.ValuationRevision, layer.RemainingQuantity, form.Total.Value));
+            guard?.MarkClean();
+            Navigation.NavigateTo($"/products/{ProductId}");
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось сохранить оценку."); }
+        finally { saving = false; }
+    }
+}

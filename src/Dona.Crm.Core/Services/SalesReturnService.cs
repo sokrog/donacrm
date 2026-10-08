@@ -3,11 +3,14 @@ using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.Web.Services;
 
-public sealed class SalesReturnService(ICatalogRepository catalog, IInventoryStore store)
+public sealed class SalesReturnService(ICatalogRepository catalog, IInventoryStore store, ISalesRepository? sales = null)
 {
     public Task<SaleReturn> CreateAsync(Sale sale, SaleReturn document, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
+        if (sales is not null && await sales.GetSaleAsync(sale.Id, cancellationToken) is { } saved
+            && (saved.Status != sale.Status || !saved.Returns.Select(x => x.Id).SequenceEqual(sale.Returns.Select(x => x.Id))))
+            throw new InventoryException("Возвраты продажи уже изменились. Откройте продажу заново.");
         if (sale.Returns.FirstOrDefault(x => x.Id == document.Id) is { } existing) return existing;
         if (sale.Status != SaleStatus.Completed) throw new SaleTransitionException("Частичный возврат доступен только для завершённой продажи.");
         if (string.IsNullOrWhiteSpace(document.Reason)) throw new InvalidOperationException("Укажите причину возврата.");
@@ -44,11 +47,26 @@ public sealed class SalesReturnService(ICatalogRepository catalog, IInventorySto
             var line = entry.Line; var saleItem = entry.SaleItem;
             line.ProductId = saleItem.ProductId; line.ProductVariantId = saleItem.ProductVariantId; line.ProductName = saleItem.ProductName; line.Color = saleItem.Color; line.Size = saleItem.Size;
             if (line.Disposition == ReturnDisposition.Rejected) continue;
+            line.LayerAllocations = FifoCostCalculator.PreviewReturn(saleItem.Consumptions,
+                sale.Returns.SelectMany(x => x.Items).Where(x => x.SaleItemId == saleItem.Id && x.Disposition != ReturnDisposition.Rejected).SelectMany(x => x.LayerAllocations), line.Quantity!.Value).ToList();
             saleItem.ReturnedQuantity += line.Quantity!.Value;
             if (entry.Product is null || entry.Variant is null) continue;
             var product = entry.Product; var variant = entry.Variant;
-            variant.Quantity = (variant.Quantity ?? 0) + line.Quantity.Value;
+            var previousValues = variant.Layers.ToDictionary(x => x.Id, x => x.RemainingValue);
+            var restoredCost = StockLayerOperations.Restore(variant, saleItem.Consumptions, line.LayerAllocations);
+            foreach (var group in line.LayerAllocations.GroupBy(x => x.LayerId))
+            {
+                var layer = variant.Layers.Single(x => x.Id == group.Key);
+                var originalCost = group.Sum(x => x.OriginalCost ?? 0);
+                var restored = layer.RemainingValue - previousValues[layer.Id];
+                if (restored is not null && restored != originalCost)
+                    product.StockValuations.Add(new(Guid.NewGuid(), document.Id, document.CreatedAt,
+                        StockValuationReason.ReturnRevaluation, layer.Id, layer.PurchaseItemId, 0, layer.ValuationRevision,
+                        originalCost, restored, 0, originalCost - restored));
+            }
             movementRecords.Add(new StockMovement { Type = StockMovementType.Return, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = line.Quantity.Value, SourceType = "SaleReturn", SourceId = sale.Id, SourceNumber = sale.Number, Note = document.Reason.Trim() });
+            StockLayerOperations.SetValue(movementRecords[^1], restoredCost, 1);
+            movementRecords[^1].ReturnAllocations = line.LayerAllocations.ToList();
         }
 
         document.Reason = document.Reason.Trim();

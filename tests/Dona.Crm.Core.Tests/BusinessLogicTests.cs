@@ -170,8 +170,10 @@ public sealed class PurchaseReceivingServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AdjustAsync(request));
     }
 
-    private sealed class MemoryCatalog(Product product) : ICatalogRepository
+    private sealed class MemoryCatalog : ICatalogRepository
     {
+        private readonly Product product;
+        public MemoryCatalog(Product product) => this.product = FifoFixtures.OpeningBalance(product);
         public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>([product]);
         public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
         public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -453,6 +455,7 @@ public sealed class SalesInventoryServiceTests
         var variant = new ProductVariant { Quantity = 7 };
         var product = new Product { Name = "Футболка", Sku = "TS-R", Variants = [variant] };
         var item = new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Quantity = 3, SoldQuantity = 3, UnitPriceUzs = 100, UnitCostUzs = 40 };
+        FifoFixtures.CompletedSale(variant, item);
         var sale = new Sale { Number = "SALE-R", Status = SaleStatus.Completed, Items = [item] };
         var movements = new MemoryInventoryStore();
         var service = new SalesReturnService(new SalesMemoryCatalog(product), movements);
@@ -520,8 +523,10 @@ public sealed class SalesInventoryServiceTests
         Assert.Null(customer.Phone);
     }
 
-    private sealed class SalesMemoryCatalog(Product product) : ICatalogRepository
+    private sealed class SalesMemoryCatalog : ICatalogRepository
     {
+        private readonly Product product;
+        public SalesMemoryCatalog(Product product) => this.product = FifoFixtures.OpeningBalance(product);
         public Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>([product]);
         public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Product?>(id == product.Id ? product : null);
         public Task UpsertProductAsync(Product value, CancellationToken cancellationToken = default) => Task.CompletedTask;

@@ -17,7 +17,7 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     IInventoryStore,
     IBackupSnapshotStore
 {
-    private const string StorageKey = "dona.crm.browser.snapshot.v1";
+    private const string StorageKey = "dona.crm.browser.snapshot.v2";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly BrowserKeyValueStore store = new(javascript);
@@ -87,6 +87,7 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
 
     public Task CommitAsync(InventoryCommit commit, CancellationToken cancellationToken = default) => MutateAsync(snapshot =>
     {
+        commit.ValidateLayers();
         foreach (var product in commit.Products) Upsert(snapshot.Products, product, value => value.Id);
         foreach (var sale in commit.Sales) Upsert(snapshot.Sales, sale, value => value.Id);
         foreach (var purchase in commit.Purchases) Upsert(snapshot.Purchases, purchase, value => value.Id);
@@ -106,7 +107,12 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
         cancellationToken.ThrowIfCancellationRequested();
         await RequestPersistenceAsync();
         var json = await store.GetAsync(StorageKey, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(json)) return JsonSerializer.Deserialize<DonaSyncSnapshot>(json, JsonOptions) ?? CreateInitialSnapshot();
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            var loaded = JsonSerializer.Deserialize<DonaSyncSnapshot>(json, JsonOptions) ?? throw new InvalidDataException("Данные приложения повреждены.");
+            loaded.ValidateFormat();
+            return loaded;
+        }
         var initial = CreateInitialSnapshot();
         await SaveSnapshotAsync(initial, cancellationToken);
         return initial;
@@ -114,6 +120,7 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
 
     private async Task SaveSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken)
     {
+        snapshot.ValidateFormat();
         cancellationToken.ThrowIfCancellationRequested();
         await store.SetAsync(StorageKey, JsonSerializer.Serialize(snapshot, JsonOptions), cancellationToken);
     }

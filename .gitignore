@@ -7,13 +7,12 @@
 *.suo
 .vs/
 .codex-build/
-artifacts/devflow/
-artifacts/windows-release/
-artifacts/windows-release-installer/
-artifacts/windows-portable/
-artifacts/*.zip
 certs/
 src/Dona.Crm.App/appsettings.json
 src/Dona.Crm.App/appsettings.Development.json
 src/Dona.Crm.App/appsettings.Production.json
-artifacts/*.log
+
+# Generated previews, logs, exports and local release packages
+/artifacts/
+/design/dona-brandbook/preview*.png
+/design/dona-brandbook/editorial-v3.png

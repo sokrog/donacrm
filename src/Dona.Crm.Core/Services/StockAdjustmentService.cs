@@ -22,10 +22,18 @@ public sealed class StockAdjustmentService(
         var delta = request.NewQuantity.Value - (variant.Quantity ?? 0);
         if (delta == 0) throw new InvalidOperationException("Новый остаток совпадает с текущим.");
         if (request.Reason is StockAdjustmentReason.Damage or StockAdjustmentReason.Loss && delta > 0) throw new InvalidOperationException("Списание брака или потери не может увеличивать остаток.");
-        variant.Quantity = request.NewQuantity;
+        StockLayerOperations.PrepareEmpty(variant);
+        if (request.UnitCost < 0) throw new InvalidOperationException("Себестоимость не может быть отрицательной.");
+        var consumptions = delta < 0 ? FifoCostCalculator.Consume(variant, -delta).ToList() : [];
+        if (delta > 0) StockLayerOperations.Add(variant, delta, request.UnitCost * delta,
+            request.Reason == StockAdjustmentReason.OpeningBalance ? StockLayerSource.OpeningBalance : StockLayerSource.InventorySurplus,
+            DateTimeOffset.UtcNow, request.Reason.Value.Display());
         if (settings is not null && statuses is not null)
             product.Status = statuses.Calculate(product, await settings.GetAsync(cancellationToken));
         var movement = new StockMovement { Type = StockMovementType.Adjustment, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = delta, SourceType = "Adjustment", SourceNumber = request.Reason.Value.Display(), Note = request.Note.Trim() };
+        movement.Consumptions = consumptions;
+        StockLayerOperations.SetValue(movement, delta < 0 ? FifoCostCalculator.Cost(consumptions)
+            : new StockCostSummary(Math.Round((request.UnitCost ?? 0) * delta, 2, MidpointRounding.AwayFromZero), request.UnitCost is null ? delta : 0), Math.Sign(delta));
         await store.CommitAsync(InventoryCommit.Create(products: [product], movements: [movement]), cancellationToken);
         return movement;
     }

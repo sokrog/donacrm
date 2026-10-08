@@ -26,7 +26,8 @@ public interface IBackupArchiveFileService
 
 public sealed class BackupSnapshot
 {
-    public int SchemaVersion { get; init; } = 1;
+    [System.Text.Json.Serialization.JsonRequired]
+    public int SchemaVersion { get; init; } = DonaSyncSnapshot.CurrentSchemaVersion;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public IReadOnlyList<Product> Products { get; init; } = [];
     public CommerceData Commerce { get; init; } = new();
@@ -41,6 +42,7 @@ public static class BackupSnapshotMapper
 {
     public static BackupSnapshot FromSyncSnapshot(DonaSyncSnapshot snapshot) => new()
     {
+        SchemaVersion = snapshot.SchemaVersion,
         Products = snapshot.Products,
         Commerce = new CommerceData
         {
@@ -58,6 +60,7 @@ public static class BackupSnapshotMapper
 
     public static DonaSyncSnapshot ToSyncSnapshot(BackupSnapshot snapshot) => new()
     {
+        SchemaVersion = snapshot.SchemaVersion,
         Products = snapshot.Products.ToList(),
         Suppliers = snapshot.Commerce.Suppliers.ToList(),
         Intermediaries = snapshot.Commerce.Intermediaries.ToList(),
@@ -217,7 +220,8 @@ public static class BackupArchiveCodec
             using var json = data.Open();
             var snapshot = JsonSerializer.Deserialize<BackupSnapshot>(json, ReadOptions)
                 ?? throw new InvalidOperationException("Файл данных пуст или повреждён.");
-            if (snapshot.SchemaVersion != 1) throw new InvalidOperationException($"Версия схемы {snapshot.SchemaVersion} не поддерживается.");
+            if (snapshot.SchemaVersion != DonaSyncSnapshot.CurrentSchemaVersion) throw new InvalidOperationException($"Версия схемы {snapshot.SchemaVersion} не поддерживается.");
+            BackupSnapshotMapper.ToSyncSnapshot(snapshot).ValidateFormat();
 
             var images = archive.Entries
                 .Where(x => x.FullName.StartsWith("images/", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(x.Name))

@@ -34,6 +34,10 @@
     }
     else
     {
+        @if (inventory.UnvaluedQuantity > 0 || report.HasUnknownCost)
+        {
+            <p class="dona-message" role="status">Часть себестоимости неизвестна. Суммы включают только известные расходы; прибыль предварительная. На складе без оценки: @inventory.UnvaluedQuantity ед.</p>
+        }
         @if (errorMessage is not null)
         {
             <div class="dona-state dona-state--error" role="alert">@errorMessage</div>
@@ -51,6 +55,16 @@
                 <label class="dona-field">По дату<OrbitDatePicker @bind-Value="to" ValueChangedAfter="_ => Rebuild()" /></label>
             </div>
         </details>
+        @if (report.Expenses.Count > 0)
+        {
+            <details class="dona-section">
+                <summary>Потери и доначисления периода · @Money(report.PeriodExpensesUzs)</summary>
+                @foreach (var expense in report.Expenses)
+                {
+                    <p>@expense.At.ToLocalTime().ToString("dd.MM.yyyy") · @expense.Source · @expense.Reason · @(expense.Amount is null ? "Стоимость неизвестна" : Money(expense.Amount.Value))</p>
+                }
+            </details>
+        }
         <section class="dona-kpis dona-kpis--4 sales-overview">
             <article class="dona-kpi"><span>Выручка</span><strong>@Money(report.RevenueUzs)</strong><small>@CurrencyLabel</small></article>
             <article class="dona-kpi"><span>Прибыль</span><strong class="@(report.ProfitUzs < 0 ? "negative" : null)">@Money(report.ProfitUzs)</strong><small>маржа @report.MarginPercent.ToString("N1")%</small></article>
@@ -99,7 +113,7 @@
                     {
                         <li>
                             <span><strong>@row.ProductName</strong><small>@Variant(row)</small></span>
-                            <b>@(row.IsStale ? $"{row.InactiveDays} дн. без движения" : $"Осталось {row.AvailableQuantity}")</b>
+                            <b>@(row.IsStale ? row.OldestLayerAgeDays is { } age ? $"Старейшая партия: {age} дн." : $"{row.InactiveDays} дн. без движения" : $"Осталось {row.AvailableQuantity}")</b>
                         </li>
                     }
                 </ul>
@@ -256,8 +270,8 @@
     {
         try
         {
-            report = AnalyticsService.Build(sales, products, from, to);
-            profit = ProfitService.Build(sales, products, purchases, marketing, from, to);
+            report = AnalyticsService.Build(sales, products, from, to, purchases, movements);
+            profit = ProfitService.Build(sales, products, purchases, marketing, from, to, movements);
             inventory = InventoryService.Build(products, sales, movements, settings);
             errorMessage = null;
         }

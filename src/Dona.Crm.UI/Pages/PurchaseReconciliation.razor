@@ -1,0 +1,80 @@
+@page "/purchases/{Id:guid}/reconciliation"
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@using Dona.Crm.Web.Storage
+@inject ICommerceRepository Commerce
+@inject ICatalogRepository Catalog
+@inject ISalesRepository Sales
+@inject IStockMovementRepository Movements
+
+<PageTitle>Сверка закупки — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form" aria-busy="@loading">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
+        <div><p>Закупка @purchase?.Number</p><h1>Сверка партий</h1></div>
+    </header>
+    <div class="dona-stack">
+
+    @if (loading) { <p role="status">Собираем проведённые операции…</p> }
+    else if (error is not null) { <p role="alert">@error</p> }
+    else if (report is not null)
+    {
+        <p class="dona-note">По сохранённым данным на @loadedAt.ToString("dd.MM.yyyy HH:mm"). Несохранённые изменения закупки не учитываются.</p>
+        <div><button type="button" class="dona-btn dona-btn--secondary" @onclick="LoadAsync">Обновить сверку</button></div>
+        @if (report.Layers.Count == 0) { <p>Приходов годного товара по этой закупке пока нет.</p> }
+        @foreach (var row in report.Layers)
+        {
+            <section class="dona-section dona-section--document">
+                <h2>@row.Product · @row.Variant</h2>
+                <p>Приход @(row.ReceivedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "без даты") · принято годных: @row.Received ед.</p>
+                <p>Продано: @row.Sold · возвращено на склад: @row.Restocked · возвращено с браком: @row.DefectiveReturns · прочие списания: @row.WrittenOff.</p>
+                <p>Чистые продажи: @row.NetSold ед. Остаток: <strong>@row.Remaining ед.</strong></p>
+                <p>Сверка количества: @row.Received − @row.Sold + @row.Restocked − @row.WrittenOff = @(row.Received - row.Sold + row.Restocked - row.WrittenOff).</p>
+                @if (row.QuantityDifference != 0) { <p role="alert">Расхождение с остатком: @row.QuantityDifference ед.</p> }
+                <p>Текущая оценка всего прихода: @Money(row.CurrentReceiptValue). Остаток: @Money(row.RemainingValue).</p>
+                <p>Выручка за вычетом распределённых возвратов: @Money(row.Revenue). Себестоимость продаж за вычетом возвратов на склад: @Money(row.KnownNetCost). Списания и доначисления: @Money(row.KnownExpenses).</p>
+                @if (row.UnknownCost) { <p>Есть операции с неизвестной стоимостью. Денежные итоги выше включают только известные суммы; точная прибыль и сверка стоимости пока недоступны.</p> }
+                @if (row.ApproximateRevenue) { <p>Есть возврат денег без распределения по партиям. Выручка неполная, точная прибыль партии недоступна.</p> }
+                @if (row.ValueDifference is { } difference)
+                {
+                    <p>Расхождение стоимости (приход − остаток − себестоимость продаж − расходы): @Money(difference).</p>
+                }
+                @if (row.Profit is { } profit) { <p><strong>Прибыль партии: @Money(profit)</strong></p> }
+            </section>
+        }
+        <section class="dona-section dona-section--document">
+            <h2>Ожидается по закупке</h2>
+            @if (report.Pending.Count == 0) { <p>Ожидаемых поступлений нет.</p> }
+            @foreach (var row in report.Pending) { <p>@row.Product: @row.Quantity ед. · @Money(row.Value)</p> }
+            <p>Полный брак при приёмке и недостача за вычетом компенсаций: @Money(report.KnownUnlayeredLoss) @(report.UnknownUnlayeredLoss ? "(есть неизвестные суммы)" : ""). Эти потери не входят в стоимость физических партий выше.</p>
+        </section>
+    }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Purchase? purchase;
+    private PurchaseLayerReport? report;
+    private bool loading;
+    private string? error;
+    private DateTime loadedAt;
+    protected override Task OnParametersSetAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        loading = true; error = null;
+        try
+        {
+            using var gate = await InventoryLock.AcquireAsync();
+            purchase = await Commerce.GetPurchaseAsync(Id) ?? throw new InventoryException("Закупка не найдена.");
+            var products = await Catalog.GetProductsAsync();
+            var sales = await Sales.GetSalesAsync();
+            var movements = await Movements.GetAsync();
+            report = PurchaseLayerReport.Build(purchase, products, sales, movements);
+            loadedAt = DateTime.Now;
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось построить сверку."); }
+        finally { loading = false; }
+    }
+    private static string Money(decimal? value) => value is { } amount ? $"{amount:N2} UZS" : "стоимость неизвестна";
+}

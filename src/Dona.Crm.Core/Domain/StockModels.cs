@@ -23,6 +23,12 @@ public sealed class StockMovement
     public string Size { get; set; } = string.Empty;
     public int QuantityDelta { get; set; }
     public int ReservedDelta { get; set; }
+    public List<LayerConsumption> Consumptions { get; set; } = [];
+    public List<LayerReturnAllocation> ReturnAllocations { get; set; } = [];
+    // Legacy movements have no valuation. Zero must be assigned explicitly for reservations.
+    public decimal? ValueDelta { get; set; }
+    public decimal KnownValueDelta { get; set; }
+    public int UnvaluedQuantity { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public Guid? SourceId { get; set; }
     public string SourceNumber { get; set; } = string.Empty;

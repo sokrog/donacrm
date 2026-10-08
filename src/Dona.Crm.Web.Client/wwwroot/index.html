@@ -20,7 +20,23 @@
     <script src="_content/Dona.Crm.UI/orbit-modal.js"></script>
     <script src="_content/Dona.Crm.UI/orbit-navigation.js"></script>
     <script src="browser-interop.js"></script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script>
+        // Local rebuilds can replace boot resources while a preview tab stays open.
+        // Refresh only application resources; never clear the user's local data.
+        const localPreview = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+        const previewVersion = Date.now();
+        Blazor.start(localPreview ? {
+            loadBootResource(type, name, defaultUri, integrity) {
+                if (type === 'dotnetjs') {
+                    const url = new URL(defaultUri, document.baseURI);
+                    url.searchParams.set('preview', previewVersion);
+                    return url.href;
+                }
+                return fetch(defaultUri, { cache: 'reload', integrity });
+            }
+        } : {});
+    </script>
     <script>navigator.serviceWorker?.register('service-worker.js');</script>
 </body>
 </html>

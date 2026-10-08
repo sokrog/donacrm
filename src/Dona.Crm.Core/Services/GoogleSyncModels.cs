@@ -8,6 +8,17 @@ namespace Dona.Crm.Web.Services;
 
 public sealed class DonaSyncSnapshot
 {
+    public const int CurrentSchemaVersion = 2;
+    [System.Text.Json.Serialization.JsonRequired]
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+
+    public void ValidateFormat()
+    {
+        if (SchemaVersion != CurrentSchemaVersion)
+            throw new InvalidDataException($"Версия данных {SchemaVersion} не поддерживается. Требуется формат FIFO {CurrentSchemaVersion}.");
+        foreach (var variant in Products.SelectMany(x => x.Variants).Where(x => x.StockLayerVersion != 0 || x.Layers.Count > 0))
+            FifoCostCalculator.Validate(variant);
+    }
     public List<Product> Products { get; set; } = [];
     public List<Supplier> Suppliers { get; set; } = [];
     public List<Intermediary> Intermediaries { get; set; } = [];
@@ -125,6 +136,7 @@ public static class DonaSyncFingerprint
     {
         var normalized = new DonaSyncSnapshot
         {
+            SchemaVersion = snapshot.SchemaVersion,
             Products = snapshot.Products.OrderBy(value => value.Id).ToList(),
             Suppliers = snapshot.Suppliers.OrderBy(value => value.Id).ToList(),
             Intermediaries = snapshot.Intermediaries.OrderBy(value => value.Id).ToList(),

@@ -36,6 +36,7 @@ public sealed class Sale : IValidatableObject
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<SaleItem> Items { get; set; } = [];
+    public DateTimeOffset? CompletedAt { get; set; }
     public List<SaleReturn> Returns { get; set; } = [];
     public List<SalePayment> Payments { get; set; } = [];
     public decimal SubtotalUzs => Items.Sum(x => (x.UnitPriceUzs ?? 0) * (x.Quantity ?? 0));
@@ -48,7 +49,13 @@ public sealed class Sale : IValidatableObject
     public decimal BalanceDueUzs => Math.Max(0, NetTotalUzs - PaidUzs);
     public decimal RefundDueUzs => Math.Max(0, RefundedUzs - ReturnedPaymentsUzs);
     public int RestockedQuantity(Guid saleItemId) => Returns.SelectMany(x => x.Items).Where(x => x.SaleItemId == saleItemId && x.Disposition == ReturnDisposition.Restock).Sum(x => x.Quantity ?? 0);
-    public decimal CostUzs => Items.Sum(x => (x.UnitCostUzs ?? 0) * Math.Max(0, x.SoldQuantity - RestockedQuantity(x.Id)));
+    public decimal ItemCostUzs(SaleItem item) => item.Consumptions.Count == 0
+        ? (item.UnitCostUzs ?? 0) * Math.Max(0, item.SoldQuantity - RestockedQuantity(item.Id))
+        : item.Consumptions.Sum(x => x.TotalCost ?? 0) - Returns.SelectMany(x => x.Items)
+            .Where(x => x.SaleItemId == item.Id && x.Disposition == ReturnDisposition.Restock)
+            .SelectMany(x => x.LayerAllocations).Sum(x => x.OriginalCost ?? 0);
+    public decimal CostUzs => Items.Sum(ItemCostUzs);
+    public bool HasUnknownCost => Items.Any(x => x.Consumptions.Any(c => c.TotalCost is null));
     public decimal ProfitUzs => NetTotalUzs - CostUzs;
     public int TotalQuantity => Items.Sum(x => x.Quantity ?? 0);
 
@@ -98,6 +105,7 @@ public sealed class SaleReturnItem
     public string Size { get; set; } = string.Empty;
     [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
     public ReturnDisposition? Disposition { get; set; }
+    public List<LayerReturnAllocation> LayerAllocations { get; set; } = [];
 }
 
 public sealed class SaleItem
@@ -111,6 +119,7 @@ public sealed class SaleItem
     [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
     [Range(0, 1_000_000_000, ErrorMessage = "Цена должна быть от 0 до 1 000 000 000")] public decimal? UnitPriceUzs { get; set; }
     public decimal? UnitCostUzs { get; set; }
+    public List<LayerConsumption> Consumptions { get; set; } = [];
     public int ReservedQuantity { get; set; }
     public int SoldQuantity { get; set; }
     public int ReturnedQuantity { get; set; }

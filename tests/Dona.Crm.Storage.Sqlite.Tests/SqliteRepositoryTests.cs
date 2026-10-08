@@ -30,6 +30,303 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Partial_late_receipt_keeps_remaining_shortage_and_compensation_balanced()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        var product = new Product { Name = "Товар", Sku = "LATE-PART" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P-LATE-PART", CurrencyCode = "UZS",
+            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 6, 0)]);
+        await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 100)], Guid.NewGuid());
+        var settlement = Assert.Single(purchase.ShortageSettlements);
+        await service.ReceiveLateAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 4, 2, 0, "Часть недостачи найдена");
+        var saved = (await commerce.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(2, saved.UnresolvedShortage(settlement));
+        Assert.Equal(100m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        saved.Expenses.Add(new() { Name = "Доставка", Amount = 100 });
+        await service.SaveAsync(saved);
+        Assert.Equal(120m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        Assert.Equal(880m, FifoCostCalculator.Value((await catalog.GetProductAsync(product.Id))!.Variants[0]).TotalValue);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReceiveLateAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 4, 1, 0, "Устаревшая форма"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Late_receipt_reverses_shortage_and_survives_revaluation(int defects)
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        var product = new Product { Name = "Товар", Sku = "LATE" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P-LATE", CurrencyCode = "UZS",
+            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
+        await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], Guid.NewGuid());
+        var settlement = Assert.Single(purchase.ShortageSettlements);
+        var operation = Guid.NewGuid();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReceiveLateAsync(purchase.Id, settlement.Id, operation, 2, 2, defects, "Нашли посылку"));
+        Assert.Empty((await commerce.GetPurchaseAsync(purchase.Id))!.LateReceipts);
+        await service.CorrectCompensationAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 120, 0, "Компенсация возвращена");
+        var result = await service.ReceiveLateAsync(purchase.Id, settlement.Id, operation, 2, 2, defects, "Нашли посылку");
+        Assert.Equal(result, await service.ReceiveLateAsync(purchase.Id, settlement.Id, operation, 2, 2, defects, "Нашли посылку"));
+        var saved = (await commerce.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(settlement, Assert.Single(saved.ShortageSettlements));
+        Assert.Equal(purchase.ClosedAt, saved.ClosedAt);
+        Assert.Single(saved.LateReceipts);
+        Assert.Equal(0, saved.UnresolvedShortage(settlement));
+        Assert.Equal(10, saved.Items[0].ReceivedQuantity);
+        Assert.Equal(PurchaseStatus.Received, saved.Status);
+        var variant = (await catalog.GetProductAsync(product.Id))!.Variants[0];
+        Assert.Equal(10 - defects, variant.Quantity);
+        Assert.Equal(defects == 2 ? 200m : 0m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        saved.Expenses.Add(new() { Name = "Поздний расход", Amount = 100 });
+        await service.SaveAsync(saved);
+        await service.SaveAsync(saved);
+        variant = (await catalog.GetProductAsync(product.Id))!.Variants[0];
+        Assert.Equal(defects == 2 ? 880m : 1100m, FifoCostCalculator.Value(variant).TotalValue);
+        Assert.Equal(defects == 2 ? 220m : 0m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        Assert.Equal(1100m, FifoCostCalculator.Value(variant).TotalValue + saved.StockValuations.Sum(x => x.ExpenseDelta));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReceiveLateAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 0, 1, 0, "Лишнее"));
+    }
+
+    [Fact]
+    public async Task Closed_purchase_compensation_correction_is_dated_idempotent_and_preserves_settlement()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        var product = new Product { Name = "Товар", Sku = "REFUND" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P-REFUND", CurrencyCode = "UZS",
+            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
+        await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], Guid.NewGuid());
+        var settlement = Assert.Single(purchase.ShortageSettlements);
+        var oldDay = DateTimeOffset.Now.AddMonths(-1);
+        purchase.StockValuations[0] = purchase.StockValuations[0] with { RecognizedAt = oldDay };
+        await commerce.UpsertPurchaseAsync(purchase);
+        var operation = Guid.NewGuid();
+        var correction = await service.CorrectCompensationAsync(purchase.Id, settlement.Id, operation, 120, 170, "Доплата поставщика");
+        Assert.Equal(correction, await service.CorrectCompensationAsync(purchase.Id, settlement.Id, operation, 120, 170, "Доплата поставщика"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CorrectCompensationAsync(purchase.Id, settlement.Id, operation, 120, 180, "Доплата поставщика"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CorrectCompensationAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 120, 180, "Устаревшая форма"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CorrectCompensationAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 170, 201, "Слишком много"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(purchase));
+        var saved = (await commerce.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(settlement, Assert.Single(saved.ShortageSettlements));
+        Assert.Single(saved.CompensationCorrections);
+        Assert.Equal(170m, saved.CurrentRefund(settlement));
+        Assert.Equal(30m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        var analytics = new AnalyticsService();
+        Assert.Equal(80m, analytics.Build([], [], oldDay.Date, oldDay.Date, [saved]).PeriodExpensesUzs);
+        Assert.Equal(-50m, analytics.Build([], [], DateTime.Today, DateTime.Today, [saved]).PeriodExpensesUzs);
+        // A later expense must adjust only shortage cost, without charging the compensation twice.
+        saved.Expenses.Add(new() { Name = "Поздний расход", Amount = 100 });
+        await service.SaveAsync(saved);
+        Assert.Equal(50m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        await service.CorrectCompensationAsync(purchase.Id, settlement.Id, Guid.NewGuid(), 170, 150, "Исправление суммы");
+        saved = (await commerce.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(70m, saved.StockValuations.Sum(x => x.ExpenseDelta));
+        Assert.Equal(150m, saved.CurrentRefund(settlement));
+        Assert.Equal(1100m, 880m + saved.CurrentRefund(settlement) + saved.StockValuations.Sum(x => x.ExpenseDelta));
+        saved.Items[0].UnitPriceCny = 1;
+        saved.Expenses.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(saved));
+        Assert.Equal(100m, (await commerce.GetPurchaseAsync(purchase.Id))!.Items[0].UnitPriceCny);
+    }
+
+    [Fact]
+    public async Task Initial_layer_valuation_survives_restart_and_replay()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var product = CreateProduct(quantity: 0);
+        var variant = product.Variants[0];
+        var layer = StockLayerOperations.Add(variant, 3, null, StockLayerSource.InventorySurplus, DateTimeOffset.UtcNow, "Излишек");
+        FifoCostCalculator.Consume(variant, 1);
+        await catalog.UpsertProductAsync(product);
+        var request = new InitialStockValuationRequest(product.Id, variant.Id, layer.Id, Guid.NewGuid(), 0, 2, 10);
+        var value = await new StockValuationService(catalog, new SqliteInventoryStore(store!)).ValueAsync(request);
+        await store!.DisposeAsync();
+        store = new SqliteAggregateStore(new SqliteStoreOptions(DatabasePath));
+        catalog = new SqliteCatalogRepository(store);
+        Assert.Equal(value, await new StockValuationService(catalog, new SqliteInventoryStore(store)).ValueAsync(request));
+        var saved = (await catalog.GetProductAsync(product.Id))!;
+        Assert.Single(saved.StockValuations);
+        Assert.Equal(6.67m, saved.Variants[0].Layers[0].RemainingValue);
+        Assert.Equal(3.33m, saved.StockValuations[0].ExpenseDelta);
+    }
+
+    [Fact]
+    public async Task Shortage_closure_partial_refund_late_expense_and_replay_reconcile()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var product = new Product { Name = "Товар", Sku = "SHORT" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P-SHORT", CurrencyCode = "UZS",
+            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
+        var operation = Guid.NewGuid();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CloseAsync(purchase, [new(purchase.Items[0].Id, 201)], operation));
+        Assert.Null(purchase.ClosedAt);
+        Assert.Empty(purchase.ShortageSettlements);
+        Assert.Empty(purchase.StockValuations);
+        await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], operation);
+        await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], operation);
+        var settlement = Assert.Single(purchase.ShortageSettlements);
+        Assert.Equal(200m, settlement.AllocatedCost);
+        Assert.Equal(80m, settlement.Loss);
+        Assert.Equal(80m, Assert.Single(purchase.StockValuations).ExpenseDelta);
+        Assert.NotNull((await commerce.GetPurchaseAsync(purchase.Id))!.ClosedAt);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 2, 0)]));
+        purchase.Expenses.Add(new() { Name = "Поздний расход", Amount = 100 });
+        await service.SaveAsync(purchase);
+        await service.SaveAsync(purchase);
+        Assert.Equal(100m, purchase.StockValuations.Where(x => x.Reason == StockValuationReason.Shortage).Sum(x => x.ExpenseDelta));
+        var remaining = FifoCostCalculator.Value((await catalog.GetProductAsync(product.Id))!.Variants.Single());
+        Assert.Equal(880m, remaining.TotalValue);
+        Assert.Equal(1100m, remaining.TotalValue + settlement.SupplierRefund + purchase.StockValuations.Sum(x => x.ExpenseDelta));
+    }
+
+    [Fact]
+    public async Task Complete_defect_late_cost_remains_a_loss_without_stock_layer()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var product = new Product { Name = "Брак", Sku = "DEFECT" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P-DEF", CurrencyCode = "UZS",
+            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
+        await service.SaveAsync(purchase);
+        await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 10, 10)]);
+        purchase.Expenses.Add(new() { Name = "Доставка", Amount = 200 });
+        await service.SaveAsync(purchase);
+        await service.SaveAsync(purchase);
+        Assert.Equal(1200m, purchase.StockValuations.Sum(x => x.ExpenseDelta));
+        Assert.Equal(2, purchase.StockValuations.Count);
+        Assert.Empty((await catalog.GetProductAsync(product.Id))!.Variants.Single().Layers);
+    }
+
+    [Fact]
+    public async Task Late_cost_revalues_stock_and_return_reverses_sold_adjustment()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var commerce = new SqliteCommerceRepository(store!);
+        var inventoryStore = new SqliteInventoryStore(store!);
+        var product = new Product { Name = "FIFO", Sku = "REVALUE" };
+        await catalog.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "P", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        var receiving = new PurchaseReceivingService(catalog, inventoryStore, commerce);
+        await receiving.SaveAsync(purchase);
+        await receiving.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 10, 0)]);
+        var variant = (await catalog.GetProductAsync(product.Id))!.Variants.Single();
+        var sale = new Sale { Number = "S", Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 6, UnitPriceUzs = 250 }] };
+        var saleRepository = new SqliteSalesRepository(store!);
+        var selling = new SalesInventoryService(catalog, inventoryStore, sales: saleRepository);
+        await selling.ReserveAsync(sale);
+        var staleSale = (await saleRepository.GetSaleAsync(sale.Id))!;
+        await selling.CompleteAsync(sale);
+        await Assert.ThrowsAsync<InventoryException>(() => selling.CompleteAsync(staleSale));
+        purchase.Expenses.Add(new() { Name = "Доставка", Amount = 200 });
+        await receiving.SaveAsync(purchase);
+        await receiving.SaveAsync(purchase);
+        var valuation = Assert.Single(purchase.StockValuations);
+        Assert.Equal(80m, valuation.InventoryValueDelta);
+        Assert.Equal(120m, valuation.ExpenseDelta);
+        Assert.Equal(600m, sale.CostUzs);
+        await new SalesReturnService(catalog, inventoryStore, saleRepository).CreateAsync(sale, new()
+        {
+            Reason = "Размер", RefundAmountUzs = 250,
+            Items = [new() { SaleItemId = sale.Items[0].Id, Quantity = 1, Disposition = ReturnDisposition.Restock }]
+        });
+        var actual = (await catalog.GetProductAsync(product.Id))!;
+        Assert.Equal(600m, FifoCostCalculator.Value(actual.Variants.Single()).TotalValue);
+        Assert.Equal(-20m, Assert.Single(actual.StockValuations).ExpenseDelta);
+        Assert.Equal(500m, sale.CostUzs);
+        var resale = new Sale { Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 1, UnitPriceUzs = 250 }] };
+        await selling.ReserveAsync(resale);
+        await selling.CompleteAsync(resale);
+        Assert.Equal(120m, resale.CostUzs);
+    }
+
+    [Fact]
+    public async Task Clean_start_and_opening_balance_preserve_quantity_value_and_single_movement_after_restart()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        Assert.Empty(await catalog.GetProductsAsync());
+        var service = new ProductEditingService(catalog, new SqliteSalesRepository(store!), new SqliteCommerceRepository(store!),
+            new SqliteBusinessSettingsRepository(store!), new ProductStatusService(), new SqliteInventoryStore(store!));
+        var product = new Product { Sku = "OPEN", Name = "Товар", PurchaseCurrencyCode = "UZS", PurchasePriceCny = 100,
+            Variants = [new() { Color = "Белый", Quantity = 2 }, new() { Color = "Чёрный", Quantity = 0 }] };
+        var saved = await service.SaveAsync(product);
+        await service.SaveAsync(saved);
+        await store!.CloseAsync();
+        saved = (await catalog.GetProductAsync(product.Id))!;
+        Assert.All(saved.Variants, x => Assert.Equal(FifoCostCalculator.CurrentVersion, x.StockLayerVersion));
+        Assert.Single(saved.Variants[0].Layers);
+        Assert.Empty(saved.Variants[1].Layers);
+        Assert.Equal(200m, FifoCostCalculator.Value(saved.Variants[0]).TotalValue);
+        var movement = Assert.Single(await new SqliteStockMovementRepository(store).GetAsync());
+        Assert.Equal(2, movement.QuantityDelta);
+        Assert.Equal(200m, movement.ValueDelta);
+        Assert.Equal(0, movement.UnvaluedQuantity);
+    }
+
+    [Fact]
+    public async Task Concurrent_completion_of_two_snapshots_consumes_only_once()
+    {
+        var catalog = new SqliteCatalogRepository(store!);
+        var sales = new SqliteSalesRepository(store!);
+        var product = CreateProduct(quantity: 5);
+        await catalog.UpsertProductAsync(product);
+        var service = new SalesInventoryService(catalog, new SqliteInventoryStore(store!), sales: sales);
+        var sale = new Sale { Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, Quantity = 3, UnitPriceUzs = 100 }] };
+        await service.ReserveAsync(sale);
+        var other = (await sales.GetSaleAsync(sale.Id))!;
+        async Task<bool> Complete(Sale document)
+        {
+            try { await service.CompleteAsync(document); return true; }
+            catch (InventoryException) { return false; }
+        }
+        var results = await Task.WhenAll(Complete(sale), Complete(other));
+        Assert.Single(results, x => x);
+        var actual = (await catalog.GetProductAsync(product.Id))!.Variants[0];
+        Assert.Equal(2, actual.Quantity);
+        Assert.Equal(0, actual.ReservedQuantity);
+        Assert.Equal(3, (await sales.GetSaleAsync(sale.Id))!.Items[0].Consumptions.Sum(x => x.Quantity));
+    }
+
+    [Fact]
+    public async Task Fifo_layers_and_consumptions_survive_atomic_commit_and_reopen()
+    {
+        var layer = new StockLayer { InitialQuantity = 3, RemainingQuantity = 3, InitialValue = 100, RemainingValue = 100 };
+        var variant = new ProductVariant { Quantity = 3, StockLayerVersion = 1, Layers = [layer] };
+        var product = new Product { Name = "FIFO", Variants = [variant] };
+        var issued = FifoCostCalculator.Consume(variant, 2);
+        var sale = new Sale { Items = [new() { Consumptions = issued.ToList() }] };
+        await new SqliteInventoryStore(store!).CommitAsync(InventoryCommit.Create(products: [product], sales: [sale]));
+        await store!.CloseAsync();
+
+        var actual = (await new SqliteCatalogRepository(store).GetProductAsync(product.Id))!.Variants[0];
+        FifoCostCalculator.Validate(actual);
+        Assert.Equal(33.33m, FifoCostCalculator.Value(actual).TotalValue);
+        Assert.Equal(layer.Id, Assert.Single(actual.Layers).Id);
+        Assert.Equal(issued[0], (await new SqliteSalesRepository(store).GetSaleAsync(sale.Id))!.Items[0].Consumptions[0]);
+    }
+
+    [Fact]
     public async Task Catalog_starts_empty_and_preserves_nested_product_data()
     {
         var repository = new SqliteCatalogRepository(store!);
@@ -620,6 +917,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Name = "Тестовый товар",
         Status = status,
         SellingPriceUzs = 100_000,
-        Variants = [new ProductVariant { Color = "Чёрный", Size = "M", Quantity = quantity }]
+        Variants = [new ProductVariant { Color = "Чёрный", Size = "M", Quantity = quantity, StockLayerVersion = 1,
+            Layers = quantity == 0 ? [] : [new() { Source = StockLayerSource.OpeningBalance, InitialQuantity = quantity, RemainingQuantity = quantity, InitialValue = 0, RemainingValue = 0 }] }]
     };
 }

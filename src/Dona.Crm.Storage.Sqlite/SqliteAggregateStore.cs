@@ -166,6 +166,7 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
     public async Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        snapshot.ValidateFormat();
         cancellationToken.ThrowIfCancellationRequested();
         var replacements = new Dictionary<string, List<AggregateRecord>>
         {

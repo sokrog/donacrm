@@ -27,6 +27,7 @@ public sealed class Product : IValidatableObject
     [Range(0, 1_000_000_000)] public decimal? SellingPriceUzs { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public List<ProductVariant> Variants { get; set; } = [];
+    public List<StockValuationEvent> StockValuations { get; set; } = [];
     public List<ProductImage> Images { get; set; } = [];
     public ProductImage? PrimaryImage => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault();
     public string? PrimaryImageUrl => PrimaryImage?.Url ?? ImageUrl;
@@ -61,6 +62,9 @@ public sealed class ProductVariant
     public string Size { get; set; } = string.Empty;
     [Range(0, 100_000, ErrorMessage = "Количество должно быть от 0 до 100 000")] public int? Quantity { get; set; }
     public int ReservedQuantity { get; set; }
+    // Zero is legacy stock. The migration must explicitly assign a supported version.
+    public int StockLayerVersion { get; set; }
+    public List<StockLayer> Layers { get; set; } = [];
     public int AvailableQuantity => Math.Max(0, (Quantity ?? 0) - ReservedQuantity);
 }
 

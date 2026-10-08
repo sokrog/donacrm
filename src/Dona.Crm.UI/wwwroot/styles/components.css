@@ -539,7 +539,7 @@ button.dona-list-row {
     text-align: left;
 }
 
-.dona-list-row > span, .dona-list-row strong, .dona-list-row small { display: block; min-width: 0; }
+.dona-list-row > span:not(.dona-icon-tile), .dona-list-row strong, .dona-list-row small { display: block; min-width: 0; }
 .dona-list-row strong { font-size: var(--dona-type-body-sm); }
 .dona-list-row small { margin-top: var(--dona-space-1); color: var(--dona-muted); font-size: var(--dona-type-caption); }
 .dona-list-row b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }
@@ -578,12 +578,12 @@ button.dona-list-row {
     color: var(--dona-brand);
 }
 
-.dona-icon-tile svg { width: 21px; }
+.dona-icon-tile svg { display: block; width: 21px; height: 21px; }
 .dona-icon-tile img { width: 100%; height: 100%; object-fit: cover; }
 
 .dona-icon-tile--sm { width: 44px; height: 44px; }
 .dona-icon-tile--lg { width: 56px; height: 56px; }
-.dona-icon-tile--lg svg { width: 24px; }
+.dona-icon-tile--lg svg { width: 24px; height: 24px; }
 
 .dona-icon-tile--success { background: rgba(var(--dona-success-rgb), .09); color: var(--dona-success); }
 .dona-icon-tile--danger { background: rgba(var(--dona-danger-rgb), .1); color: var(--dona-danger); }
@@ -809,3 +809,7 @@ button.dona-list-row {
     background: var(--dona-surface);
     color: var(--dona-text);
 }
+
+/* Document paragraphs use the section gap instead of browser paragraph margins. */
+.dona-section--document > p { margin: 0; overflow-wrap: anywhere; }
+.dona-section--document > h2 { overflow-wrap: anywhere; }

@@ -49,6 +49,7 @@ builder.Services.AddSingleton(new AppPlatformProfile(
 builder.Services.AddScoped<HomeDashboardService>();
 builder.Services.AddScoped<ProductStatusService>();
 builder.Services.AddScoped<StockAdjustmentService>();
+builder.Services.AddScoped<StockValuationService>();
 builder.Services.AddScoped<SalesInventoryService>();
 builder.Services.AddScoped<SalesPaymentService>();
 builder.Services.AddScoped<SalesReturnService>();

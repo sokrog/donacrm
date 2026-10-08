@@ -2,6 +2,7 @@ namespace Dona.Crm.Web.Domain;
 
 public sealed class InventoryAnalyticsReport
 {
+    public int UnvaluedQuantity { get; set; }
     public int PhysicalUnits { get; set; }
     public int ReservedUnits { get; set; }
     public int AvailableUnits { get; set; }
@@ -15,6 +16,9 @@ public sealed class InventoryAnalyticsReport
 
 public sealed class InventoryAnalyticsRow
 {
+    public decimal StaleCostUzs { get; set; }
+    public int? OldestLayerAgeDays { get; set; }
+    public int UnvaluedQuantity { get; set; }
     public Guid ProductId { get; set; }
     public Guid ProductVariantId { get; set; }
     public string ProductName { get; set; } = string.Empty;

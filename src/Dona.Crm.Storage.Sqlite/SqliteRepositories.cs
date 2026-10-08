@@ -72,6 +72,7 @@ public sealed class SqliteInventoryStore(SqliteAggregateStore store) : IInventor
     public Task CommitAsync(InventoryCommit commit, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(commit);
+        commit.ValidateLayers();
         var operations = new List<AggregateOperation>();
         operations.AddRange(commit.Products.Select(value => AggregateOperation.Upsert(Products, value.Id, value)));
         operations.AddRange(commit.Sales.Select(value => AggregateOperation.Upsert(Sales, value.Id, value)));

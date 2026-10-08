@@ -9,6 +9,26 @@ namespace Dona.Crm.Storage.Browser.Tests;
 public sealed class BrowserCrmRepositoryTests
 {
     [Fact]
+    public async Task Fifo_layers_and_consumptions_survive_atomic_commit_and_reload()
+    {
+        var js = new KeyValueJsRuntime();
+        var repository = new BrowserCrmRepository(js);
+        var layer = new StockLayer { InitialQuantity = 3, RemainingQuantity = 3, InitialValue = 100, RemainingValue = 100 };
+        var variant = new ProductVariant { Quantity = 3, StockLayerVersion = 1, Layers = [layer] };
+        var product = new Product { Name = "FIFO", Variants = [variant] };
+        var issued = FifoCostCalculator.Consume(variant, 2);
+        var sale = new Sale { Items = [new() { Consumptions = issued.ToList() }] };
+        await repository.CommitAsync(InventoryCommit.Create(products: [product], sales: [sale]));
+
+        var reopened = new BrowserCrmRepository(js);
+        var actual = (await reopened.GetProductAsync(product.Id))!.Variants[0];
+        FifoCostCalculator.Validate(actual);
+        Assert.Equal(33.33m, FifoCostCalculator.Value(actual).TotalValue);
+        Assert.Equal(layer.Id, Assert.Single(actual.Layers).Id);
+        Assert.Equal(issued[0], (await reopened.GetSaleAsync(sale.Id))!.Items[0].Consumptions[0]);
+    }
+
+    [Fact]
     public async Task Late_expense_updates_costs_without_receiving_twice_and_survives_reload()
     {
         var js = new KeyValueJsRuntime();

@@ -4,43 +4,46 @@ namespace Dona.Crm.Web.Services;
 
 public sealed class AnalyticsService
 {
-    public AnalyticsReport Build(IEnumerable<Sale> source, IEnumerable<Product> products, DateTime? from, DateTime? to)
+    public AnalyticsReport Build(IEnumerable<Sale> source, IEnumerable<Product> products, DateTime? from, DateTime? to,
+        IEnumerable<Purchase>? purchases = null, IEnumerable<StockMovement>? movements = null)
     {
-        var productCategories = products.ToDictionary(x => x.Id, x => string.IsNullOrWhiteSpace(x.Category) ? "Без категории" : x.Category);
-        var start = from?.Date;
-        var end = to?.Date;
-        var sales = source.Where(x => x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0)
-            .Where(x => start is null || x.CreatedAt.ToLocalTime().Date >= start)
-            .Where(x => end is null || x.CreatedAt.ToLocalTime().Date <= end)
-            .ToList();
-
-        var lines = sales.SelectMany(sale => sale.Items.Select(item =>
+        var productList = products.ToList();
+        var categories = productList.ToDictionary(x => x.Id, x => string.IsNullOrWhiteSpace(x.Category) ? "Без категории" : x.Category);
+        var sales = source.ToList();
+        var facts = SaleFinancialEvents.Build(sales).Where(x => SaleFinancialEvents.InPeriod(x.At, from, to)).ToList();
+        var expenses = new List<PeriodExpenseRow>();
+        var valuations = (purchases ?? []).SelectMany(x => x.StockValuations.Select(v => (Source: x.Number, Value: v)))
+            .Concat(productList.SelectMany(x => x.StockValuations.Select(v => (Source: x.Sku, Value: v))));
+        foreach (var (document, value) in valuations.Where(x => SaleFinancialEvents.InPeriod(x.Value.RecognizedAt, from, to)))
+            if (value.ExpenseDelta != 0)
+                expenses.Add(new(value.RecognizedAt, document, value.Reason switch
+                {
+                    StockValuationReason.ReceiptDefect => "Брак при приёмке",
+                    StockValuationReason.Shortage => "Недостача",
+                    StockValuationReason.ShortageCompensation => "Исправление компенсации недостачи",
+                    StockValuationReason.ReturnRevaluation => "Возврат доначисления",
+                    StockValuationReason.InitialValuation => "Первоначальная оценка",
+                    _ => "Доначисление себестоимости"
+                }, value.ExpenseDelta));
+        foreach (var movement in (movements ?? []).Where(x => x.Type == StockMovementType.Adjustment && x.QuantityDelta < 0
+            && SaleFinancialEvents.InPeriod(x.CreatedAt, from, to)))
+            expenses.Add(new(movement.CreatedAt, movement.SourceNumber, "Списание со склада", -movement.ValueDelta));
+        IReadOnlyList<AnalyticsRow> Group(Func<SaleFinancialEvent, string> key) => facts.GroupBy(key)
+            .Select(g => new AnalyticsRow(g.Key, g.Sum(x => x.Quantity), g.Where(x => x.IsSale).Select(x => x.Sale.Id).Distinct().Count(),
+                g.Sum(x => x.Revenue), g.Sum(x => x.Cost)))
+            .OrderByDescending(x => x.RevenueUzs).ThenBy(x => x.Name).ToList();
+        return new()
         {
-            var soldQuantity = item.SoldQuantity > 0 ? item.SoldQuantity : item.Quantity ?? 0;
-            var quantity = Math.Max(0, soldQuantity - item.ReturnedQuantity);
-            var gross = (item.UnitPriceUzs ?? 0) * soldQuantity;
-            var revenue = sale.SubtotalUzs == 0 ? 0 : sale.NetTotalUzs * gross / sale.SubtotalUzs;
-            var cost = (item.UnitCostUzs ?? 0) * Math.Max(0, soldQuantity - sale.RestockedQuantity(item.Id));
-            var category = item.ProductId is not null && productCategories.TryGetValue(item.ProductId.Value, out var value) ? value : "Без категории";
-            return new Line(sale.Id, sale.CustomerName ?? "Без имени", item.ProductName, category, quantity, revenue, cost);
-        })).ToList();
-
-        return new AnalyticsReport
-        {
-            Orders = sales.Count,
-            Units = lines.Sum(x => x.Quantity),
-            RevenueUzs = sales.Sum(x => x.NetTotalUzs),
-            CostUzs = lines.Sum(x => x.CostUzs),
-            Daily = sales.GroupBy(x => x.CreatedAt.ToLocalTime().Date).OrderBy(x => x.Key).Select(x => new AnalyticsPoint(x.Key, x.Sum(y => y.NetTotalUzs), x.Count())).ToList(),
-            Products = Group(lines, x => string.IsNullOrWhiteSpace(x.Product) ? "Без названия" : x.Product),
-            Categories = Group(lines, x => x.Category),
-            Customers = Group(lines, x => x.Customer)
+            Orders = sales.Count(x => (x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0)
+                && SaleFinancialEvents.InPeriod(x.CompletedAt ?? x.CreatedAt, from, to)),
+            Units = facts.Sum(x => x.Quantity), RevenueUzs = facts.Sum(x => x.Revenue), CostUzs = facts.Sum(x => x.Cost),
+            PeriodExpensesUzs = expenses.Sum(x => x.Amount ?? 0), HasUnknownCost = facts.Any(x => x.UnknownCost) || expenses.Any(x => x.Amount is null),
+            Expenses = expenses.OrderBy(x => x.At).ToList(),
+            Daily = facts.GroupBy(x => x.At.ToLocalTime().Date).OrderBy(x => x.Key)
+                .Select(g => new AnalyticsPoint(g.Key, g.Sum(x => x.Revenue), g.Where(x => x.IsSale).Select(x => x.Sale.Id).Distinct().Count())).ToList(),
+            Products = Group(x => string.IsNullOrWhiteSpace(x.Item.ProductName) ? "Без названия" : x.Item.ProductName),
+            Categories = Group(x => x.Item.ProductId is { } id ? categories.GetValueOrDefault(id, "Без категории") : "Без категории"),
+            Customers = Group(x => x.Sale.CustomerName ?? "Без имени")
         };
     }
-
-    private static IReadOnlyList<AnalyticsRow> Group(IEnumerable<Line> lines, Func<Line, string> key) => lines.GroupBy(key)
-        .Select(x => new AnalyticsRow(x.Key, x.Sum(y => y.Quantity), x.Select(y => y.SaleId).Distinct().Count(), x.Sum(y => y.RevenueUzs), x.Sum(y => y.CostUzs)))
-        .OrderByDescending(x => x.RevenueUzs).ThenBy(x => x.Name).ToList();
-
-    private sealed record Line(Guid SaleId, string Customer, string Product, string Category, int Quantity, decimal RevenueUzs, decimal CostUzs);
 }

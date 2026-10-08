@@ -11,6 +11,7 @@ public sealed class StockAdjustmentRequest
     [Required(ErrorMessage = "Выберите причину корректировки")] public StockAdjustmentReason? Reason { get; set; }
     [Required(ErrorMessage = "Укажите новый остаток"), Range(0, 100_000)] public int? NewQuantity { get; set; }
     [Required(ErrorMessage = "Укажите причину корректировки")] public string Note { get; set; } = string.Empty;
+    [Range(0, 1_000_000_000)] public decimal? UnitCost { get; set; }
 }
 
 public static class StockAdjustmentText

@@ -67,6 +67,16 @@ public sealed partial class Purchase : IValidatableObject
     public string? Notes { get; set; }
     public List<PurchaseItem> Items { get; set; } = [];
     public List<PurchaseReceipt> Receipts { get; set; } = [];
+    public List<StockValuationEvent> StockValuations { get; set; } = [];
+    public List<PurchaseShortageSettlement> ShortageSettlements { get; set; } = [];
+    public List<PurchaseCompensationCorrection> CompensationCorrections { get; set; } = [];
+    public List<PurchaseLateReceipt> LateReceipts { get; set; } = [];
+    public int UnresolvedShortage(PurchaseShortageSettlement settlement) => settlement.Quantity
+        - LateReceipts.Where(x => x.SettlementId == settlement.Id).Sum(x => x.Quantity);
+    public decimal CurrentRefund(PurchaseShortageSettlement settlement) =>
+        CompensationCorrections.LastOrDefault(x => x.SettlementId == settlement.Id)?.NewRefund ?? settlement.SupplierRefund;
+    public DateTimeOffset? ClosedAt { get; set; }
+    public Guid? ClosingOperationId { get; set; }
     public decimal GoodsCostCny => Items.Sum(x => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0));
     public decimal GoodsCostUzs => Items.Sum(ItemGoodsCostUzs);
     public decimal AgentCommissionUzs => Math.Round(GoodsCostUzs * (AgentCommissionPercent ?? 0) / 100);
