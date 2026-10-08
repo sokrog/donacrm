@@ -4,6 +4,7 @@
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
 @inject ICatalogRepository Catalog
+@inject ICommerceRepository Commerce
 @inject NavigationManager Navigation
 
 <PageTitle>Каталог — DONA CRM</PageTitle>
@@ -97,6 +98,8 @@
                                     <small>@subtitle</small>
                                 }
                                 <span class="dona-badge @StatusClass(product.Status)">@product.Status.Display()</span>
+                                @if (product.AllowOrderWhenUnavailable) { <span class="dona-badge">Можно заказать</span> }
+                                @if (PurchaseAvailability.Expected(product.Id, purchases) is > 0 and var expected) { <span class="dona-badge">Ожидается @expected шт.</span> }
                                 @if (Issues(product) is { Count: > 0 } issues)
                                 {
                                     <small class="product-issues" title="@string.Join(", ", issues)" aria-label="@string.Join(", ", issues)">@(issues.Count == 1 ? issues[0] : $"Заполнить: {issues.Count}")</small>
@@ -126,6 +129,7 @@
 @code {
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
     private List<Product> products = [];
+    private IReadOnlyList<Purchase> purchases = [];
     [SupplyParameterFromQuery(Name = "q")] [Parameter] public string? QueryParam { get; set; }
     [SupplyParameterFromQuery(Name = "filter")] [Parameter] public string? FilterParam { get; set; }
     [SupplyParameterFromQuery(Name = "sort")] [Parameter] public string? SortParam { get; set; }
@@ -186,6 +190,7 @@
         try
         {
             products = (await Catalog.GetProductsAsync()).Where(item => item.Status != ProductStatus.Archived).ToList();
+            purchases = await Commerce.GetPurchasesAsync();
         }
         catch (Exception exception)
         {

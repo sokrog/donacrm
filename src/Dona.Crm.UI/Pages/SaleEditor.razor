@@ -87,14 +87,15 @@
                 }
                 else
                 {
-                    <p>Предварительный расчёт по текущим партиям. При завершении продажи стоимость проверяется повторно.</p>
+                    <p>Предварительный расчёт по текущим партиям. При отправке заказа стоимость проверяется повторно.</p>
                     <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="PreviewCostAsync">Рассчитать себестоимость</button>
                     @if (previewCostText is not null) { <p>@previewCostText</p> }
                 }
             </details>
             <section class="dona-section total-card">
                 <span>Товары<strong>@Money(sale.SubtotalUzs)</strong></span>
-                <span>Скидка<strong>− @Money(sale.DiscountUzs ?? 0)</strong></span>
+                <span>Скидка<strong>− @Money(sale.AppliedDiscountUzs)</strong></span>
+                <span>Доставка<strong>@Money(sale.DeliveryChargeUzs ?? 0)</strong></span>
                 <span class="total">К оплате<strong>@Money(sale.TotalUzs) UZS</strong></span>
                 @if (IsDraft)
                 {
@@ -104,7 +105,7 @@
                 {
                     <span>Оплачено<strong>@Money(sale.PaidUzs)</strong></span>
                     <span>Долг<strong class="debt">@Money(sale.BalanceDueUzs)</strong></span>
-                    @if (sale.RefundedUzs > 0)
+                    @if (sale.RefundedUzs > 0 || sale.RefundDueUzs > 0)
                     {
                         <span>Оформлено возвратов<strong>@Money(sale.RefundedUzs)</strong></span>
                         <span>Вернуть клиенту<strong class="refund">@Money(sale.RefundDueUzs)</strong></span>
@@ -117,7 +118,16 @@
                     <label class="dona-field">Клиент<OrbitSelect TValue="Guid?" @bind-Value="sale.CustomerId" @bind-Value:after="CustomerChanged" Options="@CustomerOptions" Label="Клиент" Searchable="true" /></label>
                     <div class="dona-field-row">
                         <label class="dona-field">Доставка<OrbitSelect TValue="DeliveryMethod?" @bind-Value="sale.DeliveryMethod" Options="@DeliveryOptions" Label="Способ доставки" /></label>
-                        <label class="dona-field">Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" /></label>
+                        <label class="dona-field">Способ скидки<OrbitSelect TValue="SaleDiscountMode" @bind-Value="sale.DiscountMode" Options="@DiscountOptions" Label="Способ скидки" /></label>
+                        @if (sale.DiscountMode == SaleDiscountMode.Percent)
+                        {
+                            <label class="dona-field">Скидка, %<InputNumber @bind-Value="sale.DiscountPercent" min="0" max="100" /></label>
+                        }
+                        else
+                        {
+                            <label class="dona-field">Скидка, UZS<InputNumber @bind-Value="sale.DiscountUzs" min="0" max="@sale.SubtotalUzs" /></label>
+                        }
+                        <label class="dona-field">Плата клиента за доставку, UZS<InputNumber @bind-Value="sale.DeliveryChargeUzs" min="0" /></label>
                     </div>
                     <label class="dona-field">Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
                     <label class="dona-field">
@@ -158,7 +168,7 @@
                     </ul>
                 </section>
             }
-            @if (sale.Status == SaleStatus.Completed && sale.Items.Any(item => item.QuantityToReturn > 0))
+            @if ((sale.Status is SaleStatus.Shipped or SaleStatus.Completed) && sale.Items.Any(item => item.QuantityToReturn > 0))
             {
                 <section class="dona-section return-card">
                     <div class="dona-section-title">
@@ -182,7 +192,8 @@
                             </div>
                         </article>
                     }
-                    <label class="dona-field">Возместить, UZS<InputNumber @bind-Value="returnDocument.RefundAmountUzs" min="0" max="@Math.Max(0, sale.TotalUzs - sale.RefundedUzs)" /></label>
+                    <label class="dona-field">Вернуть за доставку, UZS<InputNumber @bind-Value="returnDocument.DeliveryRefundUzs" min="0" max="@SaleReturnCalculator.DeliveryAvailable(sale)" /></label>
+                    <p>За товары с учётом скидки: @Money(SaleReturnCalculator.GoodsRefund(sale, returnDocument)) UZS. Всего: @Money(SaleReturnCalculator.GoodsRefund(sale, returnDocument) + returnDocument.DeliveryRefundUzs) UZS.</p>
                     <button type="button" class="dona-btn dona-btn--ghost" @onclick="CreateReturnAsync">Оформить возврат</button>
                 </section>
             }
@@ -229,12 +240,17 @@
                 @if (confirm is not null)
                 {
                     <div class="dona-confirm" role="alertdialog">
-                        <span>@(confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят." : "Завершить продажу? Товар спишется со склада.")</span>
+                        <span>@(confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят, полученная оплата останется к возврату." : confirm == ConfirmKind.Ship ? "Отправить заказ? Товар спишется со склада по FIFO." : "Подтвердить завершение заказа? Товар уже списан при отправке.")</span>
+                        @if (confirm == ConfirmKind.Cancel && sale.DeliveryChargeUzs is > 0)
+                        {
+                            <label class="dona-field">Вернуть за доставку, UZS<InputNumber @bind-Value="cancelDeliveryRefund" min="0" max="@sale.DeliveryChargeUzs" /></label>
+                            <small>Если сумма не указана, возвращается вся плата за доставку.</small>
+                        }
                         <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="() => confirm = null">Нет</button>
                         <button type="button"
                                 class="dona-btn @(confirm == ConfirmKind.Cancel ? "dona-btn--danger" : "dona-btn--primary")"
                                 disabled="@saving"
-                                @onclick="ConfirmAsync">@(confirm == ConfirmKind.Cancel ? "Да, отменить" : "Да, завершить")</button>
+                                @onclick="ConfirmAsync">@(confirm == ConfirmKind.Cancel ? "Да, отменить" : confirm == ConfirmKind.Ship ? "Да, отправить" : "Да, завершить")</button>
                     </div>
                 }
                 else if (IsDraft)
@@ -243,10 +259,10 @@
                     <button type="submit" class="dona-btn dona-btn--secondary" disabled="@saving">Черновик</button>
                     <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ReserveAsync">Зарезервировать</button>
                 }
-                else if (sale.Status is SaleStatus.Reserved or SaleStatus.Paid)
+                else if (sale.Status is SaleStatus.Reserved)
                 {
                     <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Cancel">Отменить заказ</button>
-                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Ship">Отправить заказ</button>
                 }
                 else if (sale.Status == SaleStatus.Shipped)
                 {
@@ -273,12 +289,15 @@
     private string? message;
     private bool success;
 
-    private static readonly SaleStatus[] Flow = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Completed];
+    private static readonly SaleStatus[] Flow = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Shipped, SaleStatus.Completed];
 
-    private enum ConfirmKind { Cancel, Complete }
+    private enum ConfirmKind { Cancel, Ship, Complete }
 
     private ConfirmKind? confirm;
     private PaymentMethod? quickMethod = PaymentMethod.Cash;
+    private decimal? cancelDeliveryRefund;
+    private static readonly IReadOnlyList<OrbitSelectOption<SaleDiscountMode>> DiscountOptions =
+        [new(SaleDiscountMode.Amount, "Сумма в UZS"), new(SaleDiscountMode.Percent, "Процент")];
 
     private bool IsNew => Id is null;
 
@@ -457,6 +476,7 @@
                     });
                 }
 
+                await Inventory.MarkShippedAsync(sale);
                 await Inventory.CompleteAsync(sale);
                 ResetReturn();
                 ResetRefund();
@@ -481,16 +501,27 @@
         }, "Продажа завершена: оплата принята, остаток списан.");
     }
 
-    private Task ConfirmAsync() => confirm == ConfirmKind.Cancel ? CancelAsync() : CompleteAsync();
+    private Task ConfirmAsync() => confirm == ConfirmKind.Cancel ? CancelAsync() : confirm == ConfirmKind.Ship ? ShipAsync() : CompleteAsync();
 
-    private Task CancelAsync() => RunAsync(() => Inventory.CancelAsync(sale), "Заказ отменён, резерв снят.");
+    private Task ShipAsync() => RunAsync(async () =>
+    {
+        await Inventory.MarkShippedAsync(sale);
+        ResetReturn();
+        ResetRefund();
+    }, "Заказ отправлен, товар списан со склада.");
+
+    private Task CancelAsync() => RunAsync(async () =>
+    {
+        await Inventory.CancelAsync(sale, cancelDeliveryRefund);
+        ResetRefund();
+    }, "Заказ отменён, резерв снят. Полученная оплата учтена в сумме к возврату.");
 
     private Task CompleteAsync() => RunAsync(async () =>
     {
         await Inventory.CompleteAsync(sale);
         ResetReturn();
         ResetRefund();
-    }, "Продажа завершена, остаток списан.");
+    }, "Исполнение заказа завершено.");
 
     private async Task AddPaymentAsync()
     {
@@ -567,7 +598,7 @@
 
         var costs = await Inventory.PreviewAsync(sale);
         if (costs.Values.Any(x => !x.IsComplete)) throw new InvalidOperationException("Себестоимость неизвестна. Проверка продажи ниже себестоимости невозможна.");
-        var discountFactor = sale.SubtotalUzs <= 0 ? 0 : Math.Max(0, sale.SubtotalUzs - (sale.DiscountUzs ?? 0)) / sale.SubtotalUzs;
+        var discountFactor = sale.SubtotalUzs <= 0 ? 0 : Math.Max(0, sale.SubtotalUzs - sale.AppliedDiscountUzs) / sale.SubtotalUzs;
         var below = sale.Items.FirstOrDefault(item => (item.UnitPriceUzs ?? 0) * (item.Quantity ?? 0) * discountFactor < costs[item.Id].TotalValue);
         if (below is not null)
         {
@@ -613,7 +644,7 @@
     }
 
     private string FlowClass(SaleStatus status) =>
-        sale.Status == status ? "active" : sale.Status is not null && status < sale.Status ? "done" : string.Empty;
+        sale.Status == status ? "active" : string.Empty;
 
     private static string VariantName(ProductVariant value) =>
         string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));

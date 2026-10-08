@@ -14,10 +14,10 @@
         <img class="welcome-logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" />
         <p class="dona-eyebrow">Ваш магазин начинается здесь</p>
         <h1 id="welcome-title">Начнём с первого товара</h1>
-        <p class="dona-note dona-note--intro">Три поля — и каталог готов к работе. Остальное можно заполнить позже.</p>
+        <p class="dona-note dona-note--intro">Укажите категорию и товар. Остальное можно заполнить позже.</p>
         <EditForm class="dona-stack" Model="model" OnValidSubmit="FinishAsync">
             <DataAnnotationsValidator />
-            <label class="dona-field">Главная валюта<OrbitSelect TValue="string" @bind-Value="model.CurrencyCode" Options="@CurrencyOptions" Label="Главная валюта" /></label>
+            <p class="dona-note">Валюта учёта — UZS (сум). Закупки и расходы можно вводить в иностранных валютах с курсом документа.</p>
             <label class="dona-field">Первая категория<InputText @bind-Value="model.CategoryName" autocomplete="off" /><ValidationMessage For="@(() => model.CategoryName)" /></label>
             <label class="dona-field">Первый товар<InputText @bind-Value="model.ProductName" autocomplete="off" autofocus /><ValidationMessage For="@(() => model.ProductName)" /></label>
             @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
@@ -31,7 +31,6 @@
     private readonly SetupModel model = new();
     private bool saving;
     private string? error;
-    private static IReadOnlyList<OrbitSelectOption<string>> CurrencyOptions => [new("UZS", "UZS · сум"), new("USD", "USD · доллар"), new("CNY", "CNY · юань")];
 
     private async Task FinishAsync()
     {
@@ -44,9 +43,8 @@
             var categoryName = model.CategoryName.Trim();
             if (categories.All(category => !string.Equals(category.Name, categoryName, StringComparison.OrdinalIgnoreCase)))
                 await Commerce.UpsertCategoryAsync(new Category { Name = categoryName, SortOrder = categories.Count, IsActive = true });
-            await Catalog.UpsertProductAsync(new Product { Name = model.ProductName.Trim(), Category = categoryName, Status = ProductStatus.OnOrder });
+            await Catalog.UpsertProductAsync(new Product { Name = model.ProductName.Trim(), Category = categoryName, Status = ProductStatus.OutOfStock });
             var settings = await SettingsRepository.GetAsync();
-            settings.MainCurrencyCode = CurrencyCodes.Normalize(model.CurrencyCode);
             settings.OnboardingCompleted = true;
             await SettingsRepository.SaveAsync(settings);
             Navigation.NavigateTo("/products", replace: true);
@@ -65,7 +63,6 @@
 
     private sealed class SetupModel
     {
-        public string CurrencyCode { get; set; } = "UZS";
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Укажите категорию.")]
         public string CategoryName { get; set; } = "Одежда";
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Укажите товар.")]

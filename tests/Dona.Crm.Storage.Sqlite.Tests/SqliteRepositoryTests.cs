@@ -6,7 +6,7 @@ using SQLite;
 
 namespace Dona.Crm.Storage.Sqlite.Tests;
 
-public sealed class SqliteRepositoryTests : IAsyncLifetime
+public sealed partial class SqliteRepositoryTests : IAsyncLifetime
 {
     private readonly string directory = Path.Combine(Path.GetTempPath(), "dona-crm-sqlite-tests", Guid.NewGuid().ToString("N"));
     private SqliteAggregateStore? store;
@@ -35,10 +35,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
-        var product = new Product { Name = "Товар", Sku = "LATE-PART" };
+        var product = new Product { Name = "Товар", Sku = "LATE-PART", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "P-LATE-PART", CurrencyCode = "UZS",
-            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 6, 0)]);
         await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 100)], Guid.NewGuid());
@@ -63,10 +63,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
-        var product = new Product { Name = "Товар", Sku = "LATE" };
+        var product = new Product { Name = "Товар", Sku = "LATE", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "P-LATE", CurrencyCode = "UZS",
-            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
         await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], Guid.NewGuid());
@@ -103,10 +103,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
-        var product = new Product { Name = "Товар", Sku = "REFUND" };
+        var product = new Product { Name = "Товар", Sku = "REFUND", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "P-REFUND", CurrencyCode = "UZS",
-            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
         await service.CloseAsync(purchase, [new(purchase.Items[0].Id, 120)], Guid.NewGuid());
@@ -138,10 +138,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(70m, saved.StockValuations.Sum(x => x.ExpenseDelta));
         Assert.Equal(150m, saved.CurrentRefund(settlement));
         Assert.Equal(1100m, 880m + saved.CurrentRefund(settlement) + saved.StockValuations.Sum(x => x.ExpenseDelta));
-        saved.Items[0].UnitPriceCny = 1;
+        saved.Items[0].UnitPrice = 1;
         saved.Expenses.Clear();
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(saved));
-        Assert.Equal(100m, (await commerce.GetPurchaseAsync(purchase.Id))!.Items[0].UnitPriceCny);
+        Assert.Equal(100m, (await commerce.GetPurchaseAsync(purchase.Id))!.Items[0].UnitPrice);
     }
 
     [Fact]
@@ -170,10 +170,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     {
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
-        var product = new Product { Name = "Товар", Sku = "SHORT" };
+        var product = new Product { Name = "Товар", Sku = "SHORT", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "P-SHORT", CurrencyCode = "UZS",
-            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 8, 0)]);
@@ -204,10 +204,10 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     {
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
-        var product = new Product { Name = "Брак", Sku = "DEFECT" };
+        var product = new Product { Name = "Брак", Sku = "DEFECT", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "P-DEF", CurrencyCode = "UZS",
-            Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 10, 10)]);
@@ -225,9 +225,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
         var inventoryStore = new SqliteInventoryStore(store!);
-        var product = new Product { Name = "FIFO", Sku = "REVALUE" };
+        var product = new Product { Name = "FIFO", Sku = "REVALUE", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
-        var purchase = new Purchase { Number = "P", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 10, UnitPriceCny = 100 }] };
+        var purchase = new Purchase { Number = "P", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 10, UnitPrice = 100 }] };
         var receiving = new PurchaseReceivingService(catalog, inventoryStore, commerce);
         await receiving.SaveAsync(purchase);
         await receiving.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 10, 0)]);
@@ -237,6 +237,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var selling = new SalesInventoryService(catalog, inventoryStore, sales: saleRepository);
         await selling.ReserveAsync(sale);
         var staleSale = (await saleRepository.GetSaleAsync(sale.Id))!;
+        await selling.MarkShippedAsync(sale);
         await selling.CompleteAsync(sale);
         await Assert.ThrowsAsync<InventoryException>(() => selling.CompleteAsync(staleSale));
         purchase.Expenses.Add(new() { Name = "Доставка", Amount = 200 });
@@ -257,6 +258,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(500m, sale.CostUzs);
         var resale = new Sale { Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 1, UnitPriceUzs = 250 }] };
         await selling.ReserveAsync(resale);
+        await selling.MarkShippedAsync(resale);
         await selling.CompleteAsync(resale);
         Assert.Equal(120m, resale.CostUzs);
     }
@@ -268,7 +270,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Empty(await catalog.GetProductsAsync());
         var service = new ProductEditingService(catalog, new SqliteSalesRepository(store!), new SqliteCommerceRepository(store!),
             new SqliteBusinessSettingsRepository(store!), new ProductStatusService(), new SqliteInventoryStore(store!));
-        var product = new Product { Sku = "OPEN", Name = "Товар", PurchaseCurrencyCode = "UZS", PurchasePriceCny = 100,
+        var product = new Product { Sku = "OPEN", Name = "Товар", PurchaseCurrencyCode = "UZS", PlannedPurchasePrice = 100,
             Variants = [new() { Color = "Белый", Quantity = 2 }, new() { Color = "Чёрный", Quantity = 0 }] };
         var saved = await service.SaveAsync(product);
         await service.SaveAsync(saved);
@@ -285,7 +287,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Concurrent_completion_of_two_snapshots_consumes_only_once()
+    public async Task Concurrent_shipment_of_two_snapshots_consumes_only_once()
     {
         var catalog = new SqliteCatalogRepository(store!);
         var sales = new SqliteSalesRepository(store!);
@@ -297,7 +299,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         var other = (await sales.GetSaleAsync(sale.Id))!;
         async Task<bool> Complete(Sale document)
         {
-            try { await service.CompleteAsync(document); return true; }
+            try { await service.MarkShippedAsync(document); return true; }
             catch (InventoryException) { return false; }
         }
         var results = await Task.WhenAll(Complete(sale), Complete(other));
@@ -357,9 +359,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     {
         var catalog = new SqliteCatalogRepository(store!);
         var commerce = new SqliteCommerceRepository(store!);
-        var product = new Product { Name = "Товар", Sku = "EXP" };
+        var product = new Product { Name = "Товар", Sku = "EXP", Variants = [new()] };
         await catalog.UpsertProductAsync(product);
-        var purchase = new Purchase { Number = "EXP", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 2, UnitPriceCny = 100 }] };
+        var purchase = new Purchase { Number = "EXP", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 2, UnitPrice = 100 }] };
         var service = new PurchaseReceivingService(catalog, new SqliteInventoryStore(store!), commerce);
         await service.SaveAsync(purchase);
         await service.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 1, 0)]);
@@ -511,7 +513,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         await stock.AddRangeAsync([movement]);
 
         var history = new SqlitePurchaseHistoryRepository(store!);
-        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPriceCny = 15 };
+        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPrice = 15 };
         var rate = new ExchangeRateHistoryEntry { Id = Guid.NewGuid(), RateUzs = 1_800 };
         await history.AddAsync([cost], rate);
         await history.AddAsync([cost], rate);
@@ -624,8 +626,9 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
             Method = PaymentMethod.Cash,
             AmountUzs = sale.TotalUzs
         });
-        Assert.Equal(SaleStatus.Paid, sale.Status);
+        Assert.Equal(SaleStatus.Reserved, sale.Status);
 
+        await inventory.MarkShippedAsync(sale);
         await inventory.CompleteAsync(sale);
         var completedProduct = await catalog.GetProductAsync(product.Id);
         Assert.Equal(SaleStatus.Completed, sale.Status);
@@ -694,7 +697,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
             Number = "PO-SQLITE-001",
             Status = PurchaseStatus.Shipped,
             CurrencyCode = "CNY",
-            CnyRateUzs = 1_800,
+            RateToUzs = 1_800,
             Items =
             [
                 new PurchaseItem
@@ -705,7 +708,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
                     Color = variant.Color,
                     Size = variant.Size,
                     Quantity = 3,
-                    UnitPriceCny = 20
+                    UnitPrice = 20
                 }
             ]
         };
@@ -765,11 +768,11 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
     {
         var inventory = new SqliteInventoryStore(store!);
         var movement = new StockMovement { ProductName = "Test", QuantityDelta = 2 };
-        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPriceCny = 10 };
+        var cost = new ProductCostHistoryEntry { Id = Guid.NewGuid(), ProductName = "Test", UnitPrice = 10 };
         var rate = new ExchangeRateHistoryEntry { Id = Guid.NewGuid(), RateUzs = 1_800 };
         await inventory.CommitAsync(InventoryCommit.Create(movements: [movement], productCosts: [cost], exchangeRate: rate));
         movement.QuantityDelta = 99;
-        cost.UnitPriceCny = 99;
+        cost.UnitPrice = 99;
 
         await inventory.CommitAsync(InventoryCommit.Create(movements: [movement, new StockMovement { ProductName = "Next", QuantityDelta = 1 }], productCosts: [cost], exchangeRate: rate));
 
@@ -777,7 +780,7 @@ public sealed class SqliteRepositoryTests : IAsyncLifetime
         Assert.Equal(2, movements.Count);
         Assert.Equal(2, movements[0].QuantityDelta);
         var history = await new SqlitePurchaseHistoryRepository(store!).GetAsync();
-        Assert.Equal(10, Assert.Single(history.ProductCosts).UnitPriceCny);
+        Assert.Equal(10, Assert.Single(history.ProductCosts).UnitPrice);
         Assert.Single(history.ExchangeRates);
     }
 

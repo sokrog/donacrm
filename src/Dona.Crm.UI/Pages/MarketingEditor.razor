@@ -5,6 +5,7 @@
 @using System.Globalization
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
+@using Dona.Crm.Web.Services
 @inject IMarketingRepository Marketing
 @inject ICatalogRepository Catalog
 @inject NavigationManager Navigation
@@ -61,7 +62,7 @@
                 <div class="dona-section-title">
                     <div>
                         <h2>Состав</h2>
-                        <p>@(IsCollection ? "Порядок товаров в подборке" : $"Итого {Money(outfit.TotalPriceUzs)} UZS")</p>
+                        <p>@(IsCollection ? "Порядок товаров в подборке" : MarketingCatalog.OutfitPrice(outfit, products) is { } price ? $"Сумма текущих цен: {Money(price)} UZS" : "Сумма неполная: проверьте недоступные товары и цены")</p>
                     </div>
                     <button type="button" @onclick="AddProduct"><OrbitIcon Name="plus" Class="dona-inline-icon" />Добавить</button>
                 </div>
@@ -75,6 +76,7 @@
                     {
                         <div class="product-row" @key="item.Id">
                             <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => CollectionProductChanged(item, product)" /></label>
+                            <small>@MarketingCatalog.ProductLabel(item.ProductId, item.ProductName, products)</small>
                             <button type="button" class="dona-btn dona-btn--danger dona-btn--icon" aria-label="Убрать товар" @onclick="() => RemoveCollectionProduct(item)">×</button>
                         </div>
                     }
@@ -85,7 +87,7 @@
                     {
                         <div class="outfit-row" @key="item.Id">
                             <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => OutfitProductChanged(item, product)" /></label>
-                            <label class="dona-field">Цена, UZS<InputNumber @bind-Value="item.SellingPriceUzs" /></label>
+                            <div class="dona-field"><span>@MarketingCatalog.ProductLabel(item.ProductId, item.ProductName, products)</span><strong>@(MarketingCatalog.Price(item.ProductId, products) is { } itemPrice ? Money(itemPrice) + " UZS" : "Цена недоступна")</strong></div>
                             <button type="button" class="dona-btn dona-btn--danger dona-btn--icon" aria-label="Убрать товар" @onclick="() => RemoveOutfitProduct(item)">×</button>
                         </div>
                     }
@@ -157,7 +159,7 @@
         error = null;
         try
         {
-            products = (await Catalog.GetProductsAsync()).Where(value => value.Status != ProductStatus.Archived).ToList();
+            products = await Catalog.GetProductsAsync();
             if (Id is not null)
             {
                 if (IsCollection)

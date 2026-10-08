@@ -42,6 +42,95 @@ internal sealed class CloningCatalog : ICatalogRepository
 
 public sealed class InventoryAtomicityTests
 {
+    [Theory]
+    [InlineData(PurchaseStatus.Received)]
+    [InlineData(PurchaseStatus.PartiallyReceived)]
+    [InlineData((PurchaseStatus)999)]
+    public async Task Saving_purchase_cannot_fabricate_receipt_status(PurchaseStatus status)
+    {
+        var purchase = new Purchase { Number = "PO-STATUS", Status = status };
+        var store = new MemoryInventoryStore();
+        var service = new PurchaseReceivingService(new CloningCatalog(), store, new ProductEditingServiceTests.StubCommerce());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(purchase));
+        Assert.Empty(store.Commits);
+    }
+
+    [Theory]
+    [InlineData(PurchaseStatus.Draft)]
+    [InlineData(PurchaseStatus.Ordered)]
+    [InlineData(PurchaseStatus.Cancelled)]
+    public async Task Saving_received_purchase_cannot_hide_receipts(PurchaseStatus status)
+    {
+        var item = new PurchaseItem { ProductName = "Товар", Quantity = 2, ReceivedQuantity = 1, StockedQuantity = 1, UnitPrice = 10 };
+        var saved = new Purchase { Number = "PO-STATUS", Status = PurchaseStatus.PartiallyReceived, CurrencyCode = "UZS", Items = [item],
+            Receipts = [new() { Lines = [new() { PurchaseItemId = item.Id, ReceivedQuantity = 1, StockedQuantity = 1 }] }] };
+        var edited = JsonSerializer.Deserialize<Purchase>(JsonSerializer.Serialize(saved))!;
+        edited.Status = status;
+        var store = new MemoryInventoryStore();
+        var service = new PurchaseReceivingService(new CloningCatalog(), store, new ProductEditingServiceTests.StubCommerce(saved));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(edited));
+        Assert.Empty(store.Commits);
+    }
+
+    [Fact]
+    public async Task Saving_purchase_derives_status_from_received_including_defects()
+    {
+        var item = new PurchaseItem { ProductName = "Товар", Quantity = 2, ReceivedQuantity = 2, DefectQuantity = 1, StockedQuantity = 1, UnitPrice = 10 };
+        var saved = new Purchase { Number = "PO-STATUS", Status = PurchaseStatus.Received, CurrencyCode = "UZS", Items = [item],
+            Receipts = [new() { Lines = [new() { PurchaseItemId = item.Id, ReceivedQuantity = 2, DefectQuantity = 1, StockedQuantity = 1 }] }] };
+        var edited = JsonSerializer.Deserialize<Purchase>(JsonSerializer.Serialize(saved))!;
+        edited.Status = PurchaseStatus.PartiallyReceived;
+        var store = new MemoryInventoryStore();
+        var service = new PurchaseReceivingService(new CloningCatalog(), store, new ProductEditingServiceTests.StubCommerce(saved));
+        await service.SaveAsync(edited);
+        Assert.Equal(PurchaseStatus.Received, edited.Status);
+        Assert.Equal(1, Assert.Single(store.Commits).Purchases[0].Items[0].StockedQuantity);
+        edited.Items[0].ReceivedQuantity = 1;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveAsync(edited));
+        Assert.Single(store.Commits);
+    }
+
+    [Theory]
+    [InlineData("missing-product")]
+    [InlineData("unlinked-product")]
+    [InlineData("missing-variant")]
+    [InlineData("unlinked-variant")]
+    [InlineData("foreign-variant")]
+    [InlineData("negative-received")]
+    [InlineData("negative-defect")]
+    [InlineData("excess")]
+    public async Task Invalid_receipt_line_blocks_all_selected_lines(string failure)
+    {
+        var variant = new ProductVariant { Color = "Чёрный", Size = "M" };
+        var product = new Product { Name = "Футболка", Sku = "VALIDATION", Variants = [variant] };
+        var other = new Product { Name = "Другой товар", Variants = [new ProductVariant()] };
+        PurchaseItem Line() => new() { ProductId = product.Id, ProductVariantId = variant.Id,
+            ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 2 };
+        var valid = Line();
+        var invalid = Line();
+        if (failure == "missing-product") invalid.ProductId = Guid.NewGuid();
+        if (failure == "unlinked-product") invalid.ProductId = null;
+        if (failure == "missing-variant") invalid.ProductVariantId = Guid.NewGuid();
+        if (failure == "unlinked-variant") invalid.ProductVariantId = null;
+        if (failure == "foreign-variant") invalid.ProductVariantId = other.Variants[0].Id;
+        var purchase = new Purchase { Number = "PO-VALIDATION", Items = [valid, invalid] };
+        var catalog = new CloningCatalog(product, other);
+        var store = new MemoryInventoryStore(catalog);
+        var before = JsonSerializer.Serialize(purchase);
+        var received = failure == "negative-received" ? -1 : failure == "excess" ? 3 : 1;
+        var defects = failure == "negative-defect" ? -1 : 0;
+
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
+            new PurchaseReceivingService(catalog, store).ReceiveAsync(purchase,
+                [new(valid.Id, 1, 0), new(invalid.Id, received, defects)]));
+
+        Assert.Equal(before, JsonSerializer.Serialize(purchase));
+        Assert.Empty(store.Commits);
+        var stored = (await catalog.GetProductAsync(product.Id))!;
+        Assert.Equal(0, Assert.Single(stored.Variants).Quantity);
+        Assert.Empty(stored.Variants[0].Layers);
+    }
+
     private static (Product Product, ProductVariant Variant, Sale Sale, SaleItem Item) CreateSale(int stock = 10, int quantity = 3)
     {
         var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = stock };
@@ -93,7 +182,7 @@ public sealed class InventoryAtomicityTests
     }
 
     [Fact]
-    public async Task Failed_complete_keeps_reservation_and_can_be_repeated()
+    public async Task Failed_shipment_keeps_reservation_and_can_be_repeated()
     {
         var (product, _, sale, item) = CreateSale();
         var catalog = new CloningCatalog(product);
@@ -102,7 +191,7 @@ public sealed class InventoryAtomicityTests
         await service.ReserveAsync(sale);
 
         store.FailWith = new IOException("сбой");
-        await Assert.ThrowsAsync<IOException>(() => service.CompleteAsync(sale));
+        await Assert.ThrowsAsync<IOException>(() => service.MarkShippedAsync(sale));
 
         Assert.Equal(SaleStatus.Reserved, sale.Status);
         Assert.Equal(0, item.SoldQuantity);
@@ -112,9 +201,9 @@ public sealed class InventoryAtomicityTests
         Assert.Equal(3, stored.ReservedQuantity);
 
         store.FailWith = null;
-        await service.CompleteAsync(sale);
+        await service.MarkShippedAsync(sale);
 
-        Assert.Equal(SaleStatus.Completed, sale.Status);
+        Assert.Equal(SaleStatus.Shipped, sale.Status);
         stored = (await catalog.GetProductAsync(product.Id))!.Variants[0];
         Assert.Equal(7, stored.Quantity);
         Assert.Equal(0, stored.ReservedQuantity);
@@ -165,8 +254,8 @@ public sealed class InventoryAtomicityTests
     {
         var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 2 };
         var product = new Product { Name = "Футболка", Sku = "TS-PO", Variants = [variant] };
-        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPriceCny = 20 };
-        var purchase = new Purchase { Number = "PO-A", SupplierName = "Store", CnyRateUzs = 1_800, Items = [item] };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPrice = 20 };
+        var purchase = new Purchase { Number = "PO-A", SupplierName = "Store", RateToUzs = 1_800, Items = [item] };
         var store = new MemoryInventoryStore();
 
         var result = await new PurchaseReceivingService(new CloningCatalog(product), store).ReceiveAsync(purchase, [new PurchaseReceiptInput(item.Id, 8, 1)]);
@@ -186,8 +275,8 @@ public sealed class InventoryAtomicityTests
     {
         var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 2 };
         var product = new Product { Name = "Футболка", Sku = "TS-PO2", Variants = [variant] };
-        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPriceCny = 20 };
-        var purchase = new Purchase { Number = "PO-B", CnyRateUzs = 1_800, Items = [item] };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPrice = 20 };
+        var purchase = new Purchase { Number = "PO-B", RateToUzs = 1_800, Items = [item] };
         var catalog = new CloningCatalog(product);
         var store = new MemoryInventoryStore(catalog) { FailWith = new IOException("сбой") };
         var service = new PurchaseReceivingService(catalog, store);
@@ -235,7 +324,7 @@ public sealed class ProductEditingServiceTests
         public Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class StubCommerce(params Purchase[] purchases) : ICommerceRepository
+    internal sealed class StubCommerce(params Purchase[] purchases) : ICommerceRepository
     {
         public Task<IReadOnlyList<Supplier>> GetSuppliersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
         public Task UpsertSupplierAsync(Supplier supplier, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -387,19 +476,19 @@ public sealed class ProductEditingServiceTests
     [Fact]
     public async Task Keeps_prices_changed_by_receipt_while_editor_was_open()
     {
-        var stored = new Product { Name = "Футболка", Sku = "TS-8", PurchasePriceCny = 30, SellingPriceUzs = 100_000, Variants = [new ProductVariant { Quantity = 1 }] };
+        var stored = new Product { Name = "Футболка", Sku = "TS-8", PlannedPurchasePrice = 30, SellingPriceUzs = 100_000, Variants = [new ProductVariant { Quantity = 1 }] };
         var (service, catalog, _) = Create(stored);
         var original = Copy(stored);
         var edited = Copy(stored);
         var current = (await catalog.GetProductAsync(stored.Id))!;
-        current.PurchasePriceCny = 35;
+        current.PlannedPurchasePrice = 35;
         await catalog.UpsertProductAsync(current);
         edited.SellingPriceUzs = 120_000;
 
         await service.SaveAsync(edited, original);
 
         var actual = (await catalog.GetProductAsync(stored.Id))!;
-        Assert.Equal(35, actual.PurchasePriceCny);
+        Assert.Equal(35, actual.PlannedPurchasePrice);
         Assert.Equal(120_000, actual.SellingPriceUzs);
     }
 

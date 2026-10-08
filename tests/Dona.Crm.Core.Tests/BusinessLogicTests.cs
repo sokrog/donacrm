@@ -22,7 +22,7 @@ public sealed class ProductEconomicsTests
         Assert.Empty(product.Name);
         Assert.Empty(product.Category);
         Assert.Null(product.Status);
-        Assert.Null(product.CnyRateUzs);
+        Assert.Null(product.RateToUzs);
         Assert.Null(product.SellingPriceUzs);
     }
 
@@ -31,8 +31,8 @@ public sealed class ProductEconomicsTests
     {
         var product = new Product
         {
-            PurchasePriceCny = 28,
-            CnyRateUzs = 1_800,
+            PlannedPurchasePrice = 28,
+            RateToUzs = 1_800,
             AgentCommissionPercent = 5,
             DeliveryCostUzs = 18_000,
             SellingPriceUzs = 119_000
@@ -46,7 +46,7 @@ public sealed class ProductEconomicsTests
     [Fact]
     public void Calculates_product_cost_from_any_source_currency_into_main_currency()
     {
-        var product = new Product { PurchaseCurrencyCode = "USD", PurchasePriceCny = 10, CnyRateUzs = 12_500, DeliveryCostUzs = 5_000 };
+        var product = new Product { PurchaseCurrencyCode = "USD", PlannedPurchasePrice = 10, RateToUzs = 12_500, DeliveryCostUzs = 5_000 };
         Assert.Equal(130_000, product.CostUzs);
     }
 
@@ -80,16 +80,15 @@ public sealed class PurchaseEconomicsTests
     {
         var purchase = new Purchase
         {
-            CnyRateUzs = 1_800,
-            AgentCommissionPercent = 5,
-            InternationalShippingUzs = 100_000,
-            OtherCostsUzs = 20_000,
-            Items = [new PurchaseItem { ProductName = "Футболка", Quantity = 10, UnitPriceCny = 25 }]
+            RateToUzs = 1_800,
+            Expenses = [new() { Name = "Комиссия", Kind = PurchaseExpenseKind.Commission, Amount = 22_500 },
+                new() { Name = "Доставка", Kind = PurchaseExpenseKind.Shipping, Amount = 100_000 }, new() { Name = "Прочее", Amount = 20_000 }],
+            Items = [new PurchaseItem { ProductName = "Футболка", Quantity = 10, UnitPrice = 25 }]
         };
 
-        Assert.Equal(250, purchase.GoodsCostCny);
+        Assert.Equal(250, purchase.GoodsCost);
         Assert.Equal(450_000, purchase.GoodsCostUzs);
-        Assert.Equal(22_500, purchase.AgentCommissionUzs);
+        Assert.Equal(22_500, purchase.Expenses.Single(x => x.Kind == PurchaseExpenseKind.Commission).AmountUzs);
         Assert.Equal(592_500, purchase.TotalCostUzs);
         Assert.Equal(10, purchase.TotalQuantity);
     }
@@ -97,12 +96,12 @@ public sealed class PurchaseEconomicsTests
     [Fact]
     public void Allocates_shipping_by_weight_and_calculates_receipt_quantities()
     {
-        var light = new PurchaseItem { ProductName = "Лёгкий", Quantity = 10, UnitPriceCny = 10, UnitWeightKg = 0.1m, ReceivedQuantity = 9, DefectQuantity = 1 };
-        var heavy = new PurchaseItem { ProductName = "Тяжёлый", Quantity = 10, UnitPriceCny = 10, UnitWeightKg = 0.3m };
-        var purchase = new Purchase { CnyRateUzs = 1_000, InternationalShippingUzs = 40_000, Items = [light, heavy] };
+        var light = new PurchaseItem { ProductName = "Лёгкий", Quantity = 10, UnitPrice = 10, UnitWeightKg = 0.1m, ReceivedQuantity = 9, DefectQuantity = 1 };
+        var heavy = new PurchaseItem { ProductName = "Тяжёлый", Quantity = 10, UnitPrice = 10, UnitWeightKg = 0.3m };
+        var purchase = new Purchase { RateToUzs = 1_000, Expenses = [new() { Name = "Доставка", Amount = 40_000, Allocation = ExpenseAllocation.Weight }], Items = [light, heavy] };
 
-        Assert.Equal(10_000, purchase.ItemShippingUzs(light));
-        Assert.Equal(30_000, purchase.ItemShippingUzs(heavy));
+        Assert.Equal(10_000, purchase.ItemExpensesUzs(light));
+        Assert.Equal(30_000, purchase.ItemExpensesUzs(heavy));
         Assert.Equal(1, light.MissingQuantity);
         Assert.Equal(8, light.AcceptedQuantity);
         Assert.Equal(8, light.QuantityToStock);
@@ -116,9 +115,10 @@ public sealed class PurchaseReceivingServiceTests
     {
         var variant = new ProductVariant { Color = "Черный", Size = "M", Quantity = 2 };
         var product = new Product { Name = "Футболка", Sku = "TS-1", Variants = [variant] };
-        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPriceCny = 20 };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Color = variant.Color, Size = variant.Size, Quantity = 10, UnitPrice = 20 };
         var supplierId = Guid.NewGuid();
-        var purchase = new Purchase { Number = "PO-1", SupplierId = supplierId, SupplierName = "1688 Store", CnyRateUzs = 1_800, AgentCommissionPercent = 5, InternationalShippingUzs = 90_000, Items = [item] };
+        var purchase = new Purchase { Number = "PO-1", SupplierId = supplierId, SupplierName = "1688 Store", RateToUzs = 1_800,
+            Expenses = [new() { Name = "Комиссия", Amount = 18_000 }, new() { Name = "Доставка", Amount = 90_000 }], Items = [item] };
         var catalog = new MemoryCatalog(product);
         var store = new MemoryInventoryStore();
         var service = new PurchaseReceivingService(catalog, store);
@@ -146,7 +146,7 @@ public sealed class PurchaseReceivingServiceTests
         var costs = store.History;
         Assert.Equal(2, costs.ProductCosts.Count);
         Assert.Equal(2, costs.ExchangeRates.Count);
-        Assert.All(costs.ProductCosts, x => { Assert.Equal("TS-1", x.Sku); Assert.Equal("1688 Store", x.SupplierName); Assert.Equal(1_800, x.CnyRateUzs); Assert.True(x.UnitLandedCostUzs > 0); });
+        Assert.All(costs.ProductCosts, x => { Assert.Equal("TS-1", x.Sku); Assert.Equal("1688 Store", x.SupplierName); Assert.Equal(1_800, x.RateToUzs); Assert.True(x.UnitLandedCostUzs > 0); });
         Assert.Equal(7, costs.ProductCosts[0].Quantity);
         Assert.Equal(2, costs.ProductCosts[1].Quantity);
     }
@@ -198,8 +198,8 @@ public sealed class SupplierAnalyticsServiceTests
         var secondSupplier = new Supplier { Name = "Store B" };
         var history = new PurchaseHistoryData { ProductCosts =
         [
-            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = supplier.Id, SupplierName = supplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 8, UnitPriceCny = 20, UnitLandedCostUzs = 50_000 },
-            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = secondSupplier.Id, SupplierName = secondSupplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 5, UnitPriceCny = 18, UnitLandedCostUzs = 47_000 }
+            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = supplier.Id, SupplierName = supplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 8, UnitPrice = 20, UnitLandedCostUzs = 50_000 },
+            new ProductCostHistoryEntry { ProductId = productId, ProductName = "Футболка", Sku = "TS-1", SupplierId = secondSupplier.Id, SupplierName = secondSupplier.Name, ReceiptId = Guid.NewGuid(), Quantity = 5, UnitPrice = 18, UnitLandedCostUzs = 47_000 }
         ] };
         var service = new SupplierAnalyticsService();
 
@@ -225,7 +225,7 @@ public sealed class IntermediaryAnalyticsServiceTests
         var purchase = new Purchase
         {
             Number = "PO-CARGO", IntermediaryId = intermediary.Id, IntermediaryName = intermediary.Name, Status = PurchaseStatus.Received,
-            OrderedAt = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.FromHours(5)), EstimatedDeliveryDate = new DateTime(2026, 7, 11), InternationalShippingUzs = 200_000,
+            OrderedAt = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.FromHours(5)), EstimatedDeliveryDate = new DateTime(2026, 7, 11), Expenses = [new() { Name = "Доставка", Kind = PurchaseExpenseKind.Shipping, Amount = 200_000 }],
             Items = [new PurchaseItem { ProductName = "Худи", Quantity = 10, UnitWeightKg = 0.5m }],
             Receipts = [new PurchaseReceipt { ReceivedAt = new DateTimeOffset(2026, 7, 13, 12, 0, 0, TimeSpan.FromHours(5)) }]
         };
@@ -247,9 +247,9 @@ public sealed class InventoryAnalyticsServiceTests
     public void Calculates_inventory_value_turnover_cover_and_stale_stock()
     {
         var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 10, ReservedQuantity = 2 };
-        var product = new Product { Name = "Футболка", Sku = "TS-1", Category = "Футболки", PurchasePriceCny = 10, CnyRateUzs = 1_000, DeliveryCostUzs = 1_000, SellingPriceUzs = 25_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [variant] };
+        var product = new Product { Name = "Футболка", Sku = "TS-1", Category = "Футболки", PlannedPurchasePrice = 10, RateToUzs = 1_000, DeliveryCostUzs = 1_000, SellingPriceUzs = 25_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [variant] };
         var staleVariant = new ProductVariant { Color = "Белый", Size = "L", Quantity = 5 };
-        var stale = new Product { Name = "Худи", Sku = "HD-1", Category = "Худи", PurchasePriceCny = 5, CnyRateUzs = 1_000, SellingPriceUzs = 15_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [staleVariant] };
+        var stale = new Product { Name = "Худи", Sku = "HD-1", Category = "Худи", PlannedPurchasePrice = 5, RateToUzs = 1_000, SellingPriceUzs = 15_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [staleVariant] };
         var sale = new Sale { Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.FromHours(5)), Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, SoldQuantity = 2 }] };
         var receipt = new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, CreatedAt = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.FromHours(5)), QuantityDelta = 10 };
 
@@ -358,7 +358,9 @@ public sealed class SalesInventoryServiceTests
         Assert.Equal(3, variant.ReservedQuantity);
         Assert.Equal(3, item.ReservedQuantity);
 
+        await service.MarkShippedAsync(sale);
         await service.CompleteAsync(sale);
+        await service.MarkShippedAsync(sale);
         await service.CompleteAsync(sale);
         Assert.Equal(7, variant.Quantity);
         Assert.Equal(0, variant.ReservedQuantity);
@@ -436,11 +438,12 @@ public sealed class SalesInventoryServiceTests
         item.Quantity = 4;
         await service.ReserveAsync(sale);
         Assert.Equal(4, variant.ReservedQuantity);
-        await service.MarkPaidAsync(sale);
-        Assert.Equal(SaleStatus.Paid, sale.Status);
+        await new SalesPaymentService(new MemoryInventoryStore()).AddAsync(sale, new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = sale.TotalUzs });
+        Assert.Equal(SaleStatus.Reserved, sale.Status);
         await service.MarkShippedAsync(sale);
         Assert.Equal(SaleStatus.Shipped, sale.Status);
         await Assert.ThrowsAsync<SaleTransitionException>(() => service.CancelAsync(sale));
+        await service.MarkShippedAsync(sale);
         await service.CompleteAsync(sale);
 
         Assert.Equal(1, variant.Quantity);
@@ -501,7 +504,7 @@ public sealed class SalesInventoryServiceTests
         await service.AddAsync(sale, new SalePayment { Type = PaymentOperationType.Payment, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = 200 });
         Assert.Equal(300, sale.PaidUzs);
         Assert.Equal(0, sale.BalanceDueUzs);
-        Assert.Equal(SaleStatus.Paid, sale.Status);
+        Assert.Equal(SaleStatus.Reserved, sale.Status);
 
         sale.Returns.Add(new SaleReturn { Reason = "Размер", RefundAmountUzs = 100 });
         await service.AddAsync(sale, new SalePayment { Type = PaymentOperationType.Refund, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = 100 });
@@ -684,12 +687,12 @@ public sealed class ProductStatusServiceTests
         var service = new ProductStatusService();
         var empty = new Product { Status = ProductStatus.InStock, Variants = [new ProductVariant { Quantity = 0 }] };
         Assert.Equal(ProductStatus.OutOfStock, service.Calculate(empty, new BusinessSettings()));
-        Assert.Equal(ProductStatus.OnOrder, service.Calculate(empty, new BusinessSettings { ZeroStockStatus = ProductStatus.OnOrder }));
+        Assert.Equal(ProductStatus.OutOfStock, service.Calculate(empty, new BusinessSettings { ZeroStockStatus = ProductStatus.OnOrder }));
 
         var archived = new Product { Status = ProductStatus.Archived, Variants = [new ProductVariant { Quantity = 10 }] };
         var preorder = new Product { Status = ProductStatus.OnOrder };
         Assert.Equal(ProductStatus.Archived, service.Calculate(archived, new BusinessSettings()));
-        Assert.Equal(ProductStatus.OnOrder, service.Calculate(preorder, new BusinessSettings()));
+        Assert.Equal(ProductStatus.OutOfStock, service.Calculate(preorder, new BusinessSettings()));
     }
 
     [Fact]
@@ -700,7 +703,7 @@ public sealed class ProductStatusServiceTests
         Assert.Equal(ProductStatus.InStock, service.Calculate(product, new BusinessSettings { LowStockThreshold = 3 }));
 
         var withoutVariants = new Product { Status = ProductStatus.OnOrder };
-        Assert.Equal(ProductStatus.OnOrder, service.Calculate(withoutVariants, new BusinessSettings()));
+        Assert.Equal(ProductStatus.OutOfStock, service.Calculate(withoutVariants, new BusinessSettings()));
     }
 }
 

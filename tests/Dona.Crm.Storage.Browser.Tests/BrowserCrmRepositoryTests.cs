@@ -9,6 +9,41 @@ namespace Dona.Crm.Storage.Browser.Tests;
 public sealed class BrowserCrmRepositoryTests
 {
     [Fact]
+    public async Task Tariff_receipt_zip_restores_into_fresh_browser_store_without_duplicate_expenses()
+    {
+        var source = new BrowserCrmRepository(new KeyValueJsRuntime());
+        var partner = new Intermediary { Name = "Посредник", CommissionPercent = 5, RatePerKgUsd = 2, MinimumWeightKg = 3 };
+        await source.UpsertIntermediaryAsync(partner);
+        var product = new Product { Name = "Товар", AllowOrderWhenUnavailable = true, Variants = [new()] };
+        await source.UpsertProductAsync(product);
+        var purchase = new Purchase { Number = "BROWSER-ZIP", CurrencyCode = "USD", RateToUzs = 12000, IntermediaryId = partner.Id,
+            Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name,
+                Quantity = 2, UnitPrice = 10, UnitWeightKg = .5m }] };
+        PurchaseTariffCalculator.Apply(purchase, partner);
+        var receiving = new PurchaseReceivingService(source, source, source);
+        await receiving.SaveAsync(purchase);
+        await receiving.ReceiveAsync(purchase, [new(purchase.Items[0].Id, 1, 0)]);
+        var snapshot = await source.ReadSnapshotAsync();
+        var bytes = BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(snapshot));
+        var targetJs = new KeyValueJsRuntime();
+        var target = new BrowserCrmRepository(targetJs);
+        var restore = new BackupRestoreService(target, new BrowserLocalImageStore(targetJs));
+        Assert.Equal(1, (await restore.PreviewAsync(bytes)).NewPurchases);
+        await restore.RestoreAsync(bytes);
+        target = new BrowserCrmRepository(targetJs);
+        Assert.Equal(DonaSyncFingerprint.Create(snapshot), DonaSyncFingerprint.Create(await target.ReadSnapshotAsync()));
+        var restored = (await target.GetPurchaseAsync(purchase.Id))!;
+        Assert.Equal(0, PurchaseTariffCalculator.Apply(restored, partner));
+        Assert.Equal(2, restored.Expenses.Count);
+        Assert.Equal(1, (await target.GetProductAsync(product.Id))!.Quantity);
+        Assert.Equal(162000, FifoCostCalculator.Value((await target.GetProductAsync(product.Id))!.Variants[0]).TotalValue);
+        var invalid = await target.ReadSnapshotAsync();
+        invalid.SchemaVersion = 2;
+        await Assert.ThrowsAsync<InvalidDataException>(() => target.ReplaceSnapshotAsync(invalid));
+        Assert.Equal(DonaSyncFingerprint.Create(snapshot), DonaSyncFingerprint.Create(await new BrowserCrmRepository(targetJs).ReadSnapshotAsync()));
+    }
+
+    [Fact]
     public async Task Fifo_layers_and_consumptions_survive_atomic_commit_and_reload()
     {
         var js = new KeyValueJsRuntime();
@@ -33,9 +68,9 @@ public sealed class BrowserCrmRepositoryTests
     {
         var js = new KeyValueJsRuntime();
         var repository = new BrowserCrmRepository(js);
-        var product = new Product { Sku = "COST", Name = "Товар" };
+        var product = new Product { Sku = "COST", Name = "Товар", Variants = [new()] };
         await repository.UpsertProductAsync(product);
-        var item = new PurchaseItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2, UnitPriceCny = 100 };
+        var item = new PurchaseItem { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 2, UnitPrice = 100 };
         var purchase = new Purchase { Number = "COST", CurrencyCode = "UZS", Items = [item] };
         var service = new PurchaseReceivingService(repository, repository, repository);
         await service.SaveAsync(purchase);
@@ -67,10 +102,10 @@ public sealed class BrowserCrmRepositoryTests
     {
         var js = new KeyValueJsRuntime();
         var repository = new BrowserCrmRepository(js);
-        var product = new Product { Sku = "T", Name = "Товар" };
+        var product = new Product { Sku = "T", Name = "Товар", Variants = [new()] };
         await repository.UpsertProductAsync(product);
         var service = new PurchaseReceivingService(repository, repository, repository);
-        var old = new Purchase { Number = "OLD", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 1, UnitPriceCny = 100 }] };
+        var old = new Purchase { Number = "OLD", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 1, UnitPrice = 100 }] };
         await service.SaveAsync(old);
         await service.ReceiveAsync(old, [new(old.Items[0].Id, 1, 0)]);
         old.Expenses.Add(new() { Name = "Поздняя доставка", Amount = 50 });
@@ -82,7 +117,7 @@ public sealed class BrowserCrmRepositoryTests
         Assert.Equal(100, (await repository.GetProductAsync(product.Id))!.CostUzs);
         Assert.Equal(100, Assert.Single((await ((IPurchaseHistoryRepository)repository).GetAsync()).ProductCosts).UnitLandedCostUzs);
 
-        var newer = new Purchase { Number = "NEW", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductName = product.Name, Quantity = 1, UnitPriceCny = 200 }] };
+        var newer = new Purchase { Number = "NEW", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 1, UnitPrice = 200 }] };
         await service.SaveAsync(newer);
         await service.ReceiveAsync(newer, [new(newer.Items[0].Id, 1, 0)]);
         await service.SaveAsync(old);

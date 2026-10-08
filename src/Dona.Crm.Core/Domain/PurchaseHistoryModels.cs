@@ -16,9 +16,13 @@ public sealed class ProductCostHistoryEntry
     public Guid? SupplierId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
     public int Quantity { get; set; }
-    public decimal UnitPriceCny { get; set; }
+    public decimal UnitPrice { get; set; }
     public string CurrencyCode { get; set; } = "CNY";
-    public decimal CnyRateUzs { get; set; }
+    public decimal RateToUzs { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? UnitPriceCny { get => null; set { if (value is not null) UnitPrice = value.Value; } }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? CnyRateUzs { get => null; set { if (value is not null) RateToUzs = value.Value; } }
     public decimal UnitLandedCostUzs { get; set; }
 }
 

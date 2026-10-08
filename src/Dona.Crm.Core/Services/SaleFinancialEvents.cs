@@ -11,7 +11,7 @@ public static class SaleFinancialEvents
     public static IReadOnlyList<SaleFinancialEvent> Build(IEnumerable<Sale> source)
     {
         var result = new List<SaleFinancialEvent>();
-        foreach (var sale in source.Where(x => x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0))
+        foreach (var sale in source.Where(x => x.Status == SaleStatus.Shipped || x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0))
         {
             var weights = sale.Items.Select(x => (x.UnitPriceUzs ?? 0) * (x.SoldQuantity > 0 ? x.SoldQuantity : x.Quantity ?? 0)).ToArray();
             var revenues = Distribute(sale.TotalUzs, weights);
@@ -20,7 +20,7 @@ public static class SaleFinancialEvents
                 var item = sale.Items[i];
                 var sold = item.SoldQuantity > 0 ? item.SoldQuantity : item.Quantity ?? 0;
                 if (item.Consumptions.Count == 0)
-                    result.Add(new(sale, item, null, sale.CompletedAt ?? sale.CreatedAt, sold, revenues[i],
+                    result.Add(new(sale, item, null, sale.ShippedAt ?? sale.CompletedAt ?? sale.CreatedAt, sold, revenues[i],
                         (item.UnitCostUzs ?? 0) * sold, true, item.UnitCostUzs is null));
                 else
                 {
@@ -28,7 +28,7 @@ public static class SaleFinancialEvents
                     for (var j = 0; j < item.Consumptions.Count; j++)
                     {
                         var part = item.Consumptions[j];
-                        result.Add(new(sale, item, part.LayerId, sale.CompletedAt ?? sale.CreatedAt, part.Quantity,
+                        result.Add(new(sale, item, part.LayerId, sale.ShippedAt ?? sale.CompletedAt ?? sale.CreatedAt, part.Quantity,
                             parts[j], part.TotalCost ?? 0, true, part.TotalCost is null));
                     }
                 }

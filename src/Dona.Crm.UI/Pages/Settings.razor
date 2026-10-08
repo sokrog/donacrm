@@ -43,10 +43,7 @@ else
         </label>
         <div class="dona-field-row"><label class="dona-field">Порог «Заканчивается»
             <InputNumber @bind-Value="settings.LowStockThreshold" min="0" />
-        </label><label class="dona-field">При нулевом остатке
-        <OrbitSelect TValue="ProductStatus" @bind-Value="settings.ZeroStockStatus"
-                     Options="@ZeroStockStatusOptions" Label="Статус при нулевом остатке" />
-    </label></div><label class="dona-field dona-toggle">
+        </label></div><p class="dona-note">При нулевом доступном остатке — «Нет в наличии». Возможность заказа при отсутствии включается отдельно в карточке товара.</p><label class="dona-field dona-toggle">
     <InputCheckbox @bind-Value="settings.CountReservedAsUnavailable" /><span><strong>Вычитать
     резерв</strong><small>Зарезервированные единицы недоступны для новой продажи</small></span>
 </label><button type="button" class="dona-btn dona-btn--ghost" disabled="@saving"
@@ -72,10 +69,7 @@ else
     <InputNumber @bind-Value="settings.StaleInventoryDays" min="1" />
 </label><label class="dona-field">Префикс продажи
 <InputText @bind-Value="settings.SaleNumberPrefix" />
-</label></div><label class="dona-field">Главная валюта
-<OrbitSelect TValue="string" @bind-Value="settings.MainCurrencyCode" Options="@CurrencyOptions"
-             Label="Главная валюта" />
-</label>
+</label></div><p class="dona-note">Валюта учёта — UZS (сум). Иностранные валюты закупок и расходов пересчитываются по курсу документа.</p>
 </section>
 <section class="dona-section">
     <div class="dona-section-title section-heading"><span>03</span>
@@ -92,7 +86,7 @@ else
         <section class="dona-section">
             <div class="dona-section-title section-heading"><span>04</span>
                 <div>
-                    <h2>Резервная копия</h2>
+                    <h2 id="backups">Резервная копия</h2>
                     <p>Восстановление локальных данных из ZIP</p>
                 </div>
             </div>
@@ -123,7 +117,7 @@ else
                     <section class="dona-section">
                         <div class="dona-section-title section-heading"><span>05</span>
                             <div>
-                                <h2>Личное облако Google</h2>
+                                <h2 id="cloud-backups">Копии в Google Drive</h2>
                                 <p>Версии в скрытой папке аккаунта</p>
                             </div>
                         </div>
@@ -213,11 +207,6 @@ else
    LocalSyncReset => Services.GetService(typeof(ILocalSyncResetService)) as ILocalSyncResetService; private
    IPersonalCloudBackupService? PersonalCloud => Services.GetService(typeof(IPersonalCloudBackupService)) as
    IPersonalCloudBackupService;
-    private static readonly IReadOnlyList<OrbitSelectOption<ProductStatus>>
-   ZeroStockStatusOptions = [new(ProductStatus.OutOfStock, "Нет в наличии"), new(ProductStatus.OnOrder, "Под заказ")];
-    private
-       static readonly IReadOnlyList<OrbitSelectOption<string>>
-       CurrencyOptions = OrbitSelectOptions.From(CurrencyCodes.Supported, value => $"{value} · {CurrencyCodes.Symbol(value)}");
     protected override async Task OnInitializedAsync() { settings = await SettingsRepository.GetAsync(); loading = false; }
     private
    async Task SaveAsync() => await RunAsync(async () => { Normalize(); await SettingsRepository.SaveAsync(settings); },
@@ -239,8 +228,7 @@ else
         settings.LowStockThreshold = Math.Max(0, settings.LowStockThreshold); settings.ContentPlanningHorizonDays =
 Math.Max(1, settings.ContentPlanningHorizonDays); settings.DefaultAnalyticsPeriodDays = Math.Max(1,
 settings.DefaultAnalyticsPeriodDays); settings.StaleInventoryDays = Math.Max(1, settings.StaleInventoryDays);
-        settings.SaleNumberPrefix = SaleNumberGenerator.NormalizePrefix(settings.SaleNumberPrefix); settings.MainCurrencyCode =
-        CurrencyCodes.Normalize(settings.MainCurrencyCode);
+        settings.SaleNumberPrefix = SaleNumberGenerator.NormalizePrefix(settings.SaleNumberPrefix);
     }
     private
    async Task SelectBackupAsync() => await RunAsync(async () =>

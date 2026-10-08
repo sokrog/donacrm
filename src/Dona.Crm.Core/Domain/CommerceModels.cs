@@ -4,6 +4,8 @@ namespace Dona.Crm.Web.Domain;
 
 public sealed class Supplier
 {
+    public bool IsArchived { get; set; }
+    public Guid? DefaultIntermediaryId { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите название")] public string Name { get; set; } = string.Empty;
     public string Platform { get; set; } = string.Empty;
@@ -19,6 +21,7 @@ public sealed class Supplier
 
 public sealed class Intermediary
 {
+    public bool IsArchived { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите название")] public string Name { get; set; } = string.Empty;
     public string? Company { get; set; }
@@ -27,9 +30,9 @@ public sealed class Intermediary
     public string? Telegram { get; set; }
     public string? WeChat { get; set; }
     public string? Phone { get; set; }
-    public decimal? RatePerKgUsd { get; set; }
-    public decimal? CommissionPercent { get; set; }
-    public decimal? MinimumWeightKg { get; set; }
+    [Range(0, 1_000_000_000)] public decimal? RatePerKgUsd { get; set; }
+    [Range(0, 100)] public decimal? CommissionPercent { get; set; }
+    [Range(0, 1_000_000_000)] public decimal? MinimumWeightKg { get; set; }
     public int? EstimatedDays { get; set; }
     [Range(0, 5)] public decimal? Rating { get; set; }
     public bool OfficialImport { get; set; }
@@ -60,10 +63,18 @@ public sealed partial class Purchase : IValidatableObject
     public string? TrackingCode { get; set; }
     public DateTime? EstimatedDeliveryDate { get; set; }
     public string CurrencyCode { get; set; } = "CNY";
-    [Range(0, 100_000)] public decimal? CnyRateUzs { get; set; }
-    [Range(0, 100)] public decimal? AgentCommissionPercent { get; set; }
-    [Range(0, 1_000_000_000)] public decimal? InternationalShippingUzs { get; set; }
-    [Range(0, 1_000_000_000)] public decimal? OtherCostsUzs { get; set; }
+    [Range(0, 100_000)] public decimal? RateToUzs { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? CnyRateUzs { get => null; set { if (value is not null) RateToUzs = value; } }
+    // Retained only to reject legacy payloads explicitly, never to silently lose their amounts.
+    public decimal? AgentCommissionPercent { get => null; set => RejectLegacyCost(value); }
+    public decimal? InternationalShippingUzs { get => null; set => RejectLegacyCost(value); }
+    public decimal? OtherCostsUzs { get => null; set => RejectLegacyCost(value); }
+    private static void RejectLegacyCost(decimal? value)
+    {
+        if (value is not null and not 0)
+            throw new InvalidOperationException("Старые поля расходов закупки не поддерживаются. Используйте список расходов; перенос старых данных требует отдельного преобразования.");
+    }
     public string? Notes { get; set; }
     public List<PurchaseItem> Items { get; set; } = [];
     public List<PurchaseReceipt> Receipts { get; set; } = [];
@@ -77,17 +88,13 @@ public sealed partial class Purchase : IValidatableObject
         CompensationCorrections.LastOrDefault(x => x.SettlementId == settlement.Id)?.NewRefund ?? settlement.SupplierRefund;
     public DateTimeOffset? ClosedAt { get; set; }
     public Guid? ClosingOperationId { get; set; }
-    public decimal GoodsCostCny => Items.Sum(x => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0));
+    public decimal GoodsCost => Items.Sum(x => (x.UnitPrice ?? 0) * (x.Quantity ?? 0));
     public decimal GoodsCostUzs => Items.Sum(ItemGoodsCostUzs);
-    public decimal AgentCommissionUzs => Math.Round(GoodsCostUzs * (AgentCommissionPercent ?? 0) / 100);
-    public decimal TotalCostUzs => GoodsCostUzs + AgentCommissionUzs + (InternationalShippingUzs ?? 0) + (OtherCostsUzs ?? 0) + Expenses.Sum(x => x.AmountUzs);
+    public decimal TotalCostUzs => GoodsCostUzs + Expenses.Sum(x => x.AmountUzs);
     public int TotalQuantity => Items.Sum(x => x.Quantity ?? 0);
     public decimal TotalWeightKg => Items.Sum(x => (x.UnitWeightKg ?? 0) * (x.Quantity ?? 0));
-    public decimal ItemGoodsCostUzs(PurchaseItem item) => Math.Round((item.UnitPriceCny ?? 0) * (item.Quantity ?? 0) * (CurrencyCode == "UZS" ? 1 : CnyRateUzs ?? 0), 2);
-    public decimal ItemCommissionUzs(PurchaseItem item) => AllocateLegacy(item, ItemGoodsCostUzs, AgentCommissionUzs);
-    public decimal ItemShippingUzs(PurchaseItem item) => AllocateLegacy(item, x => (x.UnitWeightKg ?? 0) * (x.Quantity ?? 0), InternationalShippingUzs ?? 0);
-    public decimal ItemOtherCostsUzs(PurchaseItem item) => AllocateLegacy(item, ItemGoodsCostUzs, OtherCostsUzs ?? 0);
-    public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemCommissionUzs(item) + ItemShippingUzs(item) + ItemOtherCostsUzs(item) + ItemExpensesUzs(item);
+    public decimal ItemGoodsCostUzs(PurchaseItem item) => Math.Round((item.UnitPrice ?? 0) * (item.Quantity ?? 0) * (CurrencyCode == "UZS" ? 1 : RateToUzs ?? 0), 2);
+    public decimal ItemLandedCostUzs(PurchaseItem item) => ItemGoodsCostUzs(item) + ItemExpensesUzs(item);
     public decimal ItemUnitLandedCostUzs(PurchaseItem item) => (item.Quantity ?? 0) == 0 ? 0 : Math.Round(ItemLandedCostUzs(item) / item.Quantity!.Value);
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
         NestedValidation.ValidateItems(Items, nameof(Items), "Позиция")
@@ -95,15 +102,6 @@ public sealed partial class Purchase : IValidatableObject
             .Concat(ValidateExpenses())
             .Concat(IsCostFinalized ? ValidateCostInputs() : []);
 
-    private decimal AllocateLegacy(PurchaseItem item, Func<PurchaseItem, decimal> basis, decimal totalCost)
-    {
-        if (!Items.Contains(item) || totalCost == 0) return 0;
-        if (Items.Sum(basis) <= 0) basis = x => x.Quantity ?? 0;
-        var total = Items.Sum(basis);
-        if (total <= 0) return 0;
-        var previous = Items.Take(Items.IndexOf(item)).Sum(basis);
-        return Math.Round(totalCost * (previous + basis(item)) / total, 2) - Math.Round(totalCost * previous / total, 2);
-    }
 }
 
 public sealed class PurchaseReceipt
@@ -140,7 +138,9 @@ public sealed class PurchaseItem
     public string Color { get; set; } = string.Empty;
     public string Size { get; set; } = string.Empty;
     [Range(1, 100_000, ErrorMessage = "Количество должно быть от 1 до 100 000")] public int? Quantity { get; set; }
-    [Range(0, 1_000_000, ErrorMessage = "Цена должна быть от 0 до 1 000 000")] public decimal? UnitPriceCny { get; set; }
+    [Range(0, 1_000_000, ErrorMessage = "Цена должна быть от 0 до 1 000 000")] public decimal? UnitPrice { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? UnitPriceCny { get => null; set { if (value is not null) UnitPrice = value; } }
     [Range(0, 10_000, ErrorMessage = "Вес должен быть от 0 до 10 000 кг")] public decimal? UnitWeightKg { get; set; }
     [Range(0, 100_000, ErrorMessage = "Принятое количество должно быть от 0 до 100 000")] public int? ReceivedQuantity { get; set; }
     [Range(0, 100_000, ErrorMessage = "Количество брака должно быть от 0 до 100 000")] public int? DefectQuantity { get; set; }

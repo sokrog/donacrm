@@ -49,6 +49,9 @@ public sealed class ProductEditingService(
         var duplicate = all.FirstOrDefault(product => product.Id != edited.Id && string.Equals(product.Sku.Trim(), sku, StringComparison.OrdinalIgnoreCase));
         if (duplicate is not null) throw new InvalidOperationException($"SKU «{sku}» уже используется товаром «{duplicate.Name}».");
         if (edited.Variants.Any(variant => variant.Quantity is < 0)) throw new InvalidOperationException("Остаток варианта не может быть отрицательным.");
+        if (edited.PreferredSupplierId is { } preferred && original?.PreferredSupplierId != preferred
+            && !(await commerce.GetSuppliersAsync(cancellationToken)).Any(x => x.Id == preferred))
+            throw new InvalidOperationException("Предпочтительный поставщик не найден. Выберите поставщика из справочника.");
 
         var stored = all.FirstOrDefault(product => product.Id == edited.Id);
         var product = stored ?? new Product { Id = edited.Id, CreatedAt = edited.CreatedAt };
@@ -59,16 +62,18 @@ public sealed class ProductEditingService(
         product.Gender = Merge(baseline, value => value.Gender, edited, product);
         product.Season = Merge(baseline, value => value.Season, edited, product);
         product.SupplierName = Merge(baseline, value => value.SupplierName, edited, product);
+        product.PreferredSupplierId = Merge(baseline, value => value.PreferredSupplierId, edited, product);
+        product.AllowOrderWhenUnavailable = Merge(baseline, value => value.AllowOrderWhenUnavailable, edited, product);
         product.SourceUrl = Merge(baseline, value => value.SourceUrl, edited, product);
         product.ImageUrl = edited.ImageUrl;
         product.Notes = Merge(baseline, value => value.Notes, edited, product);
-        var previousCost = (product.PurchasePriceCny, product.PurchaseCurrencyCode, product.CnyRateUzs, product.AgentCommissionPercent, product.DeliveryCostUzs);
-        product.PurchasePriceCny = Merge(baseline, value => value.PurchasePriceCny, edited, product);
+        var previousCost = (product.PlannedPurchasePrice, product.PurchaseCurrencyCode, product.RateToUzs, product.AgentCommissionPercent, product.DeliveryCostUzs);
+        product.PlannedPurchasePrice = Merge(baseline, value => value.PlannedPurchasePrice, edited, product);
         product.PurchaseCurrencyCode = Merge(baseline, value => value.PurchaseCurrencyCode, edited, product);
-        product.CnyRateUzs = Merge(baseline, value => value.CnyRateUzs, edited, product);
+        product.RateToUzs = Merge(baseline, value => value.RateToUzs, edited, product);
         product.AgentCommissionPercent = Merge(baseline, value => value.AgentCommissionPercent, edited, product);
         product.DeliveryCostUzs = Merge(baseline, value => value.DeliveryCostUzs, edited, product);
-        if (previousCost != (product.PurchasePriceCny, product.PurchaseCurrencyCode, product.CnyRateUzs, product.AgentCommissionPercent, product.DeliveryCostUzs))
+        if (previousCost != (product.PlannedPurchasePrice, product.PurchaseCurrencyCode, product.RateToUzs, product.AgentCommissionPercent, product.DeliveryCostUzs))
             product.CostPurchaseId = null;
         product.SellingPriceUzs = Merge(baseline, value => value.SellingPriceUzs, edited, product);
         product.Images = edited.Images;
@@ -88,8 +93,8 @@ public sealed class ProductEditingService(
             }
             var initial = variant.Quantity ?? 0;
             var created = new ProductVariant { Id = variant.Id, Color = variant.Color, Size = variant.Size, Quantity = 0, StockLayerVersion = FifoCostCalculator.CurrentVersion };
-            decimal? initialCost = product.PurchasePriceCny is not null && (product.PurchaseCurrencyCode == "UZS" || product.CnyRateUzs > 0)
-                ? Math.Round(product.PurchasePriceCny.Value * (product.PurchaseCurrencyCode == "UZS" ? 1 : product.CnyRateUzs!.Value) * (1 + (product.AgentCommissionPercent ?? 0) / 100) + (product.DeliveryCostUzs ?? 0), 2) : null;
+            decimal? initialCost = product.PlannedPurchasePrice is not null && (product.PurchaseCurrencyCode == "UZS" || product.RateToUzs > 0)
+                ? Math.Round(product.PlannedPurchasePrice.Value * (product.PurchaseCurrencyCode == "UZS" ? 1 : product.RateToUzs!.Value) * (1 + (product.AgentCommissionPercent ?? 0) / 100) + (product.DeliveryCostUzs ?? 0), 2) : null;
             if (initial > 0) StockLayerOperations.Add(created, initial, initialCost * initial, StockLayerSource.OpeningBalance, DateTimeOffset.UtcNow, product.Sku);
             variants.Add(created);
             if (initial > 0)

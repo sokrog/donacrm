@@ -12,7 +12,18 @@ public sealed class BusinessSettings
     public int DefaultAnalyticsPeriodDays { get; set; } = 30;
     public int StaleInventoryDays { get; set; } = 60;
     public string SaleNumberPrefix { get; set; } = "SALE";
-    public string MainCurrencyCode { get; set; } = "UZS";
+    public const string AccountingCurrency = "UZS";
+    public string MainCurrencyCode
+    {
+        get => AccountingCurrency;
+        set => EnsureAccountingCurrency(value);
+    }
+
+    public static void EnsureAccountingCurrency(string? code)
+    {
+        if (!string.Equals(code?.Trim(), AccountingCurrency, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Валюта учёта — UZS. Данные с другой валютой учёта нельзя загрузить без отдельного преобразования сумм.");
+    }
     public bool OnboardingCompleted { get; set; }
     public bool UseGoogleDriveImages { get; set; }
 }

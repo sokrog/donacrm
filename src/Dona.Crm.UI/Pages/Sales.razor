@@ -142,7 +142,7 @@
         "30d"=>"30 дней",
         _=>"всё время"
     };
-    private static bool IsActive(Sale item)=>item.Status is SaleStatus.Reserved or SaleStatus.Paid or SaleStatus.Shipped;
+    private static bool IsActive(Sale item)=>item.Status is SaleStatus.Reserved or SaleStatus.Shipped;
     private bool MatchesStatus(Sale item)=>statusFilter switch
     {
         "active"=>IsActive(item),
@@ -153,8 +153,8 @@
         _=>true
     };
     // Sale has no completion date, so the period is based on CreatedAt (local date).
-    private bool InPeriod(Sale item){
-        var date=item.CreatedAt.ToLocalTime().Date;
+    private bool InPeriod(DateTimeOffset at){
+        var date=at.ToLocalTime().Date;
         var today=DateTime.Today;
         return period switch
         {
@@ -164,8 +164,7 @@
             _=>true
         };
     }
-    private decimal Revenue=>financial.Where(InPeriod).Sum(item=>item.NetTotalUzs);
-    private IEnumerable<Sale> financial=>items.Where(item=>item.Status is SaleStatus.Completed or SaleStatus.Returned);
+    private decimal Revenue=>SaleFinancialEvents.Build(items).Where(item=>InPeriod(item.At)).Sum(item=>item.Revenue);
     private IReadOnlyList<Sale> Filtered=>items
         .Where(MatchesStatus)
         .Where(item=>string.IsNullOrWhiteSpace(query)||item.Number.Contains(query,StringComparison.OrdinalIgnoreCase)||(item.CustomerName?.Contains(query,StringComparison.OrdinalIgnoreCase)??false))

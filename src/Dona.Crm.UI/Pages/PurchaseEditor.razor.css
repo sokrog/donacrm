@@ -1,7 +1,7 @@
 /* Purchase stage stepper */
 .purchase-flow {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
     gap: 5px;
     margin: 0 0 var(--dona-space-3);
     padding: 0;
@@ -16,13 +16,7 @@
     color: var(--dona-muted);
     font-size: var(--dona-type-micro);
     text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.purchase-flow li.done {
-    background: rgba(var(--dona-success-rgb), .07);
-    color: var(--dona-success);
+    overflow-wrap: anywhere;
 }
 
 .purchase-flow li.active {

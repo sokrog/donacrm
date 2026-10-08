@@ -9,19 +9,20 @@ public sealed class SalesReturnService(ICatalogRepository catalog, IInventorySto
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
         if (sales is not null && await sales.GetSaleAsync(sale.Id, cancellationToken) is { } saved
-            && (saved.Status != sale.Status || !saved.Returns.Select(x => x.Id).SequenceEqual(sale.Returns.Select(x => x.Id))))
+            && System.Text.Json.JsonSerializer.Serialize(saved) != System.Text.Json.JsonSerializer.Serialize(sale))
             throw new InventoryException("Возвраты продажи уже изменились. Откройте продажу заново.");
         if (sale.Returns.FirstOrDefault(x => x.Id == document.Id) is { } existing) return existing;
-        if (sale.Status != SaleStatus.Completed) throw new SaleTransitionException("Частичный возврат доступен только для завершённой продажи.");
+        if (sale.Status is not (SaleStatus.Shipped or SaleStatus.Completed)) throw new SaleTransitionException("Товарный возврат доступен после отправки заказа.");
         if (string.IsNullOrWhiteSpace(document.Reason)) throw new InvalidOperationException("Укажите причину возврата.");
+        if (document.Items.Any(x => x.Quantity < 0)) throw new InvalidOperationException("Количество возврата не может быть отрицательным.");
         var lines = document.Items.Where(x => (x.Quantity ?? 0) > 0).ToList();
         if (lines.Count == 0) throw new InvalidOperationException("Укажите количество хотя бы для одной позиции.");
         if (lines.GroupBy(x => x.SaleItemId).Any(x => x.Count() > 1)) throw new InvalidOperationException("Одна позиция не может повторяться в возврате.");
-        if (lines.Any(x => x.Disposition is null)) throw new InvalidOperationException("Для каждой позиции выберите результат возврата.");
-        var refund = document.RefundAmountUzs ?? 0;
-        var availableRefund = Math.Max(0, sale.TotalUzs - sale.RefundedUzs);
-        if (refund < 0 || refund > availableRefund) throw new InvalidOperationException($"Сумма возврата не может превышать {availableRefund:N0} сум.");
-        if (lines.All(x => x.Disposition == ReturnDisposition.Rejected) && refund > 0) throw new InvalidOperationException("Для отклонённого возврата сумма возврата денег должна быть равна нулю.");
+        if (lines.Any(x => x.Disposition is null || !Enum.IsDefined(x.Disposition.Value))) throw new InvalidOperationException("Для каждой позиции выберите результат возврата.");
+        if (document.DeliveryRefundUzs < 0 || document.DeliveryRefundUzs > SaleReturnCalculator.DeliveryAvailable(sale))
+            throw new InvalidOperationException("Возврат доставки не может превышать оставшуюся плату за доставку.");
+        if (lines.All(x => x.Disposition == ReturnDisposition.Rejected) && document.DeliveryRefundUzs > 0)
+            throw new InvalidOperationException("При отказе в возврате доставка не возмещается этим документом.");
 
         var products = new Dictionary<Guid, Product>();
         var work = new List<ReturnWork>();
@@ -41,6 +42,7 @@ public sealed class SalesReturnService(ICatalogRepository catalog, IInventorySto
             work.Add(new ReturnWork(line, saleItem, product, variant));
         }
 
+        document.RefundAmountUzs = SaleReturnCalculator.GoodsRefund(sale, document) + document.DeliveryRefundUzs;
         var movementRecords = new List<StockMovement>();
         foreach (var entry in work)
         {

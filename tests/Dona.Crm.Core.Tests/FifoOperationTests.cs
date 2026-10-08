@@ -41,6 +41,7 @@ public sealed class FifoOperationTests
         var returns = new SalesReturnService(catalog, store);
         var sale = new Sale { Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 5, UnitPriceUzs = 200 }] };
         await selling.ReserveAsync(sale);
+        await selling.MarkShippedAsync(sale);
         await selling.CompleteAsync(sale);
         SaleReturn Return(ReturnDisposition disposition) => new() { Reason = "Проверка", RefundAmountUzs = disposition == ReturnDisposition.Rejected ? 0 : 200,
             Items = [new() { SaleItemId = sale.Items[0].Id, Quantity = 1, Disposition = disposition }] };
@@ -74,7 +75,7 @@ public sealed class FifoOperationTests
         {
             Number = $"P-{cost}", CurrencyCode = "UZS",
             Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name,
-                Quantity = quantity, UnitPriceCny = cost }]
+                Quantity = quantity, UnitPrice = cost }]
         };
         var first = Purchase(3, 100);
         var second = Purchase(10, 150);
@@ -84,6 +85,7 @@ public sealed class FifoOperationTests
         var inventory = new SalesInventoryService(catalog, store);
         await inventory.ReserveAsync(sale);
         Assert.Equal(600m, (await inventory.PreviewAsync(sale))[sale.Items[0].Id].TotalValue);
+        await inventory.MarkShippedAsync(sale);
         await inventory.CompleteAsync(sale);
         Assert.Equal(600m, sale.CostUzs);
         Assert.Equal(120m, sale.Items[0].UnitCostUzs);
@@ -96,6 +98,7 @@ public sealed class FifoOperationTests
         Assert.Equal(1350m, FifoCostCalculator.Value((await catalog.GetProductAsync(product.Id))!.Variants[0]).TotalValue);
         var resale = new Sale { Number = "S-2", Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 1, UnitPriceUzs = 250 }] };
         await inventory.ReserveAsync(resale);
+        await inventory.MarkShippedAsync(resale);
         await inventory.CompleteAsync(resale);
         Assert.Equal(150m, resale.CostUzs);
         var actual = (await catalog.GetProductAsync(product.Id))!.Variants[0];
@@ -111,10 +114,10 @@ public sealed class FifoOperationTests
     [InlineData(10, 0, 0)]
     public async Task Receipt_defects_are_absorbed_by_saleable_units_or_recognized_as_loss(int defects, int accepted, decimal unitCost)
     {
-        var product = new Product { Name = "Товар", Sku = "DEF" };
+        var product = new Product { Name = "Товар", Sku = "DEF", Variants = [new()] };
         var catalog = new CloningCatalog(product);
         var store = new MemoryInventoryStore(catalog);
-        var purchase = new Purchase { Number = "P", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, Quantity = 10, UnitPriceCny = 100 }] };
+        var purchase = new Purchase { Number = "P", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, Quantity = 10, UnitPrice = 100 }] };
         await new PurchaseReceivingService(catalog, store).ReceiveAsync(purchase, [new(purchase.Items[0].Id, 10, defects)]);
         var actual = (await catalog.GetProductAsync(product.Id))!.Variants[0];
         FifoCostCalculator.Validate(actual);

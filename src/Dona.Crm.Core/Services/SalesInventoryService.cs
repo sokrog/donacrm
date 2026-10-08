@@ -1,5 +1,6 @@
 using Dona.Crm.Web.Domain;
 using Dona.Crm.Web.Storage;
+using System.Text.Json;
 
 namespace Dona.Crm.Web.Services;
 
@@ -17,7 +18,7 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
     public Task ReserveAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(token);
-        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "резервирования");
+        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved], "резервирования");
         var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
         var before = Snapshot(lines);
         ApplyReservations(lines);
@@ -25,17 +26,18 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
         await CommitAsync(sale, lines, before, StockMovementType.Reservation, token);
     });
 
-    public Task MarkPaidAsync(Sale sale, CancellationToken token = default) =>
-        ChangeActiveStatusAsync(sale, SaleStatus.Paid, [SaleStatus.Reserved, SaleStatus.Paid], "оплаты", token);
+    public Task CancelAsync(Sale sale, CancellationToken token = default) => CancelAsync(sale, null, token);
 
-    public Task MarkShippedAsync(Sale sale, CancellationToken token = default) =>
-        ChangeActiveStatusAsync(sale, SaleStatus.Shipped, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "отправки", token);
-
-    public Task CancelAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
+    public Task CancelAsync(Sale sale, decimal? deliveryRefundUzs, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(token);
+        await EnsureCurrentAsync(sale, token);
         if (sale.Status == SaleStatus.Cancelled) return;
-        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Paid], "отмены");
+        EnsureStatus(sale, [null, SaleStatus.Draft, SaleStatus.Reserved], "отмены");
+        var deliveryRefund = deliveryRefundUzs ?? sale.DeliveryChargeUzs ?? 0;
+        if (deliveryRefund < 0 || deliveryRefund > (sale.DeliveryChargeUzs ?? 0))
+            throw new InvalidOperationException("Возврат доставки должен быть от нуля до платы за доставку.");
+        sale.CancellationDeliveryRefundUzs = deliveryRefund;
         if (sale.Status is null or SaleStatus.Draft && sale.Items.All(x => x.ReservedQuantity == 0))
         {
             sale.Status = SaleStatus.Cancelled;
@@ -53,18 +55,19 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
         await CommitAsync(sale, lines, before, StockMovementType.ReservationRelease, token);
     });
 
-    public Task CompleteAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
+    public Task MarkShippedAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(token);
-        if (sale.Status == SaleStatus.Completed) return;
-        EnsureStatus(sale, [SaleStatus.Reserved, SaleStatus.Paid, SaleStatus.Shipped], "завершения");
+        await EnsureCurrentAsync(sale, token);
+        if ((sale.Status is SaleStatus.Shipped or SaleStatus.Completed) && sale.ShippedAt is not null) return;
+        EnsureStatus(sale, [SaleStatus.Reserved], "отправки");
         var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
         if (settings is not null && (await settings.GetAsync(token)).PreventSalesBelowCost)
             foreach (var line in lines.Where(x => x.RequiredQuantity > 0))
             {
                 var cost = FifoCostCalculator.Cost(FifoCostCalculator.Preview(line.Variant, line.RequiredQuantity, line.Item.ReservedQuantity));
                 var revenue = (line.Item.UnitPriceUzs ?? 0) * line.RequiredQuantity *
-                    (sale.SubtotalUzs <= 0 ? 0 : Math.Max(0, sale.SubtotalUzs - (sale.DiscountUzs ?? 0)) / sale.SubtotalUzs);
+                    (sale.SubtotalUzs <= 0 ? 0 : Math.Max(0, sale.SubtotalUzs - sale.AppliedDiscountUzs) / sale.SubtotalUzs);
                 if (cost.TotalValue is null) throw new InventoryException("Себестоимость неизвестна. Проверка продажи ниже себестоимости невозможна.");
                 if (revenue < cost.TotalValue) throw new InventoryException($"Цена «{line.Item.ProductName}» с учётом скидки ниже себестоимости FIFO.");
             }
@@ -77,15 +80,15 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
             line.Item.SoldQuantity += line.RequiredQuantity;
             line.Item.UnitCostUzs = FifoCostCalculator.Cost(line.Item.Consumptions).TotalValue / line.Item.SoldQuantity;
         }
-        sale.Status = SaleStatus.Completed;
-        sale.CompletedAt ??= DateTimeOffset.UtcNow;
+        sale.Status = SaleStatus.Shipped;
+        sale.ShippedAt = DateTimeOffset.UtcNow;
         await CommitAsync(sale, lines, before, StockMovementType.Sale, token);
     });
 
     public Task ReturnAsync(Sale sale, CancellationToken token = default)
     {
         if (sale.Status == SaleStatus.Returned) return Task.CompletedTask;
-        EnsureStatus(sale, [SaleStatus.Completed], "возврата");
+        EnsureStatus(sale, [SaleStatus.Shipped, SaleStatus.Completed], "возврата");
         var document = new SaleReturn
         {
             Reason = "Полный возврат", RefundAmountUzs = Math.Max(0, sale.TotalUzs - sale.RefundedUzs),
@@ -95,28 +98,38 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
         return new SalesReturnService(catalog, store, sales).CreateAsync(sale, document, token);
     }
 
-    private Task ChangeActiveStatusAsync(Sale sale, SaleStatus target, SaleStatus?[] allowed, string operation, CancellationToken token) => EntityRollback.RunAsync(sale, async () =>
+    public Task CompleteAsync(Sale sale, CancellationToken token = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(token);
-        EnsureStatus(sale, allowed, operation);
-        var lines = await LoadAndValidateAsync(sale, requireStock: true, token);
-        var before = Snapshot(lines);
-        ApplyReservations(lines);
-        sale.Status = target;
-        await CommitAsync(sale, lines, before, StockMovementType.Reservation, token);
+        await EnsureCurrentAsync(sale, token);
+        if (sale.Status == SaleStatus.Completed) return;
+        EnsureStatus(sale, [SaleStatus.Shipped], "завершения");
+        await LoadAndValidateAsync(sale, requireStock: false, token);
+        if (sale.ShippedAt is null || sale.Items.Any(x => x.SoldQuantity != x.Quantity || x.ReservedQuantity != 0))
+            throw new InventoryException("Сначала оформите отправку всех позиций заказа.");
+        sale.Status = SaleStatus.Completed;
+        sale.CompletedAt = DateTimeOffset.UtcNow;
+        await store.CommitAsync(InventoryCommit.Create(sales: [sale]), token);
     });
 
-    private async Task<List<StockLine>> LoadAndValidateAsync(Sale sale, bool requireStock, CancellationToken token)
+    private async Task EnsureCurrentAsync(Sale sale, CancellationToken token)
     {
         if (sales is not null && await sales.GetSaleAsync(sale.Id, token) is { } saved)
         {
             var oldState = saved.Items.Where(x => x.ReservedQuantity != 0 || x.SoldQuantity != 0 || x.ReturnedQuantity != 0)
-                .Select(x => (x.Id, x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity)).OrderBy(x => x.Id);
+                .Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity, Costs: JsonSerializer.Serialize(x.Consumptions))).OrderBy(x => x.Id);
             var newState = sale.Items.Where(x => x.ReservedQuantity != 0 || x.SoldQuantity != 0 || x.ReturnedQuantity != 0)
-                .Select(x => (x.Id, x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity)).OrderBy(x => x.Id);
-            if (saved.Status != sale.Status || !oldState.SequenceEqual(newState))
+                .Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity, Costs: JsonSerializer.Serialize(x.Consumptions))).OrderBy(x => x.Id);
+            if (saved.Status != sale.Status || !oldState.SequenceEqual(newState)
+                || JsonSerializer.Serialize(saved.Payments) != JsonSerializer.Serialize(sale.Payments)
+                || JsonSerializer.Serialize(saved.Returns) != JsonSerializer.Serialize(sale.Returns))
                 throw new InventoryException("Продажа уже изменена. Откройте её заново перед складской операцией.");
         }
+    }
+
+    private async Task<List<StockLine>> LoadAndValidateAsync(Sale sale, bool requireStock, CancellationToken token)
+    {
+        await EnsureCurrentAsync(sale, token);
         if (sale.Items.Count == 0) throw new InventoryException("Добавьте хотя бы одну позицию в заказ.");
         if (sale.Items.Any(x => x.Quantity is null or <= 0)) throw new InventoryException("Количество каждой позиции должно быть больше нуля.");
         if (sale.Items.Any(x => x.UnitPriceUzs is null or < 0)) throw new InventoryException("Укажите неотрицательную цену каждой позиции.");

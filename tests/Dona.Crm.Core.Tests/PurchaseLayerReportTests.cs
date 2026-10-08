@@ -8,7 +8,7 @@ public sealed class PurchaseLayerReportTests
     [Fact]
     public void Reconciles_returns_defects_writeoffs_and_revaluation_without_double_counting()
     {
-        var purchase = new Purchase { CurrencyCode = "UZS", Items = [new() { Quantity = 12, ReceivedQuantity = 10, UnitPriceCny = 100 }] };
+        var purchase = new Purchase { CurrencyCode = "UZS", Items = [new() { Quantity = 12, ReceivedQuantity = 10, UnitPrice = 100 }] };
         var layer = new StockLayer { PurchaseId = purchase.Id, InitialQuantity = 10, RemainingQuantity = 3, InitialValue = 1200, RemainingValue = 360 };
         var product = new Product { Name = "Товар", Status = ProductStatus.Archived, Variants = [new() { Layers = [layer] }] };
         var consumption = new LayerConsumption(Guid.NewGuid(), layer.Id, 6, 100, 600, 0);

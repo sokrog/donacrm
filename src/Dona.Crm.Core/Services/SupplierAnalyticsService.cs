@@ -21,7 +21,7 @@ public sealed class SupplierAnalyticsService
             SupplierName = group.Key.Name,
             ReceiptCount = group.Select(x => x.ReceiptId).Distinct().Count(),
             Quantity = group.Sum(x => x.Quantity),
-            AverageUnitPriceCny = WeightedAverage(group, x => x.UnitPriceCny),
+            AverageUnitPrice = WeightedAverage(group, x => x.UnitPrice),
             CurrencyCode = group.Key.CurrencyCode,
             AverageUnitCostUzs = WeightedAverage(group, x => x.UnitLandedCostUzs)
         }).ToList();

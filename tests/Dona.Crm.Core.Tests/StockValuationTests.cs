@@ -80,8 +80,10 @@ public sealed class StockValuationTests
         var sale = new Sale { Items = [new() { ProductId = product.Id, ProductVariantId = variant.Id, Quantity = 6, UnitPriceUzs = 200 }] };
         var inventory = new SalesInventoryService(catalog, store);
         await inventory.ReserveAsync(sale);
+        await inventory.MarkShippedAsync(sale);
         await inventory.CompleteAsync(sale);
         sale.CompletedAt = DateTimeOffset.UtcNow.AddMonths(-1);
+        sale.ShippedAt = sale.CompletedAt;
         var oldDate = sale.CompletedAt.Value.LocalDateTime;
         var service = new StockValuationService(catalog, store);
         await service.ValueAsync(new(product.Id, variant.Id, layer.Id, Guid.NewGuid(), 0, 4, 1000));

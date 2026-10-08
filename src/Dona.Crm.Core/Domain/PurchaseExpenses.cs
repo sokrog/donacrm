@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Dona.Crm.Web.Domain;
 
 public enum ExpenseAllocation { Value, Quantity, Weight, Item }
+public enum PurchaseExpenseKind { Other, Commission, Shipping }
 
 public sealed class PurchaseExpense
 {
@@ -14,6 +15,10 @@ public sealed class PurchaseExpense
     public string CurrencyCode { get; set; } = "UZS";
     public decimal? RateUzs { get; set; }
     public ExpenseAllocation Allocation { get; set; }
+    public PurchaseExpenseKind Kind { get; set; }
+    public Guid? TariffIntermediaryId { get; set; }
+    public PurchaseExpenseKind? TariffComponent { get; set; }
+    public string? TariffCalculation { get; set; }
     public Guid? PurchaseItemId { get; set; }
     public decimal AmountUzs => Math.Round((Amount ?? 0) * (CurrencyCode == "UZS" ? 1 : RateUzs ?? 0), 2);
 }
@@ -25,17 +30,17 @@ public sealed partial class Purchase
     public List<PurchaseExpense> Expenses { get; set; } = [];
     public bool IsCostFinalized { get; set; }
     public List<PurchaseCostRevision> CostRevisions { get; set; } = [];
-    public bool NeedsWeight => Expenses.Any(x => x.Allocation == ExpenseAllocation.Weight) || InternationalShippingUzs > 0;
+    public bool NeedsWeight => Expenses.Any(x => x.Allocation == ExpenseAllocation.Weight);
     public bool HasCompleteCostInputs => !ValidateCostInputs().Any() && !ValidateExpenses().Any();
     public decimal AdditionalCostsUzs => TotalCostUzs - GoodsCostUzs;
     public decimal ItemExpensesUzs(PurchaseItem item) => Expenses.Sum(x => AllocateExpense(x, item));
 
     public IEnumerable<ValidationResult> ValidateCostInputs()
     {
-        if (Items.Count == 0 || Items.Any(x => x.Quantity is null or <= 0 || x.UnitPriceCny is null or < 0))
+        if (Items.Count == 0 || Items.Any(x => x.Quantity is null or <= 0 || x.UnitPrice is null or < 0))
             yield return new ValidationResult("Укажите количество и закупочную цену каждой позиции.", [nameof(Items)]);
-        if (CurrencyCode != "UZS" && CnyRateUzs is null or <= 0)
-            yield return new ValidationResult("Укажите курс валюты закупки в UZS.", [nameof(CnyRateUzs)]);
+        if (CurrencyCode != "UZS" && RateToUzs is null or <= 0)
+            yield return new ValidationResult("Укажите курс валюты закупки в UZS.", [nameof(RateToUzs)]);
     }
 
     private IEnumerable<ValidationResult> ValidateExpenses()
@@ -52,7 +57,7 @@ public sealed partial class Purchase
                 yield return new ValidationResult($"«{expense.Name}»: выберите позицию закупки.", [nameof(Expenses)]);
             if (expense.Allocation == ExpenseAllocation.Weight && Items.Any(x => x.UnitWeightKg is null or <= 0))
                 yield return new ValidationResult($"«{expense.Name}»: укажите вес каждой позиции.", [nameof(Items)]);
-            if (expense.Allocation == ExpenseAllocation.Value && GoodsCostCny <= 0 && expense.Amount > 0)
+            if (expense.Allocation == ExpenseAllocation.Value && GoodsCost <= 0 && expense.Amount > 0)
                 yield return new ValidationResult($"«{expense.Name}»: для товаров с нулевой стоимостью выберите распределение по количеству.", [nameof(Expenses)]);
             if (expense.Amount > 0 && TotalQuantity <= 0)
                 yield return new ValidationResult("Добавьте товары для распределения расходов.", [nameof(Items)]);
@@ -68,7 +73,7 @@ public sealed partial class Purchase
         {
             ExpenseAllocation.Quantity => x.Quantity ?? 0,
             ExpenseAllocation.Weight => (x.UnitWeightKg ?? 0) * (x.Quantity ?? 0),
-            _ => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0)
+            _ => (x.UnitPrice ?? 0) * (x.Quantity ?? 0)
         };
         var eligible = Items.Where(x => Basis(x) > 0).ToList();
         var total = eligible.Sum(Basis);

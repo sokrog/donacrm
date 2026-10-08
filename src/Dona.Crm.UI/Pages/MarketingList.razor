@@ -3,7 +3,9 @@
 @using System.Globalization
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
+@using Dona.Crm.Web.Services
 @inject IMarketingRepository Marketing
+@inject ICatalogRepository Catalog
 @inject NavigationManager Navigation
 
 <PageTitle>@Title — DONA CRM</PageTitle>
@@ -82,7 +84,7 @@
                             <strong>@item.Name</strong>
                             <small>@(string.IsNullOrWhiteSpace(item.Occasion)?item.Status.Display():item.Occasion)</small>
                         </span>
-                        <span class="dona-list-row__value">@Money(item.TotalPriceUzs)<small>UZS</small></span>
+                        <span class="dona-list-row__value">@(MarketingCatalog.OutfitPrice(item, products) is { } price ? Money(price) + " UZS" : "Цена неполная")<small>по текущим ценам товаров</small></span>
                     </a>
                 </li>
             }
@@ -93,6 +95,7 @@
     private static readonly CultureInfo Ru=CultureInfo.GetCultureInfo("ru-RU");
     private IReadOnlyList<ProductCollection> collections=[];
     private IReadOnlyList<Outfit> outfits=[];
+    private IReadOnlyList<Product> products=[];
     private bool isLoading=true;
     private string? error;
     private bool IsCollections=>new Uri(Navigation.Uri).AbsolutePath.StartsWith("/collections",StringComparison.Ordinal);
@@ -104,7 +107,7 @@
         error=null;
         try{
             if(IsCollections)collections=await Marketing.GetCollectionsAsync();
-            else outfits=await Marketing.GetOutfitsAsync();
+            else { outfits=await Marketing.GetOutfitsAsync(); products=await Catalog.GetProductsAsync(); }
         }catch(Exception ex){
             error=UserErrors.Describe(ex, "Не удалось загрузить список. Попробуйте ещё раз.");
         }finally{

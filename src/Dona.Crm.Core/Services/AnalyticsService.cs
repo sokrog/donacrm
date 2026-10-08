@@ -34,8 +34,8 @@ public sealed class AnalyticsService
             .OrderByDescending(x => x.RevenueUzs).ThenBy(x => x.Name).ToList();
         return new()
         {
-            Orders = sales.Count(x => (x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0)
-                && SaleFinancialEvents.InPeriod(x.CompletedAt ?? x.CreatedAt, from, to)),
+            Orders = sales.Count(x => (x.Status == SaleStatus.Shipped || x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0)
+                && SaleFinancialEvents.InPeriod(x.ShippedAt ?? x.CompletedAt ?? x.CreatedAt, from, to)),
             Units = facts.Sum(x => x.Quantity), RevenueUzs = facts.Sum(x => x.Revenue), CostUzs = facts.Sum(x => x.Cost),
             PeriodExpensesUzs = expenses.Sum(x => x.Amount ?? 0), HasUnknownCost = facts.Any(x => x.UnknownCost) || expenses.Any(x => x.Amount is null),
             Expenses = expenses.OrderBy(x => x.At).ToList(),

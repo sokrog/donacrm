@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Dona.Crm.Web.Services;
 
 public sealed record PurchaseReceiptInput(Guid PurchaseItemId, int ReceivedQuantity, int DefectQuantity);
-public sealed record PurchaseReceiptResult(Guid ReceiptId, int AddedUnits, int UpdatedProducts, int SkippedItems);
+public sealed record PurchaseReceiptResult(Guid ReceiptId, int AddedUnits, int UpdatedProducts, int DefectUnits);
 public sealed record PurchaseShortageInput(Guid PurchaseItemId, decimal SupplierRefund);
 
 public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInventoryStore store, ICommerceRepository? commerce = null)
@@ -15,9 +15,10 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
     {
         using var gate = await InventoryLock.AcquireAsync(cancellationToken);
         Validator.ValidateObject(purchase, new ValidationContext(purchase), true);
-        if (purchase.CurrencyCode == "UZS") purchase.CnyRateUzs = 1;
+        if (purchase.CurrencyCode == "UZS") purchase.RateToUzs = 1;
         var repository = commerce ?? throw new InvalidOperationException("Хранилище закупок недоступно.");
         var saved = await repository.GetPurchaseAsync(purchase.Id, cancellationToken);
+        ValidateStatusAndReceiptTotals(purchase, saved);
         if (saved is not null && (saved.ClosedAt != purchase.ClosedAt || saved.ClosingOperationId != purchase.ClosingOperationId
             || JsonSerializer.Serialize(saved.ShortageSettlements) != JsonSerializer.Serialize(purchase.ShortageSettlements)
             || JsonSerializer.Serialize(saved.CompensationCorrections) != JsonSerializer.Serialize(purchase.CompensationCorrections)
@@ -96,9 +97,9 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
 
     private static string CostSignature(Purchase purchase) => JsonSerializer.Serialize(new
     {
-        purchase.CurrencyCode, purchase.CnyRateUzs, purchase.AgentCommissionPercent,
+        purchase.CurrencyCode, purchase.RateToUzs, purchase.AgentCommissionPercent,
         purchase.InternationalShippingUzs, purchase.OtherCostsUzs, purchase.Expenses, purchase.IsCostFinalized,
-        Items = purchase.Items.Select(x => new { x.Id, x.Quantity, x.UnitPriceCny, x.UnitWeightKg })
+        Items = purchase.Items.Select(x => new { x.Id, x.Quantity, x.UnitPrice, x.UnitWeightKg })
     });
 
     public async Task<PurchaseLateReceipt> ReceiveLateAsync(Guid purchaseId, Guid settlementId, Guid operationId,
@@ -252,14 +253,43 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             null, line.PurchaseItemId, 0, 0, previous?.NewValue, value, 0, value - (previous?.NewValue ?? 0)));
     }
 
+    private static void ValidateStatusAndReceiptTotals(Purchase purchase, Purchase? saved)
+    {
+        if (purchase.Status is { } status && !Enum.IsDefined(status))
+            throw new InvalidOperationException("Неизвестный статус закупки.");
+        if (saved is null && (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null))
+            throw new InvalidOperationException("Приёмка и закрытие оформляются отдельными действиями после сохранения закупки.");
+        var lines = saved?.Receipts.SelectMany(x => x.Lines).ToList() ?? [];
+        foreach (var item in purchase.Items)
+        {
+            var receipts = lines.Where(x => x.PurchaseItemId == item.Id).ToList();
+            if ((item.ReceivedQuantity ?? 0) != receipts.Sum(x => x.ReceivedQuantity)
+                || (item.DefectQuantity ?? 0) != receipts.Sum(x => x.DefectQuantity)
+                || item.StockedQuantity != receipts.Sum(x => x.StockedQuantity))
+                throw new InvalidOperationException($"Количество приёмки «{item.ProductName}» нельзя изменять вручную.");
+        }
+        if (lines.Count > 0)
+        {
+            if (purchase.Status is not (PurchaseStatus.Received or PurchaseStatus.PartiallyReceived))
+                throw new InvalidOperationException("После приёмки статус определяется документами. Для недопоставки используйте закрытие закупки.");
+            purchase.Status = purchase.Items.Count > 0 && purchase.Items.All(x =>
+                lines.Where(line => line.PurchaseItemId == x.Id).Sum(line => line.ReceivedQuantity) >= (x.Quantity ?? 0))
+                ? PurchaseStatus.Received : PurchaseStatus.PartiallyReceived;
+        }
+        else if (purchase.Status is PurchaseStatus.Received or PurchaseStatus.PartiallyReceived)
+            throw new InvalidOperationException("Статус получения устанавливается только после оформления приёмки.");
+        else if (saved?.ClosedAt is not null && purchase.Status != saved.Status)
+            throw new InvalidOperationException("Нельзя менять статус закрытой закупки.");
+    }
+
     private static void ApplyProductCost(Purchase purchase, Product product)
     {
         var items = purchase.Items.Where(x => x.ProductId == product.Id && x.StockedQuantity > 0).ToList();
         var quantity = items.Sum(x => x.Quantity ?? 0);
         if (quantity <= 0) return;
-        product.PurchasePriceCny = items.Sum(x => (x.UnitPriceCny ?? 0) * (x.Quantity ?? 0)) / quantity;
+        product.PlannedPurchasePrice = items.Sum(x => (x.UnitPrice ?? 0) * (x.Quantity ?? 0)) / quantity;
         product.PurchaseCurrencyCode = purchase.CurrencyCode;
-        product.CnyRateUzs = purchase.CurrencyCode == "UZS" ? 1 : purchase.CnyRateUzs;
+        product.RateToUzs = purchase.CurrencyCode == "UZS" ? 1 : purchase.RateToUzs;
         product.AgentCommissionPercent = 0;
         product.DeliveryCostUzs = items.Sum(x => purchase.ItemLandedCostUzs(x) - purchase.ItemGoodsCostUzs(x)) / quantity;
         product.CostPurchaseId = purchase.Id;
@@ -269,9 +299,15 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
         if (purchase.ClosedAt is not null) throw new InvalidOperationException("Закупка закрыта. Допоставка требует отдельного корректирующего документа.");
-        if (commerce is not null && await commerce.GetPurchaseAsync(purchase.Id, cancellationToken) is { } saved
-            && JsonSerializer.Serialize(saved.Receipts) != JsonSerializer.Serialize(purchase.Receipts))
-            throw new InventoryException("Приёмки закупки уже изменились. Откройте закупку заново.");
+        if (commerce is not null && await commerce.GetPurchaseAsync(purchase.Id, cancellationToken) is { } saved)
+        {
+            if (saved.ClosedAt is not null || saved.Status == PurchaseStatus.Cancelled)
+                throw new InventoryException("Закупка уже закрыта или отменена. Откройте закупку заново.");
+            if (JsonSerializer.Serialize(saved.Receipts) != JsonSerializer.Serialize(purchase.Receipts))
+                throw new InventoryException("Приёмки закупки уже изменились. Откройте закупку заново.");
+            if (JsonSerializer.Serialize(saved) != JsonSerializer.Serialize(purchase))
+                throw new InventoryException("Заказ или расходы отличаются от сохранённой закупки. Сохраните изменения отдельно или откройте актуальную закупку перед приёмкой.");
+        }
         if (purchase.Status == PurchaseStatus.Cancelled) throw new InvalidOperationException("Отменённую закупку нельзя принимать.");
         if (purchase.Expenses.Count > 0 && !purchase.HasCompleteCostInputs)
             throw new InvalidOperationException("Перед приемкой заполните цены, курсы и расходы.");
@@ -281,15 +317,16 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         {
             var (replayCosts, replayRate) = await BuildHistoryAsync(purchase, existing, products, cancellationToken);
             await store.CommitAsync(InventoryCommit.Create(productCosts: replayCosts, exchangeRate: replayRate), cancellationToken);
-            return new PurchaseReceiptResult(existing.Id, existing.StockedQuantity, existing.Lines.Count(x => x.StockedQuantity > 0), existing.Lines.Count(x => x.ProductId is null));
+            return new PurchaseReceiptResult(existing.Id, existing.StockedQuantity, existing.Lines.Select(x => x.ProductId).Distinct().Count(), existing.DefectQuantity);
         }
-        var submitted = input.Where(x => x.ReceivedQuantity > 0 || x.DefectQuantity > 0).ToList();
+        var submitted = input.Where(x => x.ReceivedQuantity != 0 || x.DefectQuantity != 0).ToList();
         if (submitted.Count == 0) throw new InvalidOperationException("Укажите полученное количество хотя бы для одной позиции.");
         if (submitted.GroupBy(x => x.PurchaseItemId).Any(x => x.Count() > 1)) throw new InvalidOperationException("Одна позиция не может повторяться в приёмке.");
 
         var receipt = new PurchaseReceipt { Id = receiptId ?? Guid.NewGuid(), ReceivedAt = receivedAt ?? DateTimeOffset.UtcNow, Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim() };
         var movementRecords = new List<StockMovement>();
-        var added = 0; var updated = 0; var skipped = 0;
+        var added = 0;
+        var validated = new List<(PurchaseReceiptInput Entry, PurchaseItem Item, Product Product, ProductVariant Variant)>();
 
         foreach (var entry in submitted)
         {
@@ -299,6 +336,17 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             var remaining = Math.Max(0, (item.Quantity ?? 0) - (item.ReceivedQuantity ?? 0));
             if (entry.ReceivedQuantity > remaining) throw new InvalidOperationException($"Для «{item.ProductName}» осталось принять {remaining} шт.");
 
+            if (item.ProductId is null) throw new InventoryException($"Для «{item.ProductName}» выберите товар до приёмки.");
+            var product = await LoadProductAsync(item.ProductId.Value, products, cancellationToken)
+                ?? throw new InventoryException($"Товар «{item.ProductName}» не найден. Исправьте позицию до приёмки.");
+            var variant = product.Variants.FirstOrDefault(x => x.Id == item.ProductVariantId)
+                ?? throw new InventoryException($"Для «{item.ProductName}» выберите существующий вариант этого товара до приёмки.");
+            validated.Add((entry, item, product, variant));
+        }
+
+        foreach (var (entry, item, product, variant) in validated)
+        {
+
             var line = new PurchaseReceiptLine { PurchaseItemId = item.Id, ProductId = item.ProductId, ProductVariantId = item.ProductVariantId, ProductName = item.ProductName, Color = item.Color, Size = item.Size, ReceivedQuantity = entry.ReceivedQuantity, DefectQuantity = entry.DefectQuantity };
             item.ReceivedQuantity = (item.ReceivedQuantity ?? 0) + entry.ReceivedQuantity;
             item.DefectQuantity = (item.DefectQuantity ?? 0) + entry.DefectQuantity;
@@ -307,12 +355,6 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             var receiptValue = FifoCostCalculator.Allocate(purchase.HasCompleteCostInputs ? purchase.ItemLandedCostUzs(item) : null,
                 item.Quantity!.Value, item.ReceivedQuantity!.Value - entry.ReceivedQuantity, entry.ReceivedQuantity);
             if (accepted == 0) RecordDefect(purchase, receipt, line, receiptValue, receipt.ReceivedAt);
-            if (item.ProductId is null) throw new InventoryException("Выберите товар для каждой позиции приёмки.");
-            var product = await LoadProductAsync(item.ProductId.Value, products, cancellationToken);
-            if (product is null) throw new InventoryException("Товар приёмки не найден.");
-            var variant = item.ProductVariantId is not null ? product.Variants.FirstOrDefault(x => x.Id == item.ProductVariantId) : null;
-            variant ??= product.Variants.FirstOrDefault(x => x.Color.Equals(item.Color, StringComparison.OrdinalIgnoreCase) && x.Size.Equals(item.Size, StringComparison.OrdinalIgnoreCase));
-            if (variant is null) { variant = new ProductVariant { Color = item.Color, Size = item.Size }; product.Variants.Add(variant); }
             StockLayerOperations.PrepareEmpty(variant);
             if (accepted > 0)
             {
@@ -326,7 +368,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             if (accepted > 0) ApplyProductCost(purchase, product);
             if (accepted != 0) movementRecords.Add(new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = accepted, SourceType = "Purchase", SourceId = purchase.Id, SourceNumber = purchase.Number, Note = $"Приёмка {receipt.ReceivedAt.ToLocalTime():dd.MM.yyyy}" });
             if (accepted > 0) StockLayerOperations.SetValue(movementRecords[^1], new(receiptValue ?? 0, receiptValue is null ? accepted : 0), 1);
-            added += accepted; updated++;
+            added += accepted;
             receipt.Lines.Add(line);
         }
 
@@ -334,7 +376,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         purchase.Status = purchase.Items.Count > 0 && purchase.Items.All(x => (x.ReceivedQuantity ?? 0) >= (x.Quantity ?? 0)) ? PurchaseStatus.Received : PurchaseStatus.PartiallyReceived;
         var (costs, rate) = await BuildHistoryAsync(purchase, receipt, products, cancellationToken);
         await store.CommitAsync(InventoryCommit.Create(products: products.Values, purchases: [purchase], movements: movementRecords, productCosts: costs, exchangeRate: rate), cancellationToken);
-        return new PurchaseReceiptResult(receipt.Id, added, updated, skipped);
+        return new PurchaseReceiptResult(receipt.Id, added, products.Count, receipt.DefectQuantity);
     });
 
     private async Task<Product?> LoadProductAsync(Guid id, Dictionary<Guid, Product> cache, CancellationToken cancellationToken)
@@ -378,17 +420,17 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
                 SupplierId = purchase.SupplierId,
                 SupplierName = purchase.SupplierName ?? string.Empty,
                 Quantity = line.StockedQuantity,
-                UnitPriceCny = item.UnitPriceCny ?? 0,
+                UnitPrice = item.UnitPrice ?? 0,
                 CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY"),
-                CnyRateUzs = purchase.CnyRateUzs ?? 0,
+                RateToUzs = purchase.RateToUzs ?? 0,
                 UnitLandedCostUzs = (ReceiptValue(purchase, receipt, line) ?? 0) / line.StockedQuantity
             });
         }
-        var rate = purchase.CnyRateUzs is > 0 ? new ExchangeRateHistoryEntry
+        var rate = purchase.RateToUzs is > 0 ? new ExchangeRateHistoryEntry
         {
             Id = receipt.Id,
             RecordedAt = receipt.ReceivedAt,
-            RateUzs = purchase.CnyRateUzs.Value,
+            RateUzs = purchase.RateToUzs.Value,
             Currency = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY"),
             PurchaseId = purchase.Id,
             ReceiptId = receipt.Id,

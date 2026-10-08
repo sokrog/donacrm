@@ -8,7 +8,7 @@ namespace Dona.Crm.Web.Services;
 
 public sealed class DonaSyncSnapshot
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     [System.Text.Json.Serialization.JsonRequired]
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -16,6 +16,9 @@ public sealed class DonaSyncSnapshot
     {
         if (SchemaVersion != CurrentSchemaVersion)
             throw new InvalidDataException($"Версия данных {SchemaVersion} не поддерживается. Требуется формат FIFO {CurrentSchemaVersion}.");
+        BusinessSettings.EnsureAccountingCurrency(BusinessSettings.MainCurrencyCode);
+        if (Sales.Any(x => x.Status is { } status && !Enum.IsDefined(status)))
+            throw new InvalidDataException("Снимок содержит неподдерживаемый статус продажи.");
         foreach (var variant in Products.SelectMany(x => x.Variants).Where(x => x.StockLayerVersion != 0 || x.Layers.Count > 0))
             FifoCostCalculator.Validate(variant);
     }

@@ -28,7 +28,7 @@ public sealed class ProductSupplierComparison
     public string SupplierName { get; set; } = string.Empty;
     public int ReceiptCount { get; set; }
     public int Quantity { get; set; }
-    public decimal AverageUnitPriceCny { get; set; }
+    public decimal AverageUnitPrice { get; set; }
     public string CurrencyCode { get; set; } = "CNY";
     public decimal AverageUnitCostUzs { get; set; }
 }

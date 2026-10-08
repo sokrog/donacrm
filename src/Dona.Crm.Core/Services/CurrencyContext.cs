@@ -16,7 +16,7 @@ public sealed class CurrencyContext(IBusinessSettingsRepository settings)
         Set(business.MainCurrencyCode);
     }
 
-    public void Set(string? code) { Code = CurrencyCodes.Normalize(code); _loaded = true; }
+    public void Set(string? code) { BusinessSettings.EnsureAccountingCurrency(code); Code = BusinessSettings.AccountingCurrency; _loaded = true; }
     public string Format(decimal? value) => $"{value ?? 0:N0} {Symbol}";
     public string SourceAmount(decimal? value, string? code) => $"{value ?? 0:N2} {CurrencyCodes.Symbol(code)}";
 }

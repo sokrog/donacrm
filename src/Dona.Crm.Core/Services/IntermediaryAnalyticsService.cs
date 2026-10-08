@@ -24,7 +24,7 @@ public sealed class IntermediaryAnalyticsService
         }).ToList();
         var delays = deliveries.Where(x => x.DelayDays is not null).Select(x => x.DelayDays!.Value).ToList();
         var weight = purchases.Sum(x => x.TotalWeightKg);
-        var shipping = purchases.Sum(x => x.InternationalShippingUzs ?? 0);
+        var shipping = purchases.Sum(x => x.Expenses.Where(e => e.Kind == PurchaseExpenseKind.Shipping).Sum(e => e.AmountUzs));
         var score = new List<(decimal Value, decimal Weight)>();
         if (delays.Count > 0) score.Add((Math.Max(0, 100 - Math.Max(0, delays.Average()) * 5), 70));
         if (intermediary.Rating is not null) score.Add((Math.Clamp(intermediary.Rating.Value * 20, 0, 100), 30));

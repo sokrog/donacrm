@@ -4,6 +4,7 @@
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
 @inject ICommerceRepository Commerce
+@inject ICatalogRepository Catalog
 @inject IPurchaseHistoryRepository PurchaseHistory
 @inject SupplierAnalyticsService SupplierAnalytics
 @inject IntermediaryAnalyticsService IntermediaryAnalytics
@@ -61,7 +62,7 @@
                 </label>
                 <div class="dona-field-row">
                     <label class="dona-field">Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label>
-                    <label class="dona-field">MOQ, шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
+                    <label class="dona-field">Минимальный заказ (справочно), шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
                 </div>
                 <label class="dona-field">Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
                 <div class="dona-field-row">
@@ -69,6 +70,8 @@
                     <label class="dona-field">WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label>
                 </div>
                 <label class="dona-field">Контакт<InputText @bind-Value="editingSupplier.Contact" /></label>
+                <label class="dona-field">Посредник по умолчанию<OrbitSelect TValue="Guid?" @bind-Value="editingSupplier.DefaultIntermediaryId" Options="@DefaultIntermediaryOptions" Label="Посредник по умолчанию" /></label>
+                <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="editingSupplier.IsArchived" /><span>В архиве — сохраняется в истории, не предлагается для новых закупок</span></label>
                 <label class="dona-field">Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>
                 @if (errorMessage is not null)
                 {
@@ -112,6 +115,7 @@
                     <ValidationMessage For="() => editingIntermediary.Name" />
                 </label>
                 <label class="dona-field">Компания<InputText @bind-Value="editingIntermediary.Company" /></label>
+                <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="editingIntermediary.IsArchived" /><span>В архиве — сохраняется в истории, не предлагается для новых закупок</span></label>
                 <label class="dona-field">Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
                 <div class="dona-field-row">
                     <label class="dona-field">Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label>
@@ -123,10 +127,10 @@
                 </div>
                 <div class="dona-field-row">
                     <label class="dona-field">Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label>
-                    <label class="dona-field">Комиссия, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" step="0.1" /></label>
+                    <label class="dona-field">Комиссия от стоимости товаров, %<InputNumber @bind-Value="editingIntermediary.CommissionPercent" min="0" max="100" step="0.1" /></label>
                 </div>
                 <div class="dona-field-row">
-                    <label class="dona-field">Минимальный вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label>
+                    <label class="dona-field">Минимально оплачиваемый вес, кг<InputNumber @bind-Value="editingIntermediary.MinimumWeightKg" min="0" step="0.1" /></label>
                     <label class="dona-field">Срок, дней<InputNumber @bind-Value="editingIntermediary.EstimatedDays" min="0" /></label>
                 </div>
                 <label class="dona-field">Рейтинг 0–5<InputNumber @bind-Value="editingIntermediary.Rating" min="0" max="5" step="0.1" /></label>
@@ -180,7 +184,7 @@
                             <button type="button" class="dona-list-row" @onclick="() => EditSupplier(value)">
                                 <InitialBadge Text="@value.Name" />
                                 <span>
-                                    <strong>@value.Name</strong>
+                                    <strong>@value.Name @(value.IsArchived ? "— в архиве" : null)</strong>
                                     <small>@SupplierMeta(value)</small>
                                     <em>@Contact(value.Contact, value.WeChat)</em>
                                 </span>
@@ -210,7 +214,7 @@
                             <button type="button" class="dona-list-row" @onclick="() => EditIntermediary(value)">
                                 <InitialBadge Text="@value.Name" Variant="success" />
                                 <span>
-                                    <strong>@value.Name</strong>
+                                    <strong>@value.Name @(value.IsArchived ? "— в архиве" : null)</strong>
                                     <small>@IntermediaryMeta(value)</small>
                                     <em>@Contact(value.ContactName, value.Telegram, value.Phone)</em>
                                 </span>
@@ -240,6 +244,9 @@
     private bool confirmDelete;
     private string? errorMessage;
     private bool Editing => editingSupplier is not null || editingIntermediary is not null;
+    private IReadOnlyList<OrbitSelectOption<Guid?>> DefaultIntermediaryOptions =>
+        [new(null, "Не выбран"), .. intermediaries.Where(x => !x.IsArchived || x.Id == editingSupplier?.DefaultIntermediaryId)
+            .Select(x => new OrbitSelectOption<Guid?>(x.Id, x.Name + (x.IsArchived ? " — в архиве" : "")))];
 
     private static readonly IReadOnlyList<OrbitSelectOption<string>> PlatformOptions =
         OrbitSelectOptions.OptionalStrings(["1688", "Taobao", "Alibaba", "Pinduoduo", "Другая"], "Не выбрана");
@@ -333,6 +340,8 @@
             Contact = value.Contact,
             WeChat = value.WeChat,
             Intermediary = value.Intermediary,
+            DefaultIntermediaryId = value.DefaultIntermediaryId,
+            IsArchived = value.IsArchived,
             Notes = value.Notes,
             CreatedAt = value.CreatedAt
         };
@@ -348,6 +357,7 @@
             Id = value.Id,
             Name = value.Name,
             Company = value.Company,
+            IsArchived = value.IsArchived,
             ChinaWarehouseAddress = value.ChinaWarehouseAddress,
             ContactName = value.ContactName,
             Telegram = value.Telegram,
@@ -456,10 +466,11 @@
         try
         {
             var count = (await Commerce.GetPurchasesAsync()).Count(value => value.SupplierId == editingSupplier!.Id);
+            count += (await Catalog.GetProductsAsync()).Count(value => value.PreferredSupplierId == editingSupplier!.Id);
             if (count > 0)
             {
                 confirmDelete = false;
-                errorMessage = $"Нельзя удалить поставщика: он указан в закупках ({count}).";
+                errorMessage = $"Поставщик используется в закупках или товарах ({count}). Переведите его в архив.";
                 return;
             }
 
@@ -491,10 +502,11 @@
         try
         {
             var count = (await Commerce.GetPurchasesAsync()).Count(value => value.IntermediaryId == editingIntermediary!.Id);
+            count += (await Commerce.GetSuppliersAsync()).Count(value => value.DefaultIntermediaryId == editingIntermediary!.Id);
             if (count > 0)
             {
                 confirmDelete = false;
-                errorMessage = $"Нельзя удалить посредника: он указан в закупках ({count}).";
+                errorMessage = $"Посредник используется в закупках или поставщиках ({count}). Переведите его в архив.";
                 return;
             }
 
@@ -522,7 +534,7 @@
         value is null ? "—" : value.Value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
 
     private static string SupplierMeta(Supplier value) =>
-        $"{(string.IsNullOrWhiteSpace(value.Platform) ? "Площадка не указана" : value.Platform)} · MOQ {value.Moq?.ToString() ?? "—"}";
+        $"{(string.IsNullOrWhiteSpace(value.Platform) ? "Площадка не указана" : value.Platform)} · Минимальный заказ {value.Moq?.ToString() ?? "—"}";
 
     private static string IntermediaryMeta(Intermediary value) =>
         $"{value.Company ?? "Без компании"} · {(value.RatePerKgUsd is null ? "тариф не указан" : $"${value.RatePerKgUsd:N2}/кг")}";

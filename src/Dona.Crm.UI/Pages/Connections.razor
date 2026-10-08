@@ -1,20 +1,26 @@
 @page "/connections"
+@page "/data"
 @using Dona.Crm.Web.Services
 @inject IGoogleConnectionService Google
 @inject AppPlatformProfile Platform
 
-<PageTitle>Подключения — DONA CRM</PageTitle>
+<PageTitle>Данные и облако — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
     <header class="dona-page-header">
         <div class="dona-heading">
             <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
                 <p>Ещё</p>
-                <h1 class="dona-title">Подключения</h1>
+                <h1 class="dona-title">Данные и облако</h1>
                 <p class="dona-note dona-note--sm">Данные работают локально и сохраняются в личном аккаунте только после входа.</p>
             </div>
         </div>
     </header>
+    <nav class="dona-stack data-actions" aria-label="Операции с данными">
+        <a class="dona-list-row" href="/settings#backups"><span><strong>Локальная ZIP-копия</strong><small>Создать файл для хранения и переноса или проверить его перед восстановлением.</small></span></a>
+        <a class="dona-list-row" href="/settings#cloud-backups"><span><strong>Копии в Google Drive</strong><small>Сохранённые версии для восстановления. Доступность зависит от платформы и подключения аккаунта.</small></span></a>
+        <a class="dona-list-row" href="/sync"><span><strong>Синхронизация устройств</strong><small>Обмен текущими данными с предварительной проверкой изменений. Не заменяет резервную копию.</small></span></a>
+    </nav>
 
     @if (loading)
     {

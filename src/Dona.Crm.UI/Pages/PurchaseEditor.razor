@@ -1,6 +1,7 @@
 @page "/purchases/new"
 @page "/purchases/{Id:guid}"
 @using System.Globalization
+@using System.Text.Json
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
@@ -34,18 +35,30 @@
             <ol class="purchase-flow" aria-label="Этап закупки">
                 @foreach (var value in Flow)
                 {
-                    <li class="@FlowClass(value)">@value.Display()</li>
+                    <li class="@FlowClass(value)" aria-current="@(purchase.Status == value ? "step" : null)">@value.Display()</li>
                 }
             </ol>
+            @if (purchase.Status == PurchaseStatus.Cancelled || purchase.ClosedAt is not null)
+            {
+                <p role="status">@(purchase.Status == PurchaseStatus.Cancelled ? "Закупка отменена" : purchase.Items.Any(x => x.MissingQuantity > 0) ? "Закупка закрыта с недостачей" : "Закупка закрыта")</p>
+            }
         }
         <EditForm class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
+                <h2>Заказ</h2>
                 <h2>Поставка</h2>
                 <div class="dona-field-row">
                     <label class="dona-field">Номер<InputText @bind-Value="purchase.Number" /></label>
-                    <label class="dona-field">Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
+                    @if (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null)
+                    {
+                        <div class="dona-field">Статус<strong>@purchase.Status.Display()</strong><small>Определяется документами приёмки и закрытия.</small></div>
+                    }
+                    else
+                    {
+                        <label class="dona-field">Статус<OrbitSelect TValue="PurchaseStatus?" @bind-Value="purchase.Status" Options="@PurchaseStatusOptions" Label="Статус закупки" /></label>
+                    }
                 </div>
                 <label class="dona-field">Поставщик<OrbitSelect TValue="Guid?" @bind-Value="purchase.SupplierId" @bind-Value:after="SupplierChanged" Options="@SupplierOptions" Label="Поставщик" Searchable="true" /></label>
                 <details open="@(purchase.IntermediaryId is not null)">
@@ -62,7 +75,7 @@
             <section class="dona-section">
                 <div class="dona-section-title">
                     <div>
-                        <h2>Стоимость партии</h2>
+                        <h2>Расходы и оценка партии</h2>
                         <p>@purchase.TotalQuantity ед. · @(purchase.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</p>
                     </div>
                 </div>
@@ -70,32 +83,42 @@
                     <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="PurchaseCurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
                     @if (purchase.CurrencyCode != "UZS")
                     {
-                        <label class="dona-field">Курс в UZS<InputNumber @bind-Value="purchase.CnyRateUzs" min="0" /></label>
+                        <label class="dona-field">Курс в UZS<InputNumber @bind-Value="purchase.RateToUzs" min="0" /></label>
                     }
                 </div>
-                @if (HasLegacyCosts)
+                @if (currencyReviewRequired)
                 {
-                    <details open>
-                        <summary>Ранее указанные расходы — уже включены в итог</summary>
-                        <div class="cost-grid">
-                            <label class="dona-field">Комиссия, %<InputNumber @bind-Value="purchase.AgentCommissionPercent" min="0" /></label>
-                            <label class="dona-field">Доставка по весу, UZS<InputNumber @bind-Value="purchase.InternationalShippingUzs" min="0" /></label>
-                            <label class="dona-field">Другие расходы, UZS<InputNumber @bind-Value="purchase.OtherCostsUzs" min="0" /></label>
-                        </div>
-                    </details>
+                    <p class="dona-note">Валюта изменена. Цены не пересчитаны автоматически: проверьте каждую цену и новый курс. Валюты и курсы отдельных расходов сохранены.</p>
+                    <label class="cost-confirm"><InputCheckbox @bind-Value="currencyPricesReviewed" /> Цены позиций проверены в новой валюте</label>
                 }
                 <div class="dona-section-title">
                     <h3>Дополнительные расходы</h3>
                     <button type="button" @onclick="AddExpense">Добавить расход</button>
                 </div>
-                @if (purchase.Expenses.Count == 0 && !HasLegacyCosts)
+                @if (purchase.Expenses.Count == 0)
                 {
                     <p>Если расходов нет, себестоимость равна закупочной цене.</p>
+                }
+                @if (SelectedIntermediary is { } tariff)
+                {
+                    <p class="dona-note">Тариф: комиссия @(tariff.CommissionPercent ?? 0)% от товаров; доставка @(tariff.RatePerKgUsd ?? 0) USD/кг, минимально оплачиваемый вес @(tariff.MinimumWeightKg ?? 0) кг.</p>
+                    @if (tariff.RatePerKgUsd is > 0)
+                    {
+                        <label class="dona-field">Курс USD в UZS для доставки<InputNumber @bind-Value="tariffUsdRate" min="0" placeholder="Для USD-закупки используется её курс" /></label>
+                    }
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ApplyTariff">Рассчитать по тарифу</button>
+                    @if (tariffMessage is not null) { <p class="dona-note" role="status">@tariffMessage</p> }
+                    <p class="dona-note">Создаёт расходы для проверки и отдельного сохранения. Повторное нажатие сохраняет уже добавленные строки и ручные правки. Для нового расчёта удалите заменяемый расход. Формула под расходом — снимок исходного расчёта.</p>
                 }
                 @foreach (var expense in purchase.Expenses)
                 {
                     <article class="expense-line" @key="expense.Id">
                         <label class="dona-field">Название<InputText @bind-Value="expense.Name" placeholder="Например, доставка" /></label>
+                        @if (expense.TariffCalculation is not null)
+                        {
+                            <p class="dona-note">Исходный расчёт: @expense.TariffCalculation Сумму и курс можно изменить вручную.</p>
+                        }
+                        <label class="dona-field">Вид расхода<OrbitSelect TValue="PurchaseExpenseKind" @bind-Value="expense.Kind" Options="@ExpenseKindOptions" Label="Вид расхода" /></label>
                         <div class="dona-field-row">
                             <label class="dona-field">Сумма<InputNumber @bind-Value="expense.Amount" min="0" /></label>
                             <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="expense.CurrencyCode" @bind-Value:after="() => ExpenseCurrencyChanged(expense)" Options="@CurrencyOptions" Label="Валюта расхода" /></label>
@@ -127,11 +150,11 @@
                         <p role="status">Для расчета заполните цены, количество, курсы и настройки расходов.</p>
                     }
                 </div>
-                <label class="cost-confirm"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Все расходы учтены</label>
-                <p class="cost-hint">Доставку можно добавить позже и пересчитать себестоимость.</p>
+                <label class="cost-confirm"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Зафиксировать окончательную оценку при сохранении</label>
+                <p class="cost-hint">Подтвердите, что известны все расходы. Поздний расход сохраняется отдельной ревизией оценки; история остаётся доступной.</p>
                 @if (purchase.Receipts.Count > 0)
                 {
-                    <p class="cost-hint">Изменения обновят историю приемок и стоимость товара, если эта закупка задает его текущую цену. Себестоимость уже оформленных продаж сохранится.</p>
+                    <p class="cost-hint">Поздние расходы переоценивают остаток партии. Доначисления по уже списанному товару учитываются текущим периодом, исходные распределения FIFO сохраняются.</p>
                 }
             </section>
             <section class="dona-section">
@@ -153,12 +176,16 @@
                         <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
                         <div class="line-fields">
                             <label class="dona-field">Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
-                            <label class="dona-field">Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPriceCny" min="0" /></label>
-                            @if (purchase.NeedsWeight)
+                            <label class="dona-field">Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPrice" min="0" /></label>
+                            @if (purchase.NeedsWeight || SelectedIntermediary?.RatePerKgUsd is > 0)
                             {
                                 <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
                             }
                         </div>
+                        @if (item.UnitPrice is null && products.FirstOrDefault(x => x.Id == item.ProductId) is { } source && source.PurchaseCurrencyCode != purchase.CurrencyCode)
+                        {
+                            <p class="cost-hint">Плановая цена товара указана в @source.PurchaseCurrencyCode. Введите цену в @purchase.CurrencyCode — автоматического пересчёта нет.</p>
+                        }
                         @if (purchase.HasCompleteCostInputs)
                         {
                             <details class="unit-cost">
@@ -190,10 +217,15 @@
                 <section class="dona-section receipt-card">
                     <div class="dona-section-title">
                         <div>
-                            <h2>Принять поставку</h2>
+                            <h2>Приёмки</h2>
                             <p>Укажите фактически полученное</p>
                         </div>
                     </div>
+                    @if (HasUnsavedOrder)
+                    {
+                        <p class="dona-note">В заказе или расходах есть несохранённые изменения. Сначала сохраните их, затем оформите приёмку.</p>
+                        <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="SaveAsync">Сохранить заказ и расходы</button>
+                    }
                     <div class="dona-field-row">
                         <label class="dona-field">Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
                         <label class="dona-field">Комментарий<InputText @bind-Value="receiptNote" /></label>
@@ -297,14 +329,39 @@
     private UnsavedChangesGuard? unsavedGuard;
     private bool loading = true;
     private bool saving;
+    private string savedOrder = string.Empty;
+    private bool HasUnsavedOrder => JsonSerializer.Serialize(purchase) != savedOrder;
+    private void RequireSavedOrder()
+    {
+        if (HasUnsavedOrder) throw new InvalidOperationException("Сначала сохраните изменения заказа и расходов отдельным действием.");
+    }
+    private bool currencyReviewRequired;
+    private bool currencyPricesReviewed;
     private string? error;
     private string? message;
     private bool success;
+    private decimal? tariffUsdRate;
+    private string? tariffMessage;
+    private Intermediary? SelectedIntermediary => intermediaries.FirstOrDefault(x => x.Id == purchase.IntermediaryId);
+    private void ApplyTariff()
+    {
+        try
+        {
+            if (currencyReviewRequired && !currencyPricesReviewed)
+                throw new InvalidOperationException("Сначала проверьте цены после смены валюты.");
+            var count = PurchaseTariffCalculator.Apply(purchase, SelectedIntermediary
+                ?? throw new InvalidOperationException("Выберите посредника."), tariffUsdRate);
+            if (count > 0) unsavedGuard?.MarkDirty();
+            tariffMessage = count > 0 ? $"Добавлено расходов: {count}. Проверьте и сохраните закупку." : "Новые расходы не добавлены: тарифы не заданы либо расходы уже существуют.";
+        }
+        catch (InvalidOperationException exception) { tariffMessage = exception.Message; }
+    }
 
-    private static readonly PurchaseStatus[] Flow = [PurchaseStatus.Draft, PurchaseStatus.Ordered, PurchaseStatus.Shipped, PurchaseStatus.Received];
+    private static readonly PurchaseStatus[] Flow = [PurchaseStatus.Draft, PurchaseStatus.Ordered, PurchaseStatus.ChinaWarehouse, PurchaseStatus.Shipped, PurchaseStatus.PartiallyReceived, PurchaseStatus.Received];
 
     private bool IsNew => Id is null;
-    private bool HasLegacyCosts => purchase.AgentCommissionPercent > 0 || purchase.InternationalShippingUzs > 0 || purchase.OtherCostsUzs > 0;
+    private static readonly IReadOnlyList<OrbitSelectOption<PurchaseExpenseKind>> ExpenseKindOptions =
+        [new(PurchaseExpenseKind.Other, "Другой расход"), new(PurchaseExpenseKind.Commission, "Комиссия"), new(PurchaseExpenseKind.Shipping, "Доставка")];
     private static string AllocationLabel(ExpenseAllocation value) => value switch
     {
         ExpenseAllocation.Quantity => "по количеству",
@@ -318,7 +375,7 @@
         [new(null, "Выберите позицию"), .. purchase.Items.Select(x => new OrbitSelectOption<Guid?>(x.Id, $"{x.ProductName} {VariantLabel(x)}"))];
     private void AddExpense()
     {
-        purchase.Expenses.Add(new PurchaseExpense { CurrencyCode = purchase.CurrencyCode, RateUzs = purchase.CnyRateUzs });
+        purchase.Expenses.Add(new PurchaseExpense { CurrencyCode = purchase.CurrencyCode, RateUzs = purchase.RateToUzs });
         purchase.IsCostFinalized = false;
         unsavedGuard?.MarkDirty();
     }
@@ -330,16 +387,16 @@
     }
 
     private static readonly IReadOnlyList<OrbitSelectOption<PurchaseStatus?>> PurchaseStatusOptions =
-        OrbitSelectOptions.Optional(Enum.GetValues<PurchaseStatus>(), "Не указан", value => value.Display());
+        OrbitSelectOptions.Optional(Enum.GetValues<PurchaseStatus>().Where(value => value is not (PurchaseStatus.Received or PurchaseStatus.PartiallyReceived)), "Не указан", value => value.Display());
 
     private static readonly IReadOnlyList<OrbitSelectOption<string>> CurrencyOptions =
         OrbitSelectOptions.From(CurrencyCodes.Supported, value => $"{value} · {CurrencyCodes.Symbol(value)}");
 
     private IReadOnlyList<OrbitSelectOption<Guid?>> SupplierOptions =>
-        [new(null, "Не выбран"), .. suppliers.Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name))];
+        [new(null, "Не выбран"), .. suppliers.Where(x => !x.IsArchived || x.Id == purchase.SupplierId).Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name + (value.IsArchived ? " — в архиве" : "")))];
 
     private IReadOnlyList<OrbitSelectOption<Guid?>> IntermediaryOptions =>
-        [new(null, "Не выбран"), .. intermediaries.Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name))];
+        [new(null, "Не выбран"), .. intermediaries.Where(x => !x.IsArchived || x.Id == purchase.IntermediaryId).Select(value => new OrbitSelectOption<Guid?>(value.Id, value.Name + (value.IsArchived ? " — в архиве" : "")))];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -359,6 +416,7 @@
                 ? NewPurchase(await purchaseTask)
                 : await Commerce.GetPurchaseAsync(Id.Value) ?? throw new InvalidOperationException("Закупка не найдена.");
             purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
+            savedOrder = JsonSerializer.Serialize(purchase);
             ResetReceipt();
         }
         catch (Exception ex)
@@ -405,6 +463,12 @@
         purchase.SupplierName = purchase.SupplierId is null
             ? null
             : suppliers.FirstOrDefault(value => value.Id == purchase.SupplierId)?.Name;
+        if (purchase.IntermediaryId is null && suppliers.FirstOrDefault(x => x.Id == purchase.SupplierId)?.DefaultIntermediaryId is { } preferred
+            && intermediaries.Any(x => x.Id == preferred && !x.IsArchived))
+        {
+            purchase.IntermediaryId = preferred;
+            IntermediaryChanged();
+        }
     }
 
     private void IntermediaryChanged()
@@ -418,15 +482,16 @@
     {
         item.ProductId = product?.Id;
         item.ProductName = product?.Name ?? string.Empty;
-        item.UnitPriceCny = product?.PurchasePriceCny;
+        item.UnitPrice = product is not null && CurrencyCodes.Normalize(product.PurchaseCurrencyCode, "CNY") == purchase.CurrencyCode
+            ? product.PlannedPurchasePrice : null;
         item.ProductVariantId = null;
         item.Color = string.Empty;
         item.Size = string.Empty;
-        if (product is not null && purchase.Items.All(value => value.Id == item.Id || value.ProductId is null))
+        if (purchase.SupplierId is null && product?.PreferredSupplierId is { } preferred
+            && suppliers.Any(x => x.Id == preferred && !x.IsArchived))
         {
-            purchase.CurrencyCode = CurrencyCodes.Normalize(product.PurchaseCurrencyCode, "CNY");
-            purchase.CnyRateUzs = product.CnyRateUzs;
-            CurrencyChanged();
+            purchase.SupplierId = preferred;
+            SupplierChanged();
         }
 
         unsavedGuard?.MarkDirty();
@@ -447,20 +512,23 @@
         purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
         if (purchase.CurrencyCode == "UZS")
         {
-            purchase.CnyRateUzs = 1;
+            purchase.RateToUzs = 1;
         }
     }
 
     private void PurchaseCurrencyChanged()
     {
-        purchase.CnyRateUzs = purchase.CurrencyCode == "UZS" ? 1 : null;
+        currencyReviewRequired = purchase.Items.Any(x => x.UnitPrice is not null) || purchase.Expenses.Count > 0;
+        currencyPricesReviewed = false;
+        purchase.RateToUzs = purchase.CurrencyCode == "UZS" ? 1 : null;
         purchase.IsCostFinalized = false;
+        unsavedGuard?.MarkDirty();
     }
 
     private void ExpenseCurrencyChanged(PurchaseExpense expense)
     {
         expense.RateUzs = expense.CurrencyCode == "UZS" ? 1
-            : expense.CurrencyCode == purchase.CurrencyCode ? purchase.CnyRateUzs : null;
+            : expense.CurrencyCode == purchase.CurrencyCode ? purchase.RateToUzs : null;
         purchase.IsCostFinalized = false;
     }
 
@@ -495,7 +563,7 @@
     private Task ClosePurchaseAsync() => RunAsync(async () =>
     {
         ValidatePurchase();
-        await Receiving.SaveAsync(purchase);
+        RequireSavedOrder();
         await Receiving.CloseAsync(purchase, purchase.Items.Where(x => x.MissingQuantity > 0)
             .Select(x => new PurchaseShortageInput(x.Id, ShortageInput(x.Id).Refund)).ToList(), closingOperationId);
     }, "Закупка закрыта, недостача учтена.");
@@ -507,7 +575,7 @@
             ValidatePurchase();
             if (!purchase.HasCompleteCostInputs)
                 throw new InvalidOperationException("Перед приемкой укажите закупочные цены, курсы и расходы.");
-            await Receiving.SaveAsync(purchase);
+            RequireSavedOrder();
             var input = receiptLines.Select(value =>
                 new PurchaseReceiptInput(value.Key, value.Value.ReceivedQuantity ?? 0, value.Value.DefectQuantity ?? 0));
             DateTimeOffset? at = receiptDate is null
@@ -515,12 +583,15 @@
                 : new DateTimeOffset(receiptDate.Value.Date, TimeZoneInfo.Local.GetUtcOffset(receiptDate.Value.Date));
             var result = await Receiving.ReceiveAsync(purchase, input, receiptId, at, receiptNote);
             ResetReceipt();
-            message = $"Принято: {result.AddedUnits} шт. на склад.";
+            var receipt = purchase.Receipts.Single(value => value.Id == result.ReceiptId);
+            message = $"Получено: {receipt.ReceivedQuantity} шт., брак: {receipt.DefectQuantity} шт. На склад: {result.AddedUnits} шт.";
         }, "Приёмка сохранена.");
     }
 
     private void ValidatePurchase()
     {
+        if (currencyReviewRequired && !currencyPricesReviewed)
+            throw new InvalidOperationException("Проверьте цены позиций и подтвердите их после смены валюты закупки.");
         purchase.Number = purchase.Number.Trim();
         purchase.Status ??= PurchaseStatus.Draft;
         if (string.IsNullOrWhiteSpace(purchase.Number))
@@ -571,6 +642,7 @@
         try
         {
             await action();
+            savedOrder = JsonSerializer.Serialize(purchase);
             unsavedGuard?.MarkClean();
             message ??= text;
             success = true;
@@ -587,7 +659,7 @@
     }
 
     private string FlowClass(PurchaseStatus value) =>
-        purchase.Status == value ? "active" : purchase.Status is not null && value < purchase.Status ? "done" : string.Empty;
+        purchase.Status == value ? "active" : string.Empty;
 
     private static string VariantName(ProductVariant value) =>
         string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));

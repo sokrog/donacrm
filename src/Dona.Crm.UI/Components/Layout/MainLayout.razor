@@ -20,12 +20,19 @@
             <a class="@SideClass("analytics")" href="/analytics" aria-current="@Current("analytics")"><OrbitIcon Name="analytics" /><span>Аналитика</span></a>
         </nav>
         <nav class="side-tools" aria-label="Настройки приложения">
-            <a class="@SideClass("connections")" href="/connections" aria-current="@Current("connections")"><OrbitIcon Name="cloud" /><span>Подключения</span></a>
+            <a class="@SideClass("connections")" href="/data" aria-current="@Current("connections")"><OrbitIcon Name="cloud" /><span>Данные и облако</span></a>
             <a class="@SideClass("settings")" href="/settings" aria-current="@Current("settings")"><OrbitIcon Name="settings" /><span>Настройки</span></a>
         </nav>
     </aside>
 
     <main class="main">
+        @if (sidebarSection == "sales" && !isFocusedRoute)
+        {
+            <nav class="dona-actions" aria-label="Раздел продаж">
+                <a class="dona-btn dona-btn--secondary" href="/sales">Заказы</a>
+                <a class="dona-btn dona-btn--secondary" href="/customers">Клиенты</a>
+            </nav>
+        }
         <ErrorBoundary @ref="errorBoundary">
             <ChildContent>
                 @Body
@@ -135,7 +142,7 @@
         if (UnderRoute(path, "/partners")) return "partners";
         if (UnderRoute(path, "/marketing") || UnderRoute(path, "/collections") || UnderRoute(path, "/outfits") || UnderRoute(path, "/content-plan")) return "marketing";
         if (UnderRoute(path, "/analytics")) return "analytics";
-        if (UnderRoute(path, "/connections") || UnderRoute(path, "/sync")) return "connections";
+        if (UnderRoute(path, "/data") || UnderRoute(path, "/connections") || UnderRoute(path, "/sync")) return "connections";
         if (UnderRoute(path, "/settings")) return "settings";
         return string.Empty;
     }

@@ -7,6 +7,8 @@
 @inject ICommerceRepository Commerce
 @inject ISalesRepository SalesRepository
 @inject ProductEditingService ProductEditing
+@inject IBusinessSettingsRepository BusinessSettingsRepository
+@inject ProductStatusService ProductStatuses
 @inject NavigationManager Navigation
 
 <PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
@@ -49,19 +51,32 @@
                             <label class="dona-field">Сезон<OrbitSelect TValue="string" @bind-Value="model.Season" Options="@SeasonOptions" Label="Сезон" /></label>
                         </div>
                         <label class="dona-field">Описание и заметки<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
+                        <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="model.AllowOrderWhenUnavailable" /> Можно заказать при отсутствии</label>
+                        <p class="dona-note">Ожидается по открытым закупкам: @PurchaseAvailability.Expected(model.Id, purchases) шт. Возможность заказа не разрешает отправку до приёмки.</p>
+                        @if (businessSettings.AutoUpdateStockStatus)
+                        {
+                            <p class="dona-note">Наличие: @ProductStatuses.Calculate(model, businessSettings).Display(). На складе @model.Quantity шт., в резерве @model.Variants.Sum(x => x.ReservedQuantity) шт. Статус рассчитывается автоматически; возможность заказа учитывается отдельно.</p>
+                        }
+                        else
+                        {
+                            <label class="dona-field">Наличие (ручной режим)<OrbitSelect TValue="ProductStatus?" @bind-Value="model.Status" Options="@ManualStatusOptions" Label="Наличие товара" /></label>
+                        }
                     </section>
                 </div>
 
                 <div class="product-editor-secondary">
                     <EntityImageEditor @ref="imageEditor" Images="@model.Images" OwnerId="@model.Id" EntityLabel="товара" ImagesChanged="UpdatePrimaryImage" />
                     <section class="dona-section" aria-labelledby="commerce-fields"><h2 id="commerce-fields">Закупка и продажа</h2>
-                        <label class="dona-field">Магазин или поставщик<InputText @bind-Value="model.SupplierName" placeholder="Название магазина" /></label>
+                        <label class="dona-field">Предпочтительный поставщик<OrbitSelect TValue="Guid?" @bind-Value="model.PreferredSupplierId" Options="@PreferredSupplierOptions" Label="Предпочтительный поставщик" Searchable="true" /></label>
+                        <p class="dona-note">Подставляется в новую закупку с возможностью замены. Фактические поставщики определяются закупками.</p>
+                        <label class="dona-field">Заметка о магазине<InputText @bind-Value="model.SupplierName" /></label>
                         <label class="dona-field">Ссылка на магазин<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
                         @if (Uri.TryCreate(model.SourceUrl, UriKind.Absolute, out var storeUri) && storeUri.Scheme is "http" or "https")
                         {
                             <a class="store-link" href="@storeUri" target="_blank" rel="noopener noreferrer">Открыть страницу товара в магазине ↗</a>
                         }
-                        <div class="dona-field-row"><label class="dona-field">Закупка, CNY<InputNumber @bind-Value="model.PurchasePriceCny" /></label><label class="dona-field">Курс CNY<InputNumber @bind-Value="model.CnyRateUzs" /></label></div>
+                        <label class="dona-field">Валюта плановой закупки<OrbitSelect TValue="string" @bind-Value="model.PurchaseCurrencyCode" Options="@PurchaseCurrencyOptions" Label="Валюта плановой закупки" /></label>
+                        <div class="dona-field-row"><label class="dona-field">Плановая цена, @model.PurchaseCurrencyCode<InputNumber @bind-Value="model.PlannedPurchasePrice" /></label><label class="dona-field">Курс в UZS<InputNumber @bind-Value="model.RateToUzs" /></label></div>
                         <div class="dona-field-row"><label class="dona-field">Доставка, UZS<InputNumber @bind-Value="model.DeliveryCostUzs" /></label><label class="dona-field">Продажа, UZS<InputNumber @bind-Value="model.SellingPriceUzs" /></label></div>
                     </section>
                 </div>
@@ -73,6 +88,10 @@
                     <button type="button" @onclick="AddVariant"><OrbitIcon Name="plus" Class="dona-inline-icon" />Добавить</button>
                 </div>
                 @if (model.Variants.Count == 0) { <p class="dona-empty">Добавьте цвет, размер и количество.</p> }
+                @if (model.Variants.GroupBy(x => (NormalizeVariantText(x.Color), NormalizeVariantText(x.Size))).Any(x => x.Count() > 1))
+                {
+                    <p class="dona-message" role="status">Есть варианты с одинаковыми цветом и размером без учёта пробелов и регистра. Проверьте их: варианты сохраняются отдельно и не объединяются автоматически.</p>
+                }
                 @foreach (var variant in model.Variants)
                 {
                     <div class="variant-row" @key="variant.Id">
@@ -152,6 +171,16 @@
     private string? errorMessage;
     private string? saveError;
     private IReadOnlyList<string> categories = [];
+    private BusinessSettings businessSettings = new();
+    private IReadOnlyList<Supplier> suppliers = [];
+    private IReadOnlyList<Purchase> purchases = [];
+    private static string NormalizeVariantText(string value) => string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+    private IReadOnlyList<OrbitSelectOption<Guid?>> PreferredSupplierOptions =>
+        [new(null, "Не выбран"), .. suppliers.Where(x => !x.IsArchived || x.Id == model.PreferredSupplierId).Select(x => new OrbitSelectOption<Guid?>(x.Id, x.Name + (x.IsArchived ? " — в архиве" : "")))];
+    private static readonly IReadOnlyList<OrbitSelectOption<string>> PurchaseCurrencyOptions =
+        CurrencyCodes.Supported.Select(x => new OrbitSelectOption<string>(x, x)).ToList();
+    private static readonly IReadOnlyList<OrbitSelectOption<ProductStatus?>> ManualStatusOptions =
+        [new(ProductStatus.InStock, "В наличии"), new(ProductStatus.LowStock, "Заканчивается"), new(ProductStatus.OutOfStock, "Нет в наличии")];
     private HashSet<Guid> existingVariantIds = [];
     private Product? original;
     private Dictionary<Guid, string> removalBlockers = [];
@@ -170,6 +199,8 @@
         isLoading = true; errorMessage = null;
         try
         {
+            businessSettings = await BusinessSettingsRepository.GetAsync();
+            suppliers = await Commerce.GetSuppliersAsync();
             categories = (await Commerce.GetCategoriesAsync()).Where(value => value.IsActive).OrderBy(value => value.SortOrder).Select(value => value.Name).ToList();
             existingVariantIds = []; removalBlockers = []; original = null;
             if (Id is not null)
@@ -178,12 +209,12 @@
                 // Отдельный экземпляр: по нему сервис поймёт, какие поля изменил пользователь.
                 original = await Catalog.GetProductAsync(Id.Value);
                 var sales = await SalesRepository.GetSalesAsync();
-                var purchases = await Commerce.GetPurchasesAsync();
+                purchases = await Commerce.GetPurchasesAsync();
                 existingVariantIds = model.Variants.Select(value => value.Id).ToHashSet();
                 foreach (var variant in model.Variants)
                     if (ProductEditingService.VariantRemovalBlocker(variant, sales, purchases) is { } blocker) removalBlockers[variant.Id] = blocker;
             }
-            else { model = new Product { Status = ProductStatus.OnOrder }; model.Variants.Add(new ProductVariant()); }
+            else { model = new Product { Status = ProductStatus.OutOfStock }; model.Variants.Add(new ProductVariant()); }
         }
         catch (Exception exception) { errorMessage = UserErrors.Describe(exception, "Не удалось загрузить товар. Попробуйте ещё раз."); }
         finally { isLoading = false; }

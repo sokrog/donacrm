@@ -25,7 +25,7 @@ public sealed record PurchaseLayerReport(IReadOnlyList<PurchaseLayerRow> Layers,
         var facts = SaleFinancialEvents.Build(saleList);
         var adjustments = movements.Where(x => x.Type == StockMovementType.Adjustment && x.QuantityDelta < 0)
             .SelectMany(x => x.Consumptions).ToList();
-        var returns = saleList.Where(x => x.Status is SaleStatus.Completed or SaleStatus.Returned)
+        var returns = saleList.Where(x => x.Status is SaleStatus.Shipped or SaleStatus.Completed or SaleStatus.Returned)
             .SelectMany(x => x.Returns).SelectMany(x => x.Items).ToList();
         var valuations = purchase.StockValuations.Concat(productList.SelectMany(x => x.StockValuations)).ToList();
         var rows = new List<PurchaseLayerRow>();

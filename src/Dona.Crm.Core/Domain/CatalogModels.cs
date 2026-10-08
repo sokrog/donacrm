@@ -14,14 +14,21 @@ public sealed class Product : IValidatableObject
     public string Gender { get; set; } = string.Empty;
     public string Season { get; set; } = string.Empty;
     public ProductStatus? Status { get; set; }
+    public bool AllowOrderWhenUnavailable { get; set; }
+    public Guid? PreferredSupplierId { get; set; }
     public string? SupplierName { get; set; }
     public string? SourceUrl { get; set; }
     public string? ImageUrl { get; set; }
     public string? Notes { get; set; }
-    [Range(0, 1_000_000)] public decimal? PurchasePriceCny { get; set; }
+    [Range(0, 1_000_000)] public decimal? PlannedPurchasePrice { get; set; }
+    // Read aliases preserve amounts in existing local records; new writes use neutral names.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? PurchasePriceCny { get => null; set { if (value is not null) PlannedPurchasePrice = value; } }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? CnyRateUzs { get => null; set { if (value is not null) RateToUzs = value; } }
     public string PurchaseCurrencyCode { get; set; } = "CNY";
     public Guid? CostPurchaseId { get; set; }
-    [Range(0, 100_000)] public decimal? CnyRateUzs { get; set; }
+    [Range(0, 100_000)] public decimal? RateToUzs { get; set; }
     [Range(0, 100)] public decimal? AgentCommissionPercent { get; set; }
     [Range(0, 1_000_000_000)] public decimal? DeliveryCostUzs { get; set; }
     [Range(0, 1_000_000_000)] public decimal? SellingPriceUzs { get; set; }
@@ -31,7 +38,7 @@ public sealed class Product : IValidatableObject
     public List<ProductImage> Images { get; set; } = [];
     public ProductImage? PrimaryImage => Images.OrderByDescending(x => x.IsMain).ThenBy(x => x.SortOrder).FirstOrDefault();
     public string? PrimaryImageUrl => PrimaryImage?.Url ?? ImageUrl;
-    public decimal CostUzs => Math.Round((PurchasePriceCny ?? 0) * (CnyRateUzs ?? 0) * (1 + (AgentCommissionPercent ?? 0) / 100) + (DeliveryCostUzs ?? 0));
+    public decimal CostUzs => Math.Round((PlannedPurchasePrice ?? 0) * (PurchaseCurrencyCode == "UZS" ? 1 : RateToUzs ?? 0) * (1 + (AgentCommissionPercent ?? 0) / 100) + (DeliveryCostUzs ?? 0));
     public decimal ProfitUzs => (SellingPriceUzs ?? 0) - CostUzs;
     public decimal MarkupPercent => CostUzs == 0 ? 0 : Math.Round(ProfitUzs / CostUzs * 100, 1);
     public int Quantity => Variants.Sum(x => x.Quantity ?? 0);

@@ -1,3 +1,11 @@
+.data-actions .dona-list-row {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.data-actions {
+    margin-bottom: var(--dona-space-3);
+}
+
 .local-card {
     display: grid;
     grid-template-columns: 46px minmax(0, 1fr) auto;
