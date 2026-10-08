@@ -22,6 +22,8 @@ public sealed class StockAdjustmentService(
         var delta = request.NewQuantity.Value - (variant.Quantity ?? 0);
         if (delta == 0) throw new InvalidOperationException("Новый остаток совпадает с текущим.");
         if (request.Reason is StockAdjustmentReason.Damage or StockAdjustmentReason.Loss && delta > 0) throw new InvalidOperationException("Списание брака или потери не может увеличивать остаток.");
+        if (delta > 0 && request.Reason == StockAdjustmentReason.OpeningBalance && request.UnitCost is null)
+            throw new InvalidOperationException("Укажите себестоимость начального остатка. Для бесплатного товара введите 0.");
         StockLayerOperations.PrepareEmpty(variant);
         if (request.UnitCost < 0) throw new InvalidOperationException("Себестоимость не может быть отрицательной.");
         var consumptions = delta < 0 ? FifoCostCalculator.Consume(variant, -delta).ToList() : [];

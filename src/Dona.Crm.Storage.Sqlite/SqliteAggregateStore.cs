@@ -157,6 +157,38 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
 
     internal static string Serialize<T>(T value) => JsonSerializer.Serialize(value, JsonOptions);
 
+    public async Task ApplyUploadedImageAsync(string localUrl, GoogleDriveFile file, CancellationToken cancellationToken = default)
+    {
+        await writeGate.WaitAsync(cancellationToken);
+        try
+        {
+            var connection = await GetDatabaseAsync(cancellationToken);
+            await connection.RunInTransactionAsync(transaction =>
+            {
+                Update<Product>("catalog.products", value => new DonaSyncSnapshot { Products = [value] });
+                Update<ProductCollection>("marketing.collections", value => new DonaSyncSnapshot { Marketing = new() { Collections = [value] } });
+                Update<Outfit>("marketing.outfits", value => new DonaSyncSnapshot { Marketing = new() { Outfits = [value] } });
+
+                void Update<T>(string collection, Func<T, DonaSyncSnapshot> wrap)
+                {
+                    foreach (var row in transaction.Table<AggregateRecord>().Where(x => x.Collection == collection).ToList())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var value = Deserialize<T>(row);
+                        ImageTransferReferences.Apply(wrap(value), localUrl, file);
+                        var payload = Serialize(value);
+                        if (payload == row.Payload) continue;
+                        row.Payload = payload;
+                        row.UpdatedAtUtcTicks = DateTimeOffset.UtcNow.UtcTicks;
+                        transaction.Update(row);
+                    }
+                }
+            });
+        }
+        finally { writeGate.Release(); }
+        // Deliberately no automatic push: user must compare and send the updated snapshot.
+    }
+
     /// <summary>
     /// Atomically replaces all authoritative collections with a snapshot from Google pull or a backup restore.
     /// Deliberately does NOT raise <see cref="BusinessDataChanged"/>: that event enqueues a Google upload, and the
@@ -170,6 +202,7 @@ public sealed class SqliteAggregateStore(SqliteStoreOptions options) : IAsyncDis
         cancellationToken.ThrowIfCancellationRequested();
         var replacements = new Dictionary<string, List<AggregateRecord>>
         {
+            ["history.selling-prices"] = Rows("history.selling-prices", snapshot.PriceChanges, value => value.Id),
             ["catalog.products"] = Rows("catalog.products", snapshot.Products, value => value.Id),
             ["commerce.suppliers"] = Rows("commerce.suppliers", snapshot.Suppliers, value => value.Id),
             ["commerce.intermediaries"] = Rows("commerce.intermediaries", snapshot.Intermediaries, value => value.Id),

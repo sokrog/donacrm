@@ -270,20 +270,15 @@ public sealed partial class SqliteRepositoryTests : IAsyncLifetime
         Assert.Empty(await catalog.GetProductsAsync());
         var service = new ProductEditingService(catalog, new SqliteSalesRepository(store!), new SqliteCommerceRepository(store!),
             new SqliteBusinessSettingsRepository(store!), new ProductStatusService(), new SqliteInventoryStore(store!));
-        var product = new Product { Sku = "OPEN", Name = "Товар", PurchaseCurrencyCode = "UZS", PlannedPurchasePrice = 100,
+        var product = new Product { Sku = "OPEN", Name = "Товар",
             Variants = [new() { Color = "Белый", Quantity = 2 }, new() { Color = "Чёрный", Quantity = 0 }] };
         var saved = await service.SaveAsync(product);
         await service.SaveAsync(saved);
         await store!.CloseAsync();
         saved = (await catalog.GetProductAsync(product.Id))!;
         Assert.All(saved.Variants, x => Assert.Equal(FifoCostCalculator.CurrentVersion, x.StockLayerVersion));
-        Assert.Single(saved.Variants[0].Layers);
-        Assert.Empty(saved.Variants[1].Layers);
-        Assert.Equal(200m, FifoCostCalculator.Value(saved.Variants[0]).TotalValue);
-        var movement = Assert.Single(await new SqliteStockMovementRepository(store).GetAsync());
-        Assert.Equal(2, movement.QuantityDelta);
-        Assert.Equal(200m, movement.ValueDelta);
-        Assert.Equal(0, movement.UnvaluedQuantity);
+        Assert.All(saved.Variants, x => { Assert.Empty(x.Layers); Assert.Equal(0, x.Quantity); });
+        Assert.Empty(await new SqliteStockMovementRepository(store).GetAsync());
     }
 
     [Fact]
@@ -374,7 +369,7 @@ public sealed partial class SqliteRepositoryTests : IAsyncLifetime
         Assert.Single(restored.Expenses);
         Assert.Equal(2, restored.Receipts.Count);
         Assert.Equal(2, (await catalog.GetProductAsync(product.Id))!.Quantity);
-        Assert.Equal(12100, (await catalog.GetProductAsync(product.Id))!.CostUzs);
+        Assert.Equal(12100, FifoCostCalculator.Value((await catalog.GetProductAsync(product.Id))!.Variants[0]).KnownValue / (await catalog.GetProductAsync(product.Id))!.Quantity);
         var history = await new SqlitePurchaseHistoryRepository(store).GetAsync();
         Assert.Equal(2, history.ProductCosts.Count);
         Assert.All(history.ProductCosts, x => Assert.Equal(12100, x.UnitLandedCostUzs));
@@ -574,7 +569,7 @@ public sealed partial class SqliteRepositoryTests : IAsyncLifetime
         var catalog = new SqliteCatalogRepository(store!);
         var movements = new SqliteStockMovementRepository(store!);
         var settings = new SqliteBusinessSettingsRepository(store!);
-        await settings.SaveAsync(new BusinessSettings { LowStockThreshold = 3, AutoUpdateStockStatus = true });
+        await settings.SaveAsync(new BusinessSettings { LowStockThreshold = 3 });
         var initial = CreateProduct(ProductStatus.LowStock, 2);
         await catalog.UpsertProductAsync(initial);
         var product = (await catalog.GetProductsAsync()).Single(item => item.Id == initial.Id);

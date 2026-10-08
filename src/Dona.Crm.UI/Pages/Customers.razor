@@ -6,60 +6,16 @@
 <PageTitle>Клиенты — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide">
     <header class="dona-page-header">
-        <div class="dona-heading">
-            <a class="dona-icon-button dona-back-button" href="/sales" aria-label="Вернуться к продажам"><OrbitIcon Name="back" /></a>
-            <div>
-                <p>Продажи</p>
-                <h1 class="dona-title">Клиенты</h1>
-            </div>
+        <div>
+            <p class="dona-eyebrow">Заказы</p>
+            <h1 class="dona-title">Клиенты</h1>
         </div>
-        <button class="dona-icon-button dona-add-button" type="button" aria-label="Добавить клиента" @onclick="NewCustomer"><OrbitIcon Name="plus" /></button>
+        <a class="dona-icon-button dona-add-button" href="/customers/new" aria-label="Добавить клиента"><OrbitIcon Name="plus" /></a>
     </header>
-    @if (errorMessage is not null && editing is null)
+    <SalesNavigation Customers="true" />
+    @if (errorMessage is not null)
     {
         <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
-    }
-    @if (editing is not null)
-    {
-        <EditForm Model="editing" OnValidSubmit="SaveAsync">
-            <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
-            <section class="dona-section">
-                <h2>@(isNew ? "Новый клиент" : "Редактирование")</h2>
-                <label class="dona-field">
-                    Имя
-                    <InputText @bind-Value="editing.Name" />
-                    <ValidationMessage For="() => editing.Name" />
-                </label>
-                <label class="dona-field">Телефон<InputText @bind-Value="editing.Phone" inputmode="tel" /></label>
-                <div class="dona-field-row">
-                    <label class="dona-field">Instagram<InputText @bind-Value="editing.Instagram" /></label>
-                    <label class="dona-field">Telegram<InputText @bind-Value="editing.Telegram" /></label>
-                </div>
-                <label class="dona-field">Адрес<InputText @bind-Value="editing.Address" /></label>
-                <label class="dona-field">Заметка<InputTextArea @bind-Value="editing.Notes" /></label>
-                @if (errorMessage is not null)
-                {
-                    <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
-                }
-                <div class="dona-actions">
-                    @if (confirmDelete)
-                    {
-                        <div class="dona-confirm dona-confirm--boxed">
-                            <span>Удалить клиента? Продажи останутся в истории.</span>
-                            <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
-                            <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteAsync">Да, удалить</button>
-                        </div>
-                    }
-                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
-                    @if (!isNew && !confirmDelete)
-                    {
-                        <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
-                    }
-                    <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
-                </div>
-            </section>
-        </EditForm>
     }
     @if (loading)
     {
@@ -78,14 +34,14 @@
             @foreach (var customer in customers.OrderBy(value => value.Name))
             {
                 <li>
-                    <button type="button" class="dona-list-row" @onclick="() => EditCustomer(customer)">
+                    <a class="dona-list-row" href="@($"/customers/{customer.Id}")">
                         <InitialBadge Text="@customer.Name" Variant="round" />
                         <span>
                             <strong>@customer.Name</strong>
                             <small>@Contact(customer)</small>
                         </span>
                         <span class="dona-list-row__value">@sales.Count(value => value.CustomerId == customer.Id)<small>заказов</small></span>
-                    </button>
+                    </a>
                 </li>
             }
         </ul>
@@ -94,12 +50,7 @@
 @code {
     private IReadOnlyList<Customer> customers = [];
     private IReadOnlyList<Sale> sales = [];
-    private Customer? editing;
-    private UnsavedChangesGuard? unsavedGuard;
-    private bool isNew;
     private bool loading = true;
-    private bool saving;
-    private bool confirmDelete;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
@@ -120,117 +71,6 @@
         finally
         {
             loading = false;
-        }
-    }
-
-    private void NewCustomer()
-    {
-        editing = new Customer();
-        isNew = true;
-        confirmDelete = false;
-        errorMessage = null;
-    }
-
-    private void EditCustomer(Customer value)
-    {
-        editing = new Customer
-        {
-            Id = value.Id,
-            Name = value.Name,
-            Phone = value.Phone,
-            Instagram = value.Instagram,
-            Telegram = value.Telegram,
-            Address = value.Address,
-            Notes = value.Notes,
-            CreatedAt = value.CreatedAt
-        };
-        isNew = false;
-        confirmDelete = false;
-        errorMessage = null;
-    }
-
-    private async Task CloseEditor()
-    {
-        try
-        {
-            if (unsavedGuard is not null && !await unsavedGuard.ConfirmDiscardAsync())
-            {
-                return;
-            }
-
-            CloseEditorCore();
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            errorMessage = UserErrors.Describe(exception, "Не удалось закрыть редактор. Попробуйте ещё раз.");
-        }
-    }
-
-    private void CloseEditorCore()
-    {
-        editing = null;
-        confirmDelete = false;
-        errorMessage = null;
-    }
-
-    private async Task SaveAsync()
-    {
-        if (saving)
-        {
-            return;
-        }
-
-        saving = true;
-        errorMessage = null;
-        try
-        {
-            await SalesRepository.UpsertCustomerAsync(editing!);
-            unsavedGuard?.MarkClean();
-            CloseEditorCore();
-            await ReloadAsync();
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            errorMessage = UserErrors.Describe(exception, "Не удалось сохранить клиента. Попробуйте ещё раз.");
-        }
-        finally
-        {
-            saving = false;
-        }
-    }
-
-    private async Task DeleteAsync()
-    {
-        if (saving)
-        {
-            return;
-        }
-
-        saving = true;
-        errorMessage = null;
-        try
-        {
-            var orders = (await SalesRepository.GetSalesAsync()).Count(value => value.CustomerId == editing!.Id);
-            if (orders > 0)
-            {
-                confirmDelete = false;
-                errorMessage = $"Нельзя удалить клиента: у него {orders} заказ(ов). Продажи ссылаются на карточку клиента.";
-                return;
-            }
-
-            await SalesRepository.DeleteCustomerAsync(editing!.Id);
-            unsavedGuard?.MarkClean();
-            CloseEditorCore();
-            await ReloadAsync();
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            confirmDelete = false;
-            errorMessage = UserErrors.Describe(exception, "Не удалось удалить клиента. Попробуйте ещё раз.");
-        }
-        finally
-        {
-            saving = false;
         }
     }
 

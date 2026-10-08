@@ -112,10 +112,98 @@ public sealed class SalesInventoryService(ICatalogRepository catalog, IInventory
         await store.CommitAsync(InventoryCommit.Create(sales: [sale]), token);
     });
 
+    /// <summary>Reverses inventory and hides the sale in one atomic commit; keeps its audit record.</summary>
+    public async Task DeleteAsync(Guid id, CancellationToken token = default)
+    {
+        if (sales is null) throw new InvalidOperationException("Хранилище продаж недоступно.");
+        using var gate = await InventoryLock.AcquireAsync(token);
+        var saved = await sales.GetSaleAsync(id, token) ?? throw new InvalidOperationException("Продажа не найдена.");
+        if (saved.DeletedAt is not null) return;
+        var deleted = JsonSerializer.Deserialize<Sale>(JsonSerializer.Serialize(saved))!;
+        var products = new Dictionary<Guid, Product>();
+        var movements = new List<StockMovement>();
+        var at = DateTimeOffset.UtcNow;
+        foreach (var item in deleted.Items)
+        {
+            var sold = item.SoldQuantity;
+            if (sold == 0 && deleted.Status is SaleStatus.Shipped or SaleStatus.Completed)
+                sold = item.Quantity ?? 0; // Historical sales may predate the explicit issue counter.
+            var quantity = Math.Max(0, sold - item.ReturnedQuantity);
+            var defects = deleted.Returns.SelectMany(x => x.Items)
+                .Where(x => x.SaleItemId == item.Id && x.Disposition == ReturnDisposition.Defect)
+                .SelectMany(x => x.LayerAllocations).ToList();
+            if (defects.Count > 0)
+                movements.Add(new StockMovement
+                {
+                    Type = StockMovementType.Adjustment, CreatedAt = at,
+                    ProductId = item.ProductId ?? Guid.Empty, ProductVariantId = item.ProductVariantId ?? Guid.Empty,
+                    ProductName = item.ProductName, Color = item.Color, Size = item.Size,
+                    SourceType = "SaleDeletionDefect", SourceId = deleted.Id, SourceNumber = deleted.Number,
+                    Note = "Брак, принятый до удаления продажи; остаток уже списан", ValueDelta = 0,
+                    Consumptions = defects.Select(x => new LayerConsumption(Guid.NewGuid(), x.LayerId, x.Quantity,
+                        x.OriginalCost / x.Quantity, x.OriginalCost,
+                        item.Consumptions.First(c => c.Id == x.ConsumptionId).ValuationRevision)).ToList()
+                });
+            if (quantity == 0 && item.ReservedQuantity == 0) continue;
+            if (item.ProductId is not { } productId || item.ProductVariantId is not { } variantId)
+                throw new InventoryException("Не найден товар или вариант для восстановления остатка.");
+            if (!products.TryGetValue(productId, out var product))
+            {
+                product = await catalog.GetProductAsync(productId, token) ?? throw new InventoryException("Товар продажи не найден.");
+                products.Add(productId, product);
+            }
+            var variant = product.Variants.SingleOrDefault(x => x.Id == variantId) ?? throw new InventoryException("Вариант продажи не найден.");
+            StockLayerOperations.PrepareEmpty(variant);
+            if (item.ReservedQuantity > variant.ReservedQuantity)
+                throw new InventoryException("Резерв продажи не соответствует остатку. Обновите данные склада.");
+            var movement = new StockMovement
+            {
+                Type = quantity > 0 ? StockMovementType.Return : StockMovementType.ReservationRelease,
+                CreatedAt = at, ProductId = product.Id, ProductVariantId = variant.Id,
+                ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size,
+                QuantityDelta = quantity, ReservedDelta = -item.ReservedQuantity,
+                SourceType = "SaleDeletion", SourceId = deleted.Id, SourceNumber = deleted.Number,
+                Note = "Удаление ошибочной продажи", ValueDelta = 0
+            };
+            variant.ReservedQuantity -= item.ReservedQuantity;
+            item.ReservedQuantity = 0;
+            if (quantity > 0 && item.Consumptions.Count > 0)
+            {
+                var accepted = deleted.Returns.SelectMany(x => x.Items)
+                    .Where(x => x.SaleItemId == item.Id && x.Disposition != ReturnDisposition.Rejected)
+                    .SelectMany(x => x.LayerAllocations);
+                var allocations = FifoCostCalculator.PreviewReturn(item.Consumptions, accepted, quantity);
+                var previousValues = variant.Layers.ToDictionary(x => x.Id, x => x.RemainingValue);
+                var cost = StockLayerOperations.Restore(variant, item.Consumptions, allocations);
+                StockLayerOperations.SetValue(movement, cost, 1);
+                movement.ReturnAllocations = allocations.ToList();
+                foreach (var group in allocations.GroupBy(x => x.LayerId))
+                {
+                    var layer = variant.Layers.Single(x => x.Id == group.Key);
+                    var originalCost = group.Sum(x => x.OriginalCost ?? 0);
+                    var restored = layer.RemainingValue - previousValues[layer.Id];
+                    if (restored is not null && restored != originalCost)
+                        product.StockValuations.Add(new(Guid.NewGuid(), deleted.Id, at, StockValuationReason.ReturnRevaluation,
+                            layer.Id, layer.PurchaseItemId, 0, layer.ValuationRevision, originalCost, restored, 0, originalCost - restored));
+                }
+            }
+            else if (quantity > 0)
+            {
+                var cost = item.UnitCostUzs * quantity;
+                StockLayerOperations.Add(variant, quantity, cost, StockLayerSource.LegacyReturn, at, deleted.Number);
+                StockLayerOperations.SetValue(movement, new StockCostSummary(cost ?? 0, cost is null ? quantity : 0), 1);
+            }
+            movements.Add(movement);
+        }
+        deleted.DeletedAt = at;
+        await store.CommitAsync(InventoryCommit.Create(products: products.Values, sales: [deleted], movements: movements), token);
+    }
+
     private async Task EnsureCurrentAsync(Sale sale, CancellationToken token)
     {
         if (sales is not null && await sales.GetSaleAsync(sale.Id, token) is { } saved)
         {
+            if (saved.DeletedAt is not null) throw new InventoryException("Продажа удалена. Откройте список продаж заново.");
             var oldState = saved.Items.Where(x => x.ReservedQuantity != 0 || x.SoldQuantity != 0 || x.ReturnedQuantity != 0)
                 .Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.ReservedQuantity, x.SoldQuantity, x.ReturnedQuantity, Costs: JsonSerializer.Serialize(x.Consumptions))).OrderBy(x => x.Id);
             var newState = sale.Items.Where(x => x.ReservedQuantity != 0 || x.SoldQuantity != 0 || x.ReturnedQuantity != 0)

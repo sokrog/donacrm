@@ -7,9 +7,9 @@
 @inject ICommerceRepository Commerce
 @inject ISalesRepository SalesRepository
 @inject ProductEditingService ProductEditing
-@inject IBusinessSettingsRepository BusinessSettingsRepository
-@inject ProductStatusService ProductStatuses
 @inject NavigationManager Navigation
+@inject IPricingRepository PricingHistory
+@inject ProductPricingService Pricing
 
 <PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
 
@@ -26,21 +26,23 @@
     else if (errorMessage is not null) { <div class="dona-state dona-state--error" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a href="/products">В каталог</a></div> }
     else
     {
+        @if (!IsNew && model.Quantity == 0) { <p class="dona-message">Остатка пока нет. <a href="/purchases/new?productId=@model.Id">Создать закупку</a> · <a href="/inventory/adjustment/new?productId=@model.Id">Внести остаток</a></p> }
         <EditForm class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
+            <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <div class="product-editor-workspace">
                 <div class="product-editor-primary">
                     <section class="dona-section" aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
-                        <label class="dona-field">Название<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
+                        <label class="dona-field">Название *<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
                         <div class="dona-field-row">
-                            <label class="dona-field">SKU<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label>
+                            <label class="dona-field">SKU *<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label>
                             <label class="dona-field">
                                 Категория<OrbitSelect @ref="categoryPicker" TValue="string" @bind-Value="model.Category" Options="@CategoryOptions" Label="Категория">
                                     <Footer>
                                         <div class="category-picker-add">
                                             <InputText @bind-Value="newCategoryName" placeholder="Новая категория" autocomplete="off" />
-                                            <button type="button" class="dona-btn dona-btn--primary" disabled="@isSaving" @onclick="AddCategoryAsync"><OrbitIcon Name="plus" />Добавить</button>
+                                            <button type="button" class="dona-btn dona-btn--ghost" disabled="@isSaving" @onclick="AddCategoryAsync"><OrbitIcon Name="plus" />Добавить</button>
                                         </div>
                                     </Footer>
                                 </OrbitSelect>
@@ -50,70 +52,59 @@
                             <label class="dona-field">Пол<OrbitSelect TValue="string" @bind-Value="model.Gender" Options="@GenderOptions" Label="Пол" /></label>
                             <label class="dona-field">Сезон<OrbitSelect TValue="string" @bind-Value="model.Season" Options="@SeasonOptions" Label="Сезон" /></label>
                         </div>
-                        <label class="dona-field">Описание и заметки<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
-                        <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="model.AllowOrderWhenUnavailable" /> Можно заказать при отсутствии</label>
-                        <p class="dona-note">Ожидается по открытым закупкам: @PurchaseAvailability.Expected(model.Id, purchases) шт. Возможность заказа не разрешает отправку до приёмки.</p>
-                        @if (businessSettings.AutoUpdateStockStatus)
-                        {
-                            <p class="dona-note">Наличие: @ProductStatuses.Calculate(model, businessSettings).Display(). На складе @model.Quantity шт., в резерве @model.Variants.Sum(x => x.ReservedQuantity) шт. Статус рассчитывается автоматически; возможность заказа учитывается отдельно.</p>
-                        }
+                        <div class="dona-field">Цена продажи<strong>@(model.SellingPriceUzs is null ? "Не установлена" : PricingLayers.Money(model.SellingPriceUzs))</strong></div>
+                        @if (IsNew) { <p class="dona-note">Сохраните товар, чтобы установить цену отдельной операцией.</p> }
                         else
                         {
-                            <label class="dona-field">Наличие (ручной режим)<OrbitSelect TValue="ProductStatus?" @bind-Value="model.Status" Options="@ManualStatusOptions" Label="Наличие товара" /></label>
+                            <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/products/@model.Id/pricing">Установить цену</a><a href="/products/@model.Id/price-history">История цен</a></div>
+                            @if (lastPriceAt is { } date) { <p class="dona-note">Последнее изменение: @date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
+                            @if (reviewPrice) { <p class="dona-message">Основание последней установки цены изменилось. Проверьте себестоимость и пересмотрите цену.</p> }
                         }
+                        @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Продажная цена обновлена.</p> }
+                        <label class="dona-field">Описание<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
                     </section>
+            <section class="dona-section product-variants" aria-labelledby="variants">
+                <div class="dona-section-title">
+                    <div><h2 id="variants">Варианты *</h2>@if (!IsNew) { <p class="dona-note">Доступно всего @model.Variants.Sum(x => x.AvailableQuantity)</p> }</div>
+                    <button type="button" class="dona-btn dona-btn--ghost" @onclick="AddVariant"><OrbitIcon Name="plus" Class="dona-inline-icon" />Добавить</button>
+                </div>
+                @if (model.Variants.Count == 0) { <p class="dona-empty">Добавьте хотя бы один вариант.</p> }
+                @if (model.Variants.GroupBy(x => (NormalizeVariantText(x.Color), NormalizeVariantText(x.Size))).Any(x => x.Count() > 1))
+                {
+                    <p class="dona-message" role="status">Варианты с одинаковыми цветом и размером нельзя сохранить.</p>
+                }
+                @foreach (var variant in model.Variants)
+                {
+                    <div class="variant-row" @key="variant.Id" @oninput="() => removalConfirmation?.MarkEdited(variant)">
+                        <label class="dona-field">Цвет<InputText @bind-Value="variant.Color" /></label>
+                        <label class="dona-field">Размер<InputText @bind-Value="variant.Size" /></label>
+                        <div class="variant-stock">
+                            @if (!IsNew) { <strong>Доступно @variant.AvailableQuantity</strong> }
+                            @if (Expected(variant) > 0) { <span>Ожидается @Expected(variant)</span> }
+                        </div>
+                        <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove" aria-label="Удалить вариант"
+                                disabled="@(model.Variants.Count == 1 || RemovalBlocker(variant) is not null)"
+                                @onclick="() => RemoveVariant(variant)"><OrbitIcon Name="close" /></button>
+                        @if (RemovalBlocker(variant) is { } reason) { <p class="variant-blocker dona-note">@reason</p> }
+                    </div>
+                }
+            </section>
+
                 </div>
 
                 <div class="product-editor-secondary">
                     <EntityImageEditor @ref="imageEditor" Images="@model.Images" OwnerId="@model.Id" EntityLabel="товара" ImagesChanged="UpdatePrimaryImage" />
-                    <section class="dona-section" aria-labelledby="commerce-fields"><h2 id="commerce-fields">Закупка и продажа</h2>
+                    <details class="dona-section"><summary><OrbitIcon Name="down" />Закупка</summary>
                         <label class="dona-field">Предпочтительный поставщик<OrbitSelect TValue="Guid?" @bind-Value="model.PreferredSupplierId" Options="@PreferredSupplierOptions" Label="Предпочтительный поставщик" Searchable="true" /></label>
-                        <p class="dona-note">Подставляется в новую закупку с возможностью замены. Фактические поставщики определяются закупками.</p>
-                        <label class="dona-field">Заметка о магазине<InputText @bind-Value="model.SupplierName" /></label>
-                        <label class="dona-field">Ссылка на магазин<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
+                        <label class="dona-field">Ссылка на товар у поставщика<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
                         @if (Uri.TryCreate(model.SourceUrl, UriKind.Absolute, out var storeUri) && storeUri.Scheme is "http" or "https")
                         {
                             <a class="store-link" href="@storeUri" target="_blank" rel="noopener noreferrer">Открыть страницу товара в магазине ↗</a>
                         }
-                        <label class="dona-field">Валюта плановой закупки<OrbitSelect TValue="string" @bind-Value="model.PurchaseCurrencyCode" Options="@PurchaseCurrencyOptions" Label="Валюта плановой закупки" /></label>
-                        <div class="dona-field-row"><label class="dona-field">Плановая цена, @model.PurchaseCurrencyCode<InputNumber @bind-Value="model.PlannedPurchasePrice" /></label><label class="dona-field">Курс в UZS<InputNumber @bind-Value="model.RateToUzs" /></label></div>
-                        <div class="dona-field-row"><label class="dona-field">Доставка, UZS<InputNumber @bind-Value="model.DeliveryCostUzs" /></label><label class="dona-field">Продажа, UZS<InputNumber @bind-Value="model.SellingPriceUzs" /></label></div>
-                    </section>
+                        <label class="dona-field">Вес единицы, кг<InputNumber @bind-Value="model.UnitWeightKg" min="0" /></label>
+                    </details>
                 </div>
             </div>
-
-            <section class="dona-section product-variants" aria-labelledby="variants">
-                <div class="dona-section-title">
-                    <h2 id="variants">Варианты и остатки</h2>
-                    <button type="button" @onclick="AddVariant"><OrbitIcon Name="plus" Class="dona-inline-icon" />Добавить</button>
-                </div>
-                @if (model.Variants.Count == 0) { <p class="dona-empty">Добавьте цвет, размер и количество.</p> }
-                @if (model.Variants.GroupBy(x => (NormalizeVariantText(x.Color), NormalizeVariantText(x.Size))).Any(x => x.Count() > 1))
-                {
-                    <p class="dona-message" role="status">Есть варианты с одинаковыми цветом и размером без учёта пробелов и регистра. Проверьте их: варианты сохраняются отдельно и не объединяются автоматически.</p>
-                }
-                @foreach (var variant in model.Variants)
-                {
-                    <div class="variant-row" @key="variant.Id">
-                        <label class="dona-field">Цвет<InputText @bind-Value="variant.Color" /></label>
-                        <label class="dona-field">Размер<InputText @bind-Value="variant.Size" /></label>
-                        @if (existingVariantIds.Contains(variant.Id))
-                        {
-                            <div class="variant-stock">
-                                <span>В наличии @(variant.Quantity ?? 0) · резерв @variant.ReservedQuantity</span>
-                                <a href="/inventory/adjustment/new?productId=@model.Id&variantId=@variant.Id">Корректировка остатка</a>
-                            </div>
-                        }
-                        else
-                        {
-                            <label class="dona-field">Начальный остаток<InputNumber @bind-Value="variant.Quantity" min="0" /></label>
-                        }
-                        <button type="button" class="dona-btn dona-btn--danger dona-btn--icon remove" aria-label="Удалить вариант"
-                                disabled="@(RemovalBlocker(variant) is not null)" title="@RemovalBlocker(variant)"
-                                @onclick="() => RemoveVariant(variant)">×</button>
-                    </div>
-                }
-            </section>
 
             <ValidationSummary />
             @if (saveError is not null) { <p class="dona-message dona-message--error" role="alert">@saveError</p> }
@@ -122,41 +113,17 @@
                 @if (confirmArchive)
                 {
                     <div class="dona-confirm dona-confirm--boxed" role="group" aria-label="Подтверждение архивирования">
-                        <span>Убрать товар из активного каталога?</span>
+                        <span>@(model.Status == ProductStatus.Archived ? "Вернуть товар из архива?" : "Убрать товар из активного каталога?")</span>
                         <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmArchive = false">Нет</button>
-                        <button type="button" class="dona-btn dona-btn--danger" @onclick="ArchiveAsync">Да, в архив</button>
+                        <button type="button" class="dona-btn dona-btn--danger" @onclick="ArchiveAsync">Подтвердить</button>
                     </div>
                 }
                 else
                 {
-                    <button type="button" class="dona-btn dona-btn--link dona-btn--danger archive-toggle" @onclick="() => confirmArchive = true">Переместить товар в архив</button>
+                    <button type="button" class="dona-btn dona-btn--link dona-btn--danger archive-toggle" @onclick="() => confirmArchive = true">@(model.Status == ProductStatus.Archived ? "Вернуть из архива" : "В архив")</button>
                 }
             }
-            @if (model.Variants.Any(x => x.Layers.Count > 0))
-            {
-                <section class="dona-section">
-                    <h2>Остаток по партиям</h2>
-                    @foreach (var variant in model.Variants)
-                    {
-                        @foreach (var layer in variant.Layers.Where(x => x.RemainingQuantity > 0 || x.InitialValue is null).OrderBy(x => x.ReceivedAt).ThenBy(x => x.Sequence).ThenBy(x => x.Id))
-                        {
-                            <p><strong>@variant.Color @variant.Size · @layer.RemainingQuantity ед.</strong><br />
-                                @layer.SourceNumber · @(layer.ReceivedAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "Дата неизвестна") ·
-                                @(layer.RemainingValue is null ? "Себестоимость неизвестна" : $"Стоимость {layer.RemainingValue:N2}")
-                                @if (layer.ReceivedAt is { } receivedAt)
-                                {
-                                    <small> · возраст @Math.Max(0, (DateTimeOffset.Now.Date - receivedAt.LocalDateTime.Date).Days) дн.</small>
-                                }
-                            </p>
-                            @if (layer.InitialValue is null && layer.Source is (StockLayerSource.OpeningBalance or StockLayerSource.InventorySurplus))
-                            {
-                                <a href="/inventory/valuation/@model.Id/@variant.Id/@layer.Id">Указать стоимость партии</a>
-                            }
-                        }
-                    }
-                </section>
-            }
-            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/products">Отмена</a><button type="submit" class="dona-btn dona-btn--primary" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button></div>
+            <div class="dona-actions product-actions"><a class="dona-btn dona-btn--secondary" href="/products">Отмена</a><button type="submit" class="dona-btn dona-btn--primary" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button></div>
         </EditForm>
     }
 </div>
@@ -166,22 +133,19 @@
     private Product model = new();
     private bool isLoading = true;
     private bool isSaving;
+    [SupplyParameterFromQuery(Name = "priced")] public int? Priced { get; set; }
+    private DateTimeOffset? lastPriceAt;
+    private bool reviewPrice;
     private bool confirmArchive;
     private string newCategoryName = string.Empty;
     private string? errorMessage;
     private string? saveError;
     private IReadOnlyList<string> categories = [];
-    private BusinessSettings businessSettings = new();
     private IReadOnlyList<Supplier> suppliers = [];
     private IReadOnlyList<Purchase> purchases = [];
-    private static string NormalizeVariantText(string value) => string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+    private static string NormalizeVariantText(string value) => Product.NormalizeVariantText(value);
     private IReadOnlyList<OrbitSelectOption<Guid?>> PreferredSupplierOptions =>
         [new(null, "Не выбран"), .. suppliers.Where(x => !x.IsArchived || x.Id == model.PreferredSupplierId).Select(x => new OrbitSelectOption<Guid?>(x.Id, x.Name + (x.IsArchived ? " — в архиве" : "")))];
-    private static readonly IReadOnlyList<OrbitSelectOption<string>> PurchaseCurrencyOptions =
-        CurrencyCodes.Supported.Select(x => new OrbitSelectOption<string>(x, x)).ToList();
-    private static readonly IReadOnlyList<OrbitSelectOption<ProductStatus?>> ManualStatusOptions =
-        [new(ProductStatus.InStock, "В наличии"), new(ProductStatus.LowStock, "Заканчивается"), new(ProductStatus.OutOfStock, "Нет в наличии")];
-    private HashSet<Guid> existingVariantIds = [];
     private Product? original;
     private Dictionary<Guid, string> removalBlockers = [];
     private static readonly string[] genders = ["Женский", "Мужской", "Унисекс"];
@@ -192,29 +156,40 @@
     private EntityImageEditor? imageEditor;
     private OrbitSelect<string>? categoryPicker;
     private UnsavedChangesGuard? unsavedGuard;
+    private ListItemRemovalConfirmation? removalConfirmation;
     private bool IsNew => Id is null;
+    private int Expected(ProductVariant variant) => purchases.Where(x => x.ClosedAt is null && x.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived)
+        .SelectMany(x => x.Items).Where(x => x.ProductId == model.Id && x.ProductVariantId == variant.Id).Sum(x => x.MissingQuantity);
+    private async Task<string> SuggestSkuAsync()
+    {
+        var used = (await Catalog.GetProductsAsync()).Select(x => x.Sku).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var number = 1;
+        while (used.Contains($"P-{number:0000}")) number++;
+        return $"P-{number:0000}";
+    }
 
     protected override async Task OnParametersSetAsync()
     {
-        isLoading = true; errorMessage = null;
+        isLoading = true; errorMessage = null; confirmArchive = false; saveError = null; newCategoryName = string.Empty;
         try
         {
-            businessSettings = await BusinessSettingsRepository.GetAsync();
             suppliers = await Commerce.GetSuppliersAsync();
             categories = (await Commerce.GetCategoriesAsync()).Where(value => value.IsActive).OrderBy(value => value.SortOrder).Select(value => value.Name).ToList();
-            existingVariantIds = []; removalBlockers = []; original = null;
+            removalBlockers = []; original = null;
             if (Id is not null)
             {
                 model = await Catalog.GetProductAsync(Id.Value) ?? throw new InvalidOperationException("Товар не найден.");
                 // Отдельный экземпляр: по нему сервис поймёт, какие поля изменил пользователь.
                 original = await Catalog.GetProductAsync(Id.Value);
+                var last = (await PricingHistory.GetPriceChangesAsync()).Where(x => x.Lines.Any(l => l.Quote.ProductId == Id)).OrderByDescending(x => x.AppliedAt).FirstOrDefault();
+                lastPriceAt = last?.AppliedAt;
+                reviewPrice = last is not null && await Pricing.NeedsReviewAsync(last.Lines.Single(x => x.Quote.ProductId == Id));
                 var sales = await SalesRepository.GetSalesAsync();
                 purchases = await Commerce.GetPurchasesAsync();
-                existingVariantIds = model.Variants.Select(value => value.Id).ToHashSet();
                 foreach (var variant in model.Variants)
                     if (ProductEditingService.VariantRemovalBlocker(variant, sales, purchases) is { } blocker) removalBlockers[variant.Id] = blocker;
             }
-            else { model = new Product { Status = ProductStatus.OutOfStock }; model.Variants.Add(new ProductVariant()); }
+            else { model = new Product { Status = ProductStatus.OutOfStock, Sku = await SuggestSkuAsync() }; model.Variants.Add(new ProductVariant()); }
         }
         catch (Exception exception) { errorMessage = UserErrors.Describe(exception, "Не удалось загрузить товар. Попробуйте ещё раз."); }
         finally { isLoading = false; }
@@ -235,7 +210,7 @@
         isSaving = true; saveError = null;
         try
         {
-            await Commerce.UpsertCategoryAsync(new Category { Name = name, SortOrder = categories.Count, IsActive = true });
+
             categories = categories.Append(name).OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase).ToList();
             model.Category = name;
             newCategoryName = string.Empty;
@@ -246,7 +221,15 @@
         finally { isSaving = false; }
     }
     private string? RemovalBlocker(ProductVariant variant) => removalBlockers.GetValueOrDefault(variant.Id);
-    private void RemoveVariant(ProductVariant variant) { if (RemovalBlocker(variant) is not null) return; model.Variants.Remove(variant); unsavedGuard?.MarkDirty(); }
+    private async Task RemoveVariant(ProductVariant variant)
+    {
+        if (model.Variants.Count == 1 || RemovalBlocker(variant) is not null) return;
+        var filled = !string.IsNullOrWhiteSpace(variant.Color) || !string.IsNullOrWhiteSpace(variant.Size)
+            || variant.Quantity is not (null or 0) || variant.Layers.Count > 0;
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(variant, filled, "Удалить вариант?")) return;
+        model.Variants.Remove(variant);
+        unsavedGuard?.MarkDirty();
+    }
     private void UpdatePrimaryImage()
     {
         model.ImageUrl = model.Images.OrderByDescending(item => item.IsMain).ThenBy(item => item.SortOrder).FirstOrDefault()?.Url;
@@ -259,10 +242,13 @@
         try
         {
             UpdatePrimaryImage();
+            var created = IsNew;
             await ProductEditing.SaveAsync(model, original);
+            if (!string.IsNullOrWhiteSpace(model.Category) && !(await Commerce.GetCategoriesAsync()).Any(x => string.Equals(x.Name, model.Category, StringComparison.OrdinalIgnoreCase)))
+                await Commerce.UpsertCategoryAsync(new Category { Name = model.Category, IsActive = true, SortOrder = categories.Count });
             if (imageEditor is not null) await imageEditor.CommitAsync();
             unsavedGuard?.MarkClean();
-            Navigation.NavigateTo("/products");
+            Navigation.NavigateTo(created ? $"/products/{model.Id}" : "/products");
         }
         catch (Exception exception) { saveError = UserErrors.Describe(exception, "Не удалось сохранить товар. Попробуйте ещё раз."); }
         finally { isSaving = false; }
@@ -271,7 +257,7 @@
     private async Task ArchiveAsync()
     {
         isSaving = true; saveError = null;
-        try { UpdatePrimaryImage(); await ProductEditing.ArchiveAsync(model, original); if (imageEditor is not null) await imageEditor.CommitAsync(); unsavedGuard?.MarkClean(); Navigation.NavigateTo("/products"); }
+        try { UpdatePrimaryImage(); if (model.Status == ProductStatus.Archived) { model.Status = ProductStatus.OutOfStock; await ProductEditing.SaveAsync(model, original); } else await ProductEditing.ArchiveAsync(model, original); if (imageEditor is not null) await imageEditor.CommitAsync(); unsavedGuard?.MarkClean(); Navigation.NavigateTo("/products"); }
         catch (Exception exception) { saveError = UserErrors.Describe(exception, "Не удалось архивировать товар. Попробуйте ещё раз."); }
         finally { isSaving = false; }
     }

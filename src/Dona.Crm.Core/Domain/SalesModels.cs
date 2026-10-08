@@ -24,6 +24,7 @@ public enum SaleDiscountMode { Amount, Percent }
 
 public sealed class Sale : IValidatableObject
 {
+    public DateTimeOffset? DeletedAt { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     [Required(ErrorMessage = "Укажите номер заказа")] public string Number { get; set; } = string.Empty;
     public Guid? CustomerId { get; set; }

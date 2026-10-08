@@ -1,29 +1,32 @@
 @page "/partners"
+@page "/partners/{PartnerType}/new"
+@page "/partners/{PartnerType}/{PartnerId:guid}"
 @using System.Globalization
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Services
 @using Dona.Crm.Web.Storage
+@inject NavigationManager Navigation
 @inject ICommerceRepository Commerce
 @inject ICatalogRepository Catalog
 @inject IPurchaseHistoryRepository PurchaseHistory
 @inject SupplierAnalyticsService SupplierAnalytics
 @inject IntermediaryAnalyticsService IntermediaryAnalytics
 
-<PageTitle>Партнёры — DONA CRM</PageTitle>
-<div class="dona-page dona-page--wide">
-    <header class="dona-page-header">
-        <div class="dona-heading">
-            <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
-            <div>
-                <p>Ещё</p>
-                <h1 class="dona-title">Партнёры</h1>
-            </div>
-        </div>
-        @if (!Editing)
-        {
+<PageTitle>@PageHeading — DONA CRM</PageTitle>
+<div class="dona-page @(Editing ? "dona-page--form" : "dona-page--wide")">
+    @if (Editing)
+    {
+        <header class="dona-page-header dona-page-header--back dona-heading">
+            <button class="dona-icon-button dona-back-button" type="button" aria-label="Вернуться к партнёрам" @onclick="CloseEditor"><OrbitIcon Name="back" /></button>
+            <div><p>Партнёры</p><h1>@PageHeading</h1></div>
+        </header>
+    }
+    else
+    {
+        <header class="dona-page-header">
+            <div class="dona-heading"><a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><p>Ещё</p><h1 class="dona-title">@PageHeading</h1></div></div>
             <button class="dona-icon-button dona-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
-        }
-    </header>
+        </header>
     <div class="dona-tabs" role="group" aria-label="Тип партнёра">
         <button type="button"
                 class="@(mode == PartnerMode.Supplier ? "active" : null)"
@@ -34,6 +37,7 @@
                 aria-pressed="@(mode == PartnerMode.Intermediary)"
                 @onclick="() => SwitchMode(PartnerMode.Intermediary)">Посредники <span>@intermediaries.Count</span></button>
     </div>
+    }
     @if (errorMessage is not null && !Editing)
     {
         <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
@@ -44,17 +48,11 @@
     }
     else if (editingSupplier is not null)
     {
-        <EditForm Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
+        <EditForm class="dona-stack" Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
-                <div class="dona-section-title">
-                    <div>
-                        <p class="dona-eyebrow">Поставщик</p>
-                        <h2>@(isNew ? "Новая карточка" : editingSupplier.Name)</h2>
-                    </div>
-                    <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
-                </div>
+                <h2>Данные партнёра</h2>
                 <label class="dona-field">
                     Название
                     <InputText @bind-Value="editingSupplier.Name" />
@@ -77,6 +75,7 @@
                 {
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
+            </section>
                 <div class="dona-actions">
                     @if (confirmDelete)
                     {
@@ -93,22 +92,15 @@
                     }
                     <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
                 </div>
-            </section>
         </EditForm>
     }
     else if (editingIntermediary is not null)
     {
-        <EditForm Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
+        <EditForm class="dona-stack" Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
-                <div class="dona-section-title">
-                    <div>
-                        <p class="dona-eyebrow">Посредник</p>
-                        <h2>@(isNew ? "Новая карточка" : editingIntermediary.Name)</h2>
-                    </div>
-                    <button type="button" aria-label="Закрыть редактор" @onclick="CloseEditor">×</button>
-                </div>
+                <h2>Данные партнёра</h2>
                 <label class="dona-field">
                     Название
                     <InputText @bind-Value="editingIntermediary.Name" />
@@ -143,6 +135,7 @@
                 {
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
+            </section>
                 <div class="dona-actions">
                     @if (confirmDelete)
                     {
@@ -159,7 +152,6 @@
                     }
                     <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
                 </div>
-            </section>
         </EditForm>
     }
     else
@@ -181,7 +173,7 @@
                     {
                         var actual = SupplierActual(value.Id);
                         <li>
-                            <button type="button" class="dona-list-row" @onclick="() => EditSupplier(value)">
+                            <button type="button" class="dona-list-row" @onclick="() => OpenSupplier(value.Id)">
                                 <InitialBadge Text="@value.Name" />
                                 <span>
                                     <strong>@value.Name @(value.IsArchived ? "— в архиве" : null)</strong>
@@ -211,7 +203,7 @@
                     {
                         var actual = IntermediaryActual(value.Id);
                         <li>
-                            <button type="button" class="dona-list-row" @onclick="() => EditIntermediary(value)">
+                            <button type="button" class="dona-list-row" @onclick="() => OpenIntermediary(value.Id)">
                                 <InitialBadge Text="@value.Name" Variant="success" />
                                 <span>
                                     <strong>@value.Name @(value.IsArchived ? "— в архиве" : null)</strong>
@@ -228,6 +220,10 @@
     }
 </div>
 @code {
+    [Parameter] public string? PartnerType { get; set; }
+    [Parameter] public Guid? PartnerId { get; set; }
+    [SupplyParameterFromQuery(Name = "type")] public string? ListType { get; set; }
+    private string ListUrl => mode == PartnerMode.Intermediary ? "/partners?type=intermediaries" : "/partners";
     private IReadOnlyList<Supplier> suppliers = [];
     private IReadOnlyList<Intermediary> intermediaries = [];
     private IReadOnlyList<Purchase> purchases = [];
@@ -244,6 +240,11 @@
     private bool confirmDelete;
     private string? errorMessage;
     private bool Editing => editingSupplier is not null || editingIntermediary is not null;
+    private string PageHeading => Editing
+        ? editingSupplier is not null
+            ? (isNew ? "Новый поставщик" : "Редактирование поставщика")
+            : (isNew ? "Новый посредник" : "Редактирование посредника")
+        : mode == PartnerMode.Supplier ? "Поставщики" : "Посредники";
     private IReadOnlyList<OrbitSelectOption<Guid?>> DefaultIntermediaryOptions =>
         [new(null, "Не выбран"), .. intermediaries.Where(x => !x.IsArchived || x.Id == editingSupplier?.DefaultIntermediaryId)
             .Select(x => new OrbitSelectOption<Guid?>(x.Id, x.Name + (x.IsArchived ? " — в архиве" : "")))];
@@ -264,7 +265,18 @@
         || (value.ContactName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
         || (value.Telegram?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    protected override async Task OnParametersSetAsync()
+    {
+        editingSupplier = null;
+        editingIntermediary = null;
+        mode = (PartnerType ?? ListType) == "intermediaries" ? PartnerMode.Intermediary : PartnerMode.Supplier;
+        await ReloadAsync();
+        if (PartnerType is null || errorMessage is not null) return;
+        if (PartnerId is null) InitializeNewPartner();
+        else if (mode == PartnerMode.Supplier && suppliers.FirstOrDefault(x => x.Id == PartnerId) is { } supplier) EditSupplier(supplier);
+        else if (mode == PartnerMode.Intermediary && intermediaries.FirstOrDefault(x => x.Id == PartnerId) is { } intermediary) EditIntermediary(intermediary);
+        else errorMessage = "Партнёр не найден.";
+    }
 
     private async Task ReloadAsync()
     {
@@ -312,7 +324,12 @@
         }
     }
 
-    private void NewPartner()
+    private void OpenSupplier(Guid id) => Navigation.NavigateTo($"/partners/suppliers/{id}");
+    private void OpenIntermediary(Guid id) => Navigation.NavigateTo($"/partners/intermediaries/{id}");
+
+    private void NewPartner() => Navigation.NavigateTo(mode == PartnerMode.Supplier ? "/partners/suppliers/new" : "/partners/intermediaries/new");
+
+    private void InitializeNewPartner()
     {
         isNew = true;
         confirmDelete = false;
@@ -396,6 +413,7 @@
 
     private void CloseEditorCore()
     {
+        if (PartnerType is not null) Navigation.NavigateTo(ListUrl);
         editingSupplier = null;
         editingIntermediary = null;
         confirmDelete = false;

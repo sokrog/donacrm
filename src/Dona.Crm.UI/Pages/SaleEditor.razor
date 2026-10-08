@@ -31,18 +31,31 @@
     }
     else
     {
-        @if (!IsNew)
+        @if (!IsNew && sale.Status is not (SaleStatus.Cancelled or SaleStatus.Returned))
         {
-            <ol class="workflow" aria-label="Статус продажи">
-                @foreach (var status in Flow)
-                {
-                    <li class="@FlowClass(status)">@status.Display()</li>
-                }
-            </ol>
+            <section class="sale-workflow" aria-label="Этапы продажи">
+                <p class="workflow-heading">Этапы продажи</p>
+                <ol class="workflow">
+                    @for (var index = 0; index < Flow.Length; index++)
+                    {
+                        var status = Flow[index];
+                        var state = FlowClass(status);
+                        <li class="@state" aria-current="@(state == "active" ? "step" : null)">
+                            <span class="workflow-marker" aria-hidden="true">@(state == "done" ? "✓" : (index + 1).ToString())</span>
+                            <span class="workflow-label">
+                                <strong>@status.Display()</strong>
+                                @if (state == "active") { <small>Текущий этап</small> }
+                                else if (state == "done") { <small>Пройден</small> }
+                            </span>
+                        </li>
+                    }
+                </ol>
+            </section>
         }
         <EditForm class="dona-stack" Model="sale" OnValidSubmit="SaveDraftAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
+            <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <fieldset disabled="@IsReadOnly">
                 <section class="dona-section">
                     <div class="dona-section-title">
@@ -58,14 +71,14 @@
                     }
                     @foreach (var item in sale.Items)
                     {
-                        <article class="sale-line" @key="item.Id">
+                        <article class="sale-line" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
                             <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                             <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
                             <div class="dona-field-row">
                                 <label class="dona-field">Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
                                 <label class="dona-field">Цена, UZS<InputNumber @bind-Value="item.UnitPriceUzs" min="0" /></label>
                             </div>
-                            <button type="button" class="dona-btn dona-btn--danger dona-btn--icon remove-line" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
+                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-line" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
                         </article>
                     }
                 </section>
@@ -240,7 +253,7 @@
                 @if (confirm is not null)
                 {
                     <div class="dona-confirm" role="alertdialog">
-                        <span>@(confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят, полученная оплата останется к возврату." : confirm == ConfirmKind.Ship ? "Отправить заказ? Товар спишется со склада по FIFO." : "Подтвердить завершение заказа? Товар уже списан при отправке.")</span>
+                        <span>@(confirm == ConfirmKind.Delete ? "Удалить продажу? Она и её оплаты будут исключены из списков и отчётов. Резерв будет снят, списанный товар возвращён на склад за вычетом уже принятых возвратов." : confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят, полученная оплата останется к возврату." : confirm == ConfirmKind.Ship ? "Отправить заказ? Товар спишется со склада по FIFO." : "Подтвердить завершение заказа? Товар уже списан при отправке.")</span>
                         @if (confirm == ConfirmKind.Cancel && sale.DeliveryChargeUzs is > 0)
                         {
                             <label class="dona-field">Вернуть за доставку, UZS<InputNumber @bind-Value="cancelDeliveryRefund" min="0" max="@sale.DeliveryChargeUzs" /></label>
@@ -248,9 +261,9 @@
                         }
                         <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="() => confirm = null">Нет</button>
                         <button type="button"
-                                class="dona-btn @(confirm == ConfirmKind.Cancel ? "dona-btn--danger" : "dona-btn--primary")"
+                                class="dona-btn @(confirm is ConfirmKind.Cancel or ConfirmKind.Delete ? "dona-btn--danger" : "dona-btn--primary")"
                                 disabled="@saving"
-                                @onclick="ConfirmAsync">@(confirm == ConfirmKind.Cancel ? "Да, отменить" : confirm == ConfirmKind.Ship ? "Да, отправить" : "Да, завершить")</button>
+                                @onclick="ConfirmAsync">@(confirm == ConfirmKind.Delete ? "Да, удалить" : confirm == ConfirmKind.Cancel ? "Да, отменить" : confirm == ConfirmKind.Ship ? "Да, отправить" : "Да, завершить")</button>
                     </div>
                 }
                 else if (IsDraft)
@@ -268,6 +281,10 @@
                 {
                     <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button>
                 }
+                @if (!IsNew && confirm is null)
+                {
+                    <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Delete">@(IsDraft ? "Удалить черновик" : "Удалить продажу")</button>
+                }
             </div>
         </EditForm>
     }
@@ -283,6 +300,7 @@
     private SalePayment refundPayment = new() { Type = PaymentOperationType.Refund, Status = PaymentStatus.Completed, Method = PaymentMethod.Cash };
     private SaleReturn returnDocument = new();
     private UnsavedChangesGuard? unsavedGuard;
+    private ListItemRemovalConfirmation? removalConfirmation;
     private bool loading = true;
     private bool saving;
     private string? error;
@@ -291,7 +309,7 @@
 
     private static readonly SaleStatus[] Flow = [SaleStatus.Draft, SaleStatus.Reserved, SaleStatus.Shipped, SaleStatus.Completed];
 
-    private enum ConfirmKind { Cancel, Ship, Complete }
+    private enum ConfirmKind { Cancel, Ship, Complete, Delete }
 
     private ConfirmKind? confirm;
     private PaymentMethod? quickMethod = PaymentMethod.Cash;
@@ -331,7 +349,7 @@
             products = (await Catalog.GetProductsAsync()).Where(value => value.Status != ProductStatus.Archived).ToList();
             if (Id is null)
             {
-                var existing = await SalesRepository.GetSalesAsync();
+                var existing = await SalesRepository.GetAllSalesAsync();
                 var settings = await Settings.GetAsync();
                 sale = new Sale
                 {
@@ -343,6 +361,7 @@
             else
             {
                 sale = await SalesRepository.GetSaleAsync(Id.Value) ?? throw new InvalidOperationException("Продажа не найдена.");
+                if (sale.DeletedAt is not null) throw new InvalidOperationException("Продажа удалена.");
             }
 
             ResetPayment();
@@ -378,8 +397,12 @@
         catch (Exception ex) { previewCostText = UserErrors.Describe(ex, "Не удалось рассчитать себестоимость."); }
     }
 
-    private void RemoveItem(SaleItem item)
+    private async Task RemoveItem(SaleItem item)
     {
+        var filled = item.ProductId is not null || item.ProductVariantId is not null || !string.IsNullOrWhiteSpace(item.ProductName)
+            || !string.IsNullOrWhiteSpace(item.Color) || !string.IsNullOrWhiteSpace(item.Size)
+            || item.Quantity is not (null or 1) || item.UnitPriceUzs is not null;
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(item, filled)) return;
         sale.Items.Remove(item);
         unsavedGuard?.MarkDirty();
     }
@@ -501,7 +524,14 @@
         }, "Продажа завершена: оплата принята, остаток списан.");
     }
 
-    private Task ConfirmAsync() => confirm == ConfirmKind.Cancel ? CancelAsync() : confirm == ConfirmKind.Ship ? ShipAsync() : CompleteAsync();
+    private Task ConfirmAsync() => confirm == ConfirmKind.Delete ? DeleteAsync() : confirm == ConfirmKind.Cancel ? CancelAsync() : confirm == ConfirmKind.Ship ? ShipAsync() : CompleteAsync();
+
+    private Task DeleteAsync() => RunAsync(async () =>
+    {
+        await Inventory.DeleteAsync(sale.Id);
+        unsavedGuard?.MarkClean();
+        Navigation.NavigateTo("/sales");
+    }, "Продажа удалена.");
 
     private Task ShipAsync() => RunAsync(async () =>
     {
@@ -582,7 +612,7 @@
 
     private async Task EnsureUniqueAsync()
     {
-        if ((await SalesRepository.GetSalesAsync()).Any(value =>
+        if ((await SalesRepository.GetAllSalesAsync()).Any(value =>
                 value.Id != sale.Id && value.Number.Equals(sale.Number, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException("Продажа с таким номером уже существует.");
@@ -644,7 +674,8 @@
     }
 
     private string FlowClass(SaleStatus status) =>
-        sale.Status == status ? "active" : string.Empty;
+        sale.Status == status ? "active"
+            : Array.IndexOf(Flow, status) < Array.IndexOf(Flow, sale.Status ?? SaleStatus.Draft) ? "done" : string.Empty;
 
     private static string VariantName(ProductVariant value) =>
         string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));

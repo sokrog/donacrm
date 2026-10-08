@@ -31,7 +31,7 @@ public sealed class ProfitAnalyticsService
             lines.Add(new(Guid.Empty, value.RecognizedAt, product.Id, 0, 0, value.ExpenseDelta ?? 0,
                 purchase?.SupplierName ?? "Без поставщика", purchase?.IntermediaryName ?? "Без посредника"));
         }
-        foreach (var movement in (movements ?? []).Where(x => x.Type == StockMovementType.Adjustment && x.QuantityDelta < 0 && SaleFinancialEvents.InPeriod(x.CreatedAt, from, to)))
+        foreach (var movement in (movements ?? []).Where(x => x.IsInventoryLoss() && SaleFinancialEvents.InPeriod(x.CreatedAt, from, to)))
         foreach (var part in movement.Consumptions)
         {
             var purchaseId = layers.TryGetValue(part.LayerId, out var layer) ? layer.PurchaseId : null;

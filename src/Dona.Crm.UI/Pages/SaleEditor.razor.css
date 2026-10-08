@@ -6,37 +6,85 @@ fieldset {
     border: 0;
 }
 
-/* Workflow stepper */
+/* A connected sequence of milestones, separate from navigation tabs. */
+.sale-workflow { margin-bottom: var(--dona-section-gap); }
+.workflow-heading {
+    margin: 0 0 var(--dona-space-3);
+    color: var(--dona-muted);
+    font-size: var(--dona-type-caption);
+}
 .workflow {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 5px;
-    margin: 0 0 var(--dona-space-3);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
     padding: 0;
     list-style: none;
 }
-
 .workflow li {
-    overflow: hidden;
-    border: 1px solid var(--dona-line);
-    border-radius: var(--dona-radius-sm);
-    padding: 7px 3px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--dona-space-2);
+    min-width: 0;
     color: var(--dona-muted);
-    font-size: var(--dona-type-micro);
     text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
-
-.workflow li.done {
-    background: rgba(var(--dona-success-rgb), .07);
-    color: var(--dona-success);
+.workflow li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 17px;
+    left: calc(50% + 22px);
+    width: calc(100% - 44px);
+    height: 2px;
+    background: var(--dona-line-strong);
 }
-
-.workflow li.active {
-    border-color: rgba(var(--dona-brand-rgb), .45);
-    background: rgba(var(--dona-brand-rgb), .14);
-    color: var(--dona-brand);
+.workflow li.done::after { background: var(--dona-success); }
+.workflow-marker {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: 50%;
+    background: var(--dona-surface);
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-strong);
+}
+.workflow-label strong {
+    display: block;
+    font-size: var(--dona-type-small);
+    font-weight: var(--dona-weight-regular);
+}
+.workflow-label small {
+    display: block;
+    margin-top: var(--dona-space-1);
+    font-size: var(--dona-type-micro);
+}
+.workflow li.done { color: var(--dona-success); }
+.workflow li.done .workflow-marker {
+    border-color: var(--dona-success);
+    background: var(--dona-success);
+    color: var(--dona-on-brand);
+}
+.workflow li.active { color: var(--dona-brand); }
+.workflow li.active .workflow-marker {
+    border-color: var(--dona-brand);
+    background: var(--dona-brand);
+    color: var(--dona-on-brand);
+    box-shadow: 0 0 0 4px var(--dona-surface), 0 0 0 5px var(--dona-line-strong);
+}
+.workflow li.active strong { font-weight: var(--dona-weight-strong); }
+@media (max-width: 599px) {
+    .workflow { grid-template-columns: 1fr; gap: var(--dona-space-4); }
+    .workflow li { flex-direction: row; gap: var(--dona-space-3); text-align: left; }
+    .workflow li:not(:last-child)::after {
+        top: 40px;
+        left: 17px;
+        width: 2px;
+        height: calc(100% - 28px);
+    }
 }
 
 /* Sale line */
@@ -45,7 +93,7 @@ fieldset {
     display: grid;
     gap: var(--dona-space-2);
     border-top: 1px solid var(--dona-line);
-    padding: var(--dona-space-3) 52px 0 0;
+    padding: var(--dona-space-3) calc(var(--dona-remove-size) + var(--dona-space-2)) 0 0;
 }
 
 .sale-line:first-of-type { border-top: 0; }
@@ -54,8 +102,6 @@ fieldset {
     position: absolute;
     top: var(--dona-space-3);
     right: 0;
-    width: var(--dona-tap);
-    font-size: var(--dona-type-title-sm);
 }
 
 /* Totals */

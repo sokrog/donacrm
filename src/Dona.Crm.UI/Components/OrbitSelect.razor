@@ -1,5 +1,6 @@
 @typeparam TValue
 @inherits InputBase<TValue>
+@implements IAsyncDisposable
 @using System.Diagnostics.CodeAnalysis
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
@@ -10,7 +11,7 @@
         disabled="@Disabled"
         role="combobox"
         aria-label="@AriaLabel"
-        aria-expanded="@open"
+        aria-expanded="@(open ? "true" : "false")"
         aria-controls="@dialogId"
         aria-haspopup="listbox"
         @onclick="Open"
@@ -22,7 +23,7 @@
 @if (open)
 {
     <OrbitModalLock>
-        <div class="dona-modal orbit-select-overlay" role="presentation" @onclick="Close">
+        <div class="dona-modal orbit-select-overlay" role="presentation" @onclick="Close" @onclick:preventDefault="true">
             <section id="@dialogId"
                      class="dona-modal__dialog orbit-select-dialog"
                      role="dialog"
@@ -33,7 +34,7 @@
                      @onkeydown="DialogKeyDown">
                 <header class="dona-modal__header">
                     <div><small class="dona-modal__eyebrow">Выбор значения</small><h2 class="dona-modal__title" id="@titleId">@Title</h2></div>
-                    <button type="button" class="dona-modal__close" aria-label="Закрыть список" @onclick="Close"><OrbitIcon Name="close" /></button>
+                    <button type="button" class="dona-modal__close" aria-label="Закрыть список" @onclick="Close" @onclick:preventDefault="true"><OrbitIcon Name="close" /></button>
                 </header>
                 @if (Searchable || Options.Count > SearchThreshold)
                 {
@@ -52,7 +53,7 @@
                         var selected = IsSelected(option);
                         <button type="button"
                                 role="option"
-                                aria-selected="@selected"
+                                aria-selected="@(selected ? "true" : "false")"
                                 class="@(selected ? "selected" : null)"
                                 @onclick="() => SelectAsync(option)">
                             <span><strong>@option.Label</strong>@if (!string.IsNullOrWhiteSpace(option.Description)){<small>@option.Description</small>}</span>
@@ -130,12 +131,19 @@
             else if (!open && returnFocus)
             {
                 returnFocus = false;
+                await JS.InvokeVoidAsync("orbitModal.closeSelect", dialogId);
                 await JS.InvokeVoidAsync("orbitModal.focusElement", triggerId);
             }
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
         {
         }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        ((IDisposable)this).Dispose();
+        try { await JS.InvokeVoidAsync("orbitModal.closeSelect", dialogId); }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
     }
     public void CloseDialog() => Close();
 

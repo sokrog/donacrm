@@ -1,0 +1,185 @@
+@page "/customers/new"
+@page "/customers/{Id:guid}"
+@using Dona.Crm.Web.Storage
+@inject ISalesRepository SalesRepository
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsNew ? "Новый клиент" : "Редактирование клиента") — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form" aria-busy="@loading">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/customers" aria-label="Вернуться к клиентам"><OrbitIcon Name="back" /></a>
+        <div>
+            <p>Клиенты</p>
+            <h1>@(IsNew ? "Новый клиент" : "Редактирование клиента")</h1>
+        </div>
+    </header>
+    @if (loading)
+    {
+        <div class="dona-state" role="status">Загружаем клиента…</div>
+    }
+    else if (editing is null)
+    {
+        <div class="dona-state dona-state--error" role="alert">
+            <p>@errorMessage</p>
+            <a href="/customers">Вернуться к клиентам</a>
+        </div>
+    }
+    else
+    {
+        <EditForm class="dona-stack" Model="editing" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <section class="dona-section">
+                <h2>Контактные данные</h2>
+                <label class="dona-field">
+                    Имя
+                    <InputText @bind-Value="editing.Name" />
+                    <ValidationMessage For="() => editing.Name" />
+                </label>
+                <label class="dona-field">Телефон<InputText @bind-Value="editing.Phone" inputmode="tel" /></label>
+                <div class="dona-field-row">
+                    <label class="dona-field">Instagram<InputText @bind-Value="editing.Instagram" /></label>
+                    <label class="dona-field">Telegram<InputText @bind-Value="editing.Telegram" /></label>
+                </div>
+                <label class="dona-field">Адрес<InputText @bind-Value="editing.Address" /></label>
+                <label class="dona-field">Заметка<InputTextArea @bind-Value="editing.Notes" /></label>
+                @if (errorMessage is not null)
+                {
+                    <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
+                }
+            </section>
+            <div class="dona-actions">
+                @if (confirmDelete)
+                {
+                    <div class="dona-confirm dona-confirm--boxed">
+                        <span>Удалить клиента? Это действие нельзя отменить.</span>
+                        <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
+                        <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteAsync">Да, удалить</button>
+                    </div>
+                }
+                <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="CloseEditor">Отмена</button>
+                @if (!IsNew && !confirmDelete)
+                {
+                    <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
+                }
+                <button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+            </div>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    private bool IsNew => Id is null;
+    private Customer? editing;
+    private UnsavedChangesGuard? unsavedGuard;
+    private bool loading = true;
+    private bool saving;
+    private bool confirmDelete;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        editing = null;
+        errorMessage = null;
+        confirmDelete = false;
+        try
+        {
+            if (IsNew)
+            {
+                editing = new Customer();
+                return;
+            }
+
+            var value = (await SalesRepository.GetCustomersAsync()).FirstOrDefault(customer => customer.Id == Id);
+            if (value is null)
+            {
+                errorMessage = "Клиент не найден. Возможно, он был удалён.";
+                return;
+            }
+
+            editing = new Customer
+            {
+                Id = value.Id,
+                Name = value.Name,
+                Phone = value.Phone,
+                Instagram = value.Instagram,
+                Telegram = value.Telegram,
+                Address = value.Address,
+                Notes = value.Notes,
+                CreatedAt = value.CreatedAt
+            };
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = UserErrors.Describe(exception, "Не удалось загрузить клиента. Попробуйте ещё раз.");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void CloseEditor() => Navigation.NavigateTo("/customers");
+
+    private async Task SaveAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            await SalesRepository.UpsertCustomerAsync(editing!);
+            unsavedGuard?.MarkClean();
+            Navigation.NavigateTo("/customers");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            errorMessage = UserErrors.Describe(exception, "Не удалось сохранить клиента. Попробуйте ещё раз.");
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (saving)
+        {
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            var orders = (await SalesRepository.GetSalesAsync()).Count(value => value.CustomerId == editing!.Id);
+            if (orders > 0)
+            {
+                confirmDelete = false;
+                errorMessage = $"Нельзя удалить клиента: у него {orders} заказ(ов). Продажи ссылаются на карточку клиента.";
+                return;
+            }
+
+            await SalesRepository.DeleteCustomerAsync(editing!.Id);
+            unsavedGuard?.MarkClean();
+            Navigation.NavigateTo("/customers");
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            confirmDelete = false;
+            errorMessage = UserErrors.Describe(exception, "Не удалось удалить клиента. Попробуйте ещё раз.");
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+}

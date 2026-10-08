@@ -373,7 +373,7 @@ public sealed class ProductEditingServiceTests
 
         var actual = (await catalog.GetProductAsync(stored.Id))!;
         Assert.Equal("Футболка Oversize", actual.Name);
-        Assert.Equal(150_000, actual.SellingPriceUzs);
+        Assert.Null(actual.SellingPriceUzs);
         Assert.Equal("L", actual.Variants[0].Size);
         Assert.Equal(10, actual.Variants[0].Quantity);
         Assert.Equal(3, actual.Variants[0].ReservedQuantity);
@@ -381,7 +381,7 @@ public sealed class ProductEditingServiceTests
     }
 
     [Fact]
-    public async Task New_variants_get_initial_stock_and_a_journal_entry()
+    public async Task New_variants_ignore_editor_stock_and_create_no_movements()
     {
         var stored = new Product { Name = "Футболка", Sku = "TS-2", Variants = [new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 4 }] };
         var (service, catalog, store) = Create(stored);
@@ -393,26 +393,23 @@ public sealed class ProductEditingServiceTests
 
         var actual = (await catalog.GetProductAsync(stored.Id))!;
         Assert.Equal(3, actual.Variants.Count);
-        Assert.Equal(9, actual.Quantity);
-        var movement = Assert.Single(store.Movements);
-        Assert.Equal(StockMovementType.Adjustment, movement.Type);
-        Assert.Equal(5, movement.QuantityDelta);
-        Assert.Equal("Product", movement.SourceType);
-        Assert.Equal("Начальный остаток", movement.Note);
-        Assert.Equal(actual.Variants[1].Id, movement.ProductVariantId);
+        Assert.Equal(4, actual.Quantity);
+        Assert.Empty(actual.Variants[1].Layers);
+        Assert.Empty(store.Movements);
         Assert.Single(store.Commits);
     }
 
     [Fact]
-    public async Task New_product_is_saved_with_initial_stock_movement()
+    public async Task New_product_starts_without_stock_layers_or_movements()
     {
         var (service, catalog, store) = Create(null);
         var product = new Product { Name = "Сумка", Sku = "BG-1", Variants = [new ProductVariant { Color = "Бежевый", Size = "U", Quantity = 6 }] };
 
         await service.SaveAsync(product);
 
-        Assert.Equal(6, (await catalog.GetProductAsync(product.Id))!.Quantity);
-        Assert.Equal(6, Assert.Single(store.Movements).QuantityDelta);
+        Assert.Equal(0, (await catalog.GetProductAsync(product.Id))!.Quantity);
+        Assert.Empty((await catalog.GetProductAsync(product.Id))!.Variants[0].Layers);
+        Assert.Empty(store.Movements);
     }
 
     [Fact]
@@ -476,20 +473,21 @@ public sealed class ProductEditingServiceTests
     [Fact]
     public async Task Keeps_prices_changed_by_receipt_while_editor_was_open()
     {
-        var stored = new Product { Name = "Футболка", Sku = "TS-8", PlannedPurchasePrice = 30, SellingPriceUzs = 100_000, Variants = [new ProductVariant { Quantity = 1 }] };
+        var stored = new Product { Name = "Футболка", Sku = "TS-8", UnitWeightKg = 0.3m, SellingPriceUzs = 100_000, Variants = [new ProductVariant { Quantity = 1 }] };
         var (service, catalog, _) = Create(stored);
         var original = Copy(stored);
         var edited = Copy(stored);
         var current = (await catalog.GetProductAsync(stored.Id))!;
-        current.PlannedPurchasePrice = 35;
+        current.UnitWeightKg = 0.35m;
+        current.SellingPriceUzs = 140_000;
         await catalog.UpsertProductAsync(current);
         edited.SellingPriceUzs = 120_000;
 
         await service.SaveAsync(edited, original);
 
         var actual = (await catalog.GetProductAsync(stored.Id))!;
-        Assert.Equal(35, actual.PlannedPurchasePrice);
-        Assert.Equal(120_000, actual.SellingPriceUzs);
+        Assert.Equal(0.35m, actual.UnitWeightKg);
+        Assert.Equal(140_000, actual.SellingPriceUzs);
     }
 
     [Fact]

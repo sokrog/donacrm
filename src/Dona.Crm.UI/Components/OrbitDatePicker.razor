@@ -7,7 +7,7 @@
 @if (open)
 {
     <OrbitModalLock>
-        <div class="dona-modal" role="presentation" @onclick="Close">
+        <div class="dona-modal" role="presentation" @onclick="Close" @onclick:preventDefault="true">
             <section class="dona-modal__dialog dona-modal__dialog--sm date-dialog" role="dialog" aria-modal="true" aria-label="Выбор даты" tabindex="-1" @onclick:stopPropagation="true" @onkeydown="KeyDown">
                 <header><button class="dona-icon-button" type="button" aria-label="Предыдущий месяц" @onclick="PreviousMonth"><OrbitIcon Name="back" /></button><strong>@MonthTitle</strong><button class="dona-icon-button" type="button" aria-label="Следующий месяц" @onclick="NextMonth"><OrbitIcon Name="forward" /></button></header>
                 <div class="weekdays" aria-hidden="true">@foreach(var day in weekdays){<span>@day</span>}</div>

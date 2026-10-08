@@ -4,7 +4,7 @@
 
 @media (min-width: 900px) {
     .attention-page {
-        width: min(calc(100% - 48px), 760px);
+        width: 100%;
     }
 }
 

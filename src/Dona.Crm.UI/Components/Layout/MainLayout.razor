@@ -26,13 +26,6 @@
     </aside>
 
     <main class="main">
-        @if (sidebarSection == "sales" && !isFocusedRoute)
-        {
-            <nav class="dona-actions" aria-label="Раздел продаж">
-                <a class="dona-btn dona-btn--secondary" href="/sales">Заказы</a>
-                <a class="dona-btn dona-btn--secondary" href="/customers">Клиенты</a>
-            </nav>
-        }
         <ErrorBoundary @ref="errorBoundary">
             <ChildContent>
                 @Body
@@ -127,7 +120,7 @@
     {
         if (path == "/inventory/adjustment/new") return true;
         var last = path[(path.LastIndexOf('/') + 1)..];
-        return last == "new" || Guid.TryParse(last, out _);
+        return last is "new" or "pricing" or "price-history" || Guid.TryParse(last, out _);
     }
 
     private static bool UnderRoute(string path, string root) => path == root || path.StartsWith(root + "/", StringComparison.Ordinal);
@@ -135,7 +128,7 @@
     private static string SidebarSectionFor(string path)
     {
         if (path == "/" || path == "/attention" || path == "/welcome") return "home";
-        if (UnderRoute(path, "/products")) return "catalog";
+        if (UnderRoute(path, "/products") || UnderRoute(path, "/pricing")) return "catalog";
         if (UnderRoute(path, "/sales") || UnderRoute(path, "/customers")) return "sales";
         if (UnderRoute(path, "/purchases")) return "purchases";
         if (UnderRoute(path, "/inventory")) return "inventory";
@@ -150,7 +143,7 @@
     private static string TabSectionFor(string path)
     {
         if (path == "/" || path == "/attention" || path == "/welcome") return "home";
-        if (UnderRoute(path, "/products")) return "catalog";
+        if (UnderRoute(path, "/products") || UnderRoute(path, "/pricing")) return "catalog";
         if (UnderRoute(path, "/sales") || UnderRoute(path, "/customers")) return "sales";
         if (UnderRoute(path, "/purchases")) return "purchases";
         return "more";

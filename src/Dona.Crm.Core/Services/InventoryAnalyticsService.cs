@@ -25,7 +25,7 @@ public sealed class InventoryAnalyticsService
                 var sold90 = SoldSince(relevantSales, current.AddDays(-90));
                 var available = variant.AvailableQuantity;
                 var valuation = variant.StockLayerVersion == FifoCostCalculator.CurrentVersion
-                    ? FifoCostCalculator.Value(variant) : new StockCostSummary(product.CostUzs * (variant.Quantity ?? 0), 0);
+                    ? FifoCostCalculator.Value(variant) : new StockCostSummary(0, variant.Quantity ?? 0);
                 var stocked = variant.Layers.Where(x => x.RemainingQuantity > 0).ToList();
                 int Age(StockLayer layer) => Math.Max(0, (current.LocalDateTime.Date - layer.ReceivedAt!.Value.LocalDateTime.Date).Days);
                 var staleCost = variant.StockLayerVersion == FifoCostCalculator.CurrentVersion

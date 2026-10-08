@@ -6,15 +6,31 @@ using Microsoft.JSInterop;
 
 namespace Dona.Crm.Storage.Browser.Tests;
 
-public sealed class BrowserCrmRepositoryTests
+public sealed partial class BrowserCrmRepositoryTests
 {
+    [Fact]
+    public async Task Image_transfer_preserves_current_business_data_and_updates_all_image_owners()
+    {
+        var repository = new BrowserCrmRepository(new KeyValueJsRuntime());
+        ProductImage Image() => new() { Storage = ProductImageStorage.Local, Url = "local:a.png", StorageKey = "a.png" };
+        var product = new Product { Name = "Товар", Images = [Image()], ImageUrl = "local:a.png" };
+        await repository.ReplaceSnapshotAsync(new() { Products = [product], Marketing = new() { Collections = [new() { Images = [Image()] }], Outfits = [new() { Images = [Image()] }] } });
+        product.Name = "Изменено во время загрузки";
+        await repository.UpsertProductAsync(product);
+        await repository.ApplyUploadedImageAsync("local:a.png", new("target", "photo", "image/png", 3));
+        var snapshot = await repository.ReadSnapshotAsync();
+        Assert.Equal(product.Name, snapshot.Products.Single().Name);
+        Assert.Equal("drive:target", snapshot.Products.Single().ImageUrl);
+        Assert.All(LocalImageKey.EnumerateImages(snapshot), image => Assert.Equal("target", image.StorageKey));
+    }
+
     [Fact]
     public async Task Tariff_receipt_zip_restores_into_fresh_browser_store_without_duplicate_expenses()
     {
         var source = new BrowserCrmRepository(new KeyValueJsRuntime());
         var partner = new Intermediary { Name = "Посредник", CommissionPercent = 5, RatePerKgUsd = 2, MinimumWeightKg = 3 };
         await source.UpsertIntermediaryAsync(partner);
-        var product = new Product { Name = "Товар", AllowOrderWhenUnavailable = true, Variants = [new()] };
+        var product = new Product { Name = "Товар", Variants = [new()] };
         await source.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "BROWSER-ZIP", CurrencyCode = "USD", RateToUzs = 12000, IntermediaryId = partner.Id,
             Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name,
@@ -90,7 +106,7 @@ public sealed class BrowserCrmRepositoryTests
         Assert.Equal(2, restored.CostRevisions.Count);
         var actual = (await reloaded.GetProductAsync(product.Id))!;
         Assert.Equal(2, actual.Quantity);
-        Assert.Equal(130, actual.CostUzs);
+        Assert.Equal(130, FifoCostCalculator.Value(actual.Variants[0]).KnownValue / actual.Quantity);
         var history = await ((IPurchaseHistoryRepository)reloaded).GetAsync();
         Assert.Equal(130, Assert.Single(history.ProductCosts).UnitLandedCostUzs);
         Assert.Single(await ((IStockMovementRepository)reloaded).GetAsync());
@@ -114,14 +130,14 @@ public sealed class BrowserCrmRepositoryTests
         js.QuotaExceeded = false;
         Assert.Single(old.CostRevisions);
         Assert.Empty((await repository.GetPurchaseAsync(old.Id))!.Expenses);
-        Assert.Equal(100, (await repository.GetProductAsync(product.Id))!.CostUzs);
+        Assert.Equal(100, (await repository.GetProductAsync(product.Id))!.Variants[0].Layers[0].RemainingValue);
         Assert.Equal(100, Assert.Single((await ((IPurchaseHistoryRepository)repository).GetAsync()).ProductCosts).UnitLandedCostUzs);
 
         var newer = new Purchase { Number = "NEW", CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, ProductVariantId = product.Variants[0].Id, ProductName = product.Name, Quantity = 1, UnitPrice = 200 }] };
         await service.SaveAsync(newer);
         await service.ReceiveAsync(newer, [new(newer.Items[0].Id, 1, 0)]);
         await service.SaveAsync(old);
-        Assert.Equal(200, (await repository.GetProductAsync(product.Id))!.CostUzs);
+        Assert.Equal(350, FifoCostCalculator.Value((await repository.GetProductAsync(product.Id))!.Variants[0]).KnownValue);
         Assert.Equal(150, (await ((IPurchaseHistoryRepository)repository).GetAsync()).ProductCosts.Single(x => x.PurchaseId == old.Id).UnitLandedCostUzs);
     }
 
@@ -182,6 +198,151 @@ public sealed class BrowserCrmRepositoryTests
         Assert.Equal("v1", restored?.LocalVersion);
         Assert.Equal("g1", restored?.GoogleVersion);
         Assert.Contains(javascript.Keys, key => key.Contains("sync-checkpoint"));
+    }
+
+    [Fact]
+    public async Task Incomplete_draft_can_be_deleted_and_remains_deleted_after_backup_restore()
+    {
+        var repository = new BrowserCrmRepository(new KeyValueJsRuntime());
+        var draft = new Sale { Number = SaleNumberGenerator.Generate([], "SALE", DateTimeOffset.Now), Status = SaleStatus.Draft, Items = [new()] };
+        await repository.UpsertSaleAsync(draft);
+        await new SalesInventoryService(repository, repository, sales: repository).DeleteAsync(draft.Id);
+        Assert.Empty(await repository.GetSalesAsync());
+        Assert.NotNull((await repository.GetSaleAsync(draft.Id))!.DeletedAt);
+        Assert.Equal(draft.Number, Assert.Single(await repository.GetAllSalesAsync()).Number);
+        Assert.EndsWith("-002", SaleNumberGenerator.Generate(await repository.GetAllSalesAsync(), "SALE", DateTimeOffset.Now));
+        Assert.Empty((await repository.ReadSnapshotAsync()).StockMovements);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UpsertSaleAsync(draft));
+        var backup = BackupArchiveCodec.Create(BackupSnapshotMapper.FromSyncSnapshot(await repository.ReadSnapshotAsync()));
+        var restored = new BrowserCrmRepository(new KeyValueJsRuntime());
+        await restored.ReplaceSnapshotAsync(BackupSnapshotMapper.ToSyncSnapshot(BackupArchiveCodec.Inspect(backup).Snapshot));
+        Assert.Empty(await restored.GetSalesAsync());
+        Assert.NotNull((await restored.GetSaleAsync(draft.Id))!.DeletedAt);
+    }
+
+    [Fact]
+    public async Task Deleting_reserved_sale_releases_only_its_own_reservation()
+    {
+        var (repository, service, product, sale) = await DeletionScenarioAsync();
+        var other = new Sale { Number = "OTHER", Status = SaleStatus.Draft, Items = [new() { ProductId = product.Id,
+            ProductVariantId = product.Variants[0].Id, Quantity = 2, UnitPriceUzs = 20 }] };
+        await service.ReserveAsync(sale);
+        await service.ReserveAsync(other);
+        await service.DeleteAsync(sale.Id);
+        var variant = (await repository.GetProductAsync(product.Id))!.Variants[0];
+        Assert.Equal(10, variant.Quantity);
+        Assert.Equal(2, variant.ReservedQuantity);
+        Assert.Single(await repository.GetSalesAsync());
+        Assert.Equal(-3, (await repository.ReadSnapshotAsync()).StockMovements.Last().ReservedDelta);
+    }
+
+    [Theory]
+    [InlineData(ReturnDisposition.Restock, 1, 10, false)]
+    [InlineData(ReturnDisposition.Defect, 1, 9, false)]
+    [InlineData(ReturnDisposition.Restock, 3, 10, false)]
+    [InlineData(ReturnDisposition.Defect, 3, 7, false)]
+    [InlineData(ReturnDisposition.Restock, 1, 10, true)]
+    [InlineData(ReturnDisposition.Defect, 1, 9, true)]
+    [InlineData(ReturnDisposition.Restock, 3, 10, true)]
+    [InlineData(ReturnDisposition.Defect, 3, 7, true)]
+    public async Task Deleting_completed_sale_restores_only_outstanding_goods_and_excludes_money(ReturnDisposition disposition, int returnedQuantity, int expected, bool revalue)
+    {
+        var (repository, service, product, sale) = await DeletionScenarioAsync();
+        await service.ReserveAsync(sale);
+        await service.MarkShippedAsync(sale);
+        await service.CompleteAsync(sale);
+        await new SalesPaymentService(repository, repository).AddAsync(sale, new() { Type = PaymentOperationType.Payment,
+            Status = PaymentStatus.Completed, Method = PaymentMethod.Cash, AmountUzs = 60 });
+        await new SalesReturnService(repository, repository, repository).CreateAsync(sale, new() { Reason = "Частичный возврат",
+            Items = [new() { SaleItemId = sale.Items[0].Id, Quantity = returnedQuantity, Disposition = disposition }] });
+        var unitCost = revalue ? 15m : 10m;
+        if (revalue)
+        {
+            var currentProduct = (await repository.GetProductAsync(product.Id))!;
+            var layer = currentProduct.Variants[0].Layers[0];
+            layer.InitialValue = 150;
+            layer.RemainingValue = layer.RemainingQuantity * unitCost;
+            layer.ValuationRevision++;
+            currentProduct.StockValuations.Add(new(Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow,
+                StockValuationReason.Revaluation, layer.Id, null, 0, layer.ValuationRevision,
+                100, 150, layer.RemainingQuantity * 5m, (10 - layer.RemainingQuantity) * 5m));
+            await repository.UpsertProductAsync(currentProduct);
+        }
+        await service.DeleteAsync(sale.Id);
+        var variant = (await repository.GetProductAsync(product.Id))!.Variants[0];
+        Assert.Equal(expected, variant.Quantity);
+        Assert.Equal(expected * unitCost, variant.Layers.Sum(x => x.RemainingValue));
+        Assert.Empty(await repository.GetSalesAsync());
+        var deleted = (await repository.GetSaleAsync(sale.Id))!;
+        Assert.Empty(SaleFinancialEvents.Build([deleted]));
+        Assert.Single(deleted.Payments);
+        var snapshot = await repository.ReadSnapshotAsync();
+        var analytics = new AnalyticsService().Build([deleted], snapshot.Products, null, null, movements: snapshot.StockMovements);
+        Assert.Equal(0, analytics.Orders);
+        Assert.Equal(0, analytics.RevenueUzs);
+        Assert.Equal((10 - expected) * unitCost, analytics.PeriodExpensesUzs);
+        var profit = new ProfitAnalyticsService().Build([deleted], snapshot.Products, [], new MarketingData(), null, null, snapshot.StockMovements);
+        Assert.Equal((10 - expected) * unitCost, profit.Suppliers.Sum(x => x.CostUzs));
+        var purchase = new Purchase();
+        variant.Layers[0].PurchaseId = purchase.Id;
+        var reportProduct = (await repository.GetProductAsync(product.Id))!;
+        reportProduct.Variants[0] = variant;
+        var report = Assert.Single(PurchaseLayerReport.Build(purchase, [reportProduct], [deleted], snapshot.StockMovements).Layers);
+        Assert.Equal(0, report.QuantityDifference);
+        Assert.Equal(0m, report.ValueDifference);
+        Assert.Equal(10 - expected, report.WrittenOff);
+        await service.DeleteAsync(sale.Id);
+        Assert.Equal(snapshot.StockMovements.Count, (await repository.ReadSnapshotAsync()).StockMovements.Count);
+        await Assert.ThrowsAsync<InventoryException>(() => service.MarkShippedAsync(sale));
+    }
+
+    [Fact]
+    public async Task Failed_deletion_does_not_hide_sale_or_release_any_stock()
+    {
+        var (repository, service, product, sale) = await DeletionScenarioAsync();
+        await service.ReserveAsync(sale);
+        var broken = (await repository.GetSaleAsync(sale.Id))!;
+        broken.Items.Add(new() { ProductId = Guid.NewGuid(), ProductVariantId = Guid.NewGuid(), ReservedQuantity = 1 });
+        await repository.UpsertSaleAsync(broken);
+        await Assert.ThrowsAsync<InventoryException>(() => service.DeleteAsync(sale.Id));
+        Assert.Null((await repository.GetSaleAsync(sale.Id))!.DeletedAt);
+        Assert.Equal(3, (await repository.GetProductAsync(product.Id))!.Variants[0].ReservedQuantity);
+        Assert.DoesNotContain((await repository.ReadSnapshotAsync()).StockMovements, x => x.SourceType == "SaleDeletion");
+    }
+
+    [Fact]
+    public async Task Storage_failure_during_deletion_is_atomic_and_retry_restores_stock_once()
+    {
+        var js = new KeyValueJsRuntime();
+        var repository = new BrowserCrmRepository(js);
+        var product = new Product { Name = "Товар", Sku = "FAIL-DELETE", Variants = [new()] };
+        StockLayerOperations.Add(product.Variants[0], 5, 50, StockLayerSource.OpeningBalance, DateTimeOffset.UtcNow, "OPENING");
+        await repository.UpsertProductAsync(product);
+        var sale = new Sale { Number = "FAIL-DELETE", Status = SaleStatus.Draft, Items = [new() { ProductId = product.Id,
+            ProductVariantId = product.Variants[0].Id, Quantity = 2, UnitPriceUzs = 20 }] };
+        var service = new SalesInventoryService(repository, repository, sales: repository);
+        await service.ReserveAsync(sale);
+        await service.MarkShippedAsync(sale);
+        js.QuotaExceeded = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DeleteAsync(sale.Id));
+        js.QuotaExceeded = false;
+        Assert.Null((await repository.GetSaleAsync(sale.Id))!.DeletedAt);
+        Assert.Equal(3, (await repository.GetProductAsync(product.Id))!.Variants[0].Quantity);
+        await service.DeleteAsync(sale.Id);
+        await service.DeleteAsync(sale.Id);
+        Assert.Equal(5, (await repository.GetProductAsync(product.Id))!.Variants[0].Quantity);
+    }
+
+    private static async Task<(BrowserCrmRepository Repository, SalesInventoryService Service, Product Product, Sale Sale)> DeletionScenarioAsync()
+    {
+        var repository = new BrowserCrmRepository(new KeyValueJsRuntime());
+        var product = new Product { Name = "Товар", Sku = "DELETE", Variants = [new()] };
+        StockLayerOperations.Add(product.Variants[0], 10, 100, StockLayerSource.OpeningBalance, DateTimeOffset.UtcNow, "OPENING");
+        await repository.UpsertProductAsync(product);
+        var sale = new Sale { Number = "SALE-DELETE", Status = SaleStatus.Draft, Items = [new() { ProductId = product.Id,
+            ProductVariantId = product.Variants[0].Id, Quantity = 3, UnitPriceUzs = 20 }] };
+        await repository.UpsertSaleAsync(sale);
+        return (repository, new SalesInventoryService(repository, repository, sales: repository), product, sale);
     }
 
     private sealed class KeyValueJsRuntime : IJSRuntime

@@ -1,0 +1,26 @@
+@using Dona.Crm.Web.Domain
+@using Dona.Crm.Web.Services
+@if (Quote.Layers.Count > 0)
+{
+    <DonaResponsiveTable Caption="@Caption" Headers="@Headers">
+        @foreach (var layer in Quote.Layers)
+        {
+            <tr>
+                <td data-label="Партия">@layer.SourceNumber · @layer.ReceivedAt?.ToLocalTime().ToString("dd.MM.yyyy")<br />@layer.Color / @layer.Size</td>
+                <td data-label="Остаток">@layer.Quantity шт.</td>
+                <td data-label="Стоимость остатка">@Money(layer.Value)</td>
+                <td data-label="За единицу">@Money(layer.UnitCost)</td>
+                <td data-label="Наценка">@Percent(SellingPriceCalculator.Markup(Price, layer.UnitCost))</td>
+                <td data-label="Разница за единицу">@Money(Price is { } p && layer.UnitCost is { } c ? p - c : null)</td>
+            </tr>
+        }
+    </DonaResponsiveTable>
+}
+@code {
+    [Parameter, EditorRequired] public PricingQuote Quote { get; set; } = default!;
+    [Parameter] public decimal? Price { get; set; }
+    [Parameter] public string Caption { get; set; } = "Остатки партий и оценка по предлагаемой цене";
+    private static readonly string[] Headers = ["Партия / вариант", "Остаток", "Стоимость остатка", "За единицу", "Наценка", "Разница за единицу"];
+    public static string Money(decimal? value) => value is { } n ? n.ToString("#,0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " UZS" : "Неизвестно";
+    public static string Percent(decimal? value) => value is { } n ? n.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " %" : "Не определена";
+}

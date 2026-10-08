@@ -10,14 +10,18 @@
 <PageTitle>Каталог — DONA CRM</PageTitle>
 
 <div class="dona-page dona-page--wide" aria-busy="@isLoading">
-    <header class="dona-page-header">
+    <header class="dona-page-header dona-page-header--actions">
         <div>
             <p class="dona-eyebrow">DONA CRM</p>
             <h1 class="dona-title">Каталог</h1>
         </div>
-        <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
+        <div class="dona-page-header-actions">
+            <DonaHeaderActions Label="Действия каталога" Actions="HeaderActions" />
+            <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
+        </div>
     </header>
 
+    @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
     <div class="dona-search">
         <label for="product-search">Поиск по названию или SKU</label>
         <input id="product-search" type="search" inputmode="search" autocomplete="off" placeholder="Например, худи или HD-0001" value="@Query" @oninput="OnSearchInput" />
@@ -79,7 +83,8 @@
             <ul class="product-list">
                 @foreach (var product in FilteredProducts)
                 {
-                    <li>
+                    <li class="dona-selection-row">
+                        <label class="dona-selection"><input type="checkbox" checked="@selected.Contains(product.Id)" @onchange="e => SelectProduct(product.Id, e.Value is true)" aria-label="Выбрать @product.Name для установки цены" /></label>
                         <a class="dona-list-row product-card" href="/products/@product.Id">
                             <span class="dona-icon-tile dona-icon-tile--lg product-visual">
                                 @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl))
@@ -98,7 +103,6 @@
                                     <small>@subtitle</small>
                                 }
                                 <span class="dona-badge @StatusClass(product.Status)">@product.Status.Display()</span>
-                                @if (product.AllowOrderWhenUnavailable) { <span class="dona-badge">Можно заказать</span> }
                                 @if (PurchaseAvailability.Expected(product.Id, purchases) is > 0 and var expected) { <span class="dona-badge">Ожидается @expected шт.</span> }
                                 @if (Issues(product) is { Count: > 0 } issues)
                                 {
@@ -128,13 +132,22 @@
 
 @code {
     private static readonly CultureInfo RussianCulture = CultureInfo.GetCultureInfo("ru-RU");
+    [SupplyParameterFromQuery(Name = "priced")] public int? Priced { get; set; }
+    [SupplyParameterFromQuery(Name = "selected")] public string? SelectedParam { get; set; }
+    private HashSet<Guid> selected = [];
+    private IReadOnlyList<DonaHeaderAction> HeaderActions =>
+    [
+        new($"Установить цены ({selected.Count})", EventCallback.Factory.Create(this, OpenPricing), selected.Count == 0),
+        new("Выбрать показанные", EventCallback.Factory.Create(this, SelectVisible), isLoading || FilteredProducts.Count == 0),
+        new("Снять выбор", EventCallback.Factory.Create(this, ClearSelected), selected.Count == 0)
+    ];
     private List<Product> products = [];
     private IReadOnlyList<Purchase> purchases = [];
     [SupplyParameterFromQuery(Name = "q")] [Parameter] public string? QueryParam { get; set; }
     [SupplyParameterFromQuery(Name = "filter")] [Parameter] public string? FilterParam { get; set; }
     [SupplyParameterFromQuery(Name = "sort")] [Parameter] public string? SortParam { get; set; }
     private static readonly string[] FilterKeys = ["photo", "price", "variants", "low"];
-    private static readonly string[] SortKeys = ["created", "price", "stock", "margin"];
+    private static readonly string[] SortKeys = ["created", "price", "stock"];
     private readonly Queue<(string Q, string? Filter, string Sort)> pendingUrls = new();
     private string query = string.Empty;
     private string? filter;
@@ -147,7 +160,6 @@
         new("created", "Сначала новые"),
         new("price", "Цена: выше"),
         new("stock", "Остаток: меньше"),
-        new("margin", "Наценка: выше")
     ];
     private bool isLoading = true;
     private string? errorMessage;
@@ -166,6 +178,7 @@
             return;
         }
         pendingUrls.Clear();
+        selected = (SelectedParam ?? "").Split(',').Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).ToHashSet();
         query = q;
         filter = f;
         sort = s;
@@ -179,10 +192,15 @@
         {
             ["q"] = q.Length == 0 ? null : q,
             ["filter"] = filter,
-            ["sort"] = sort == "created" ? null : sort
+            ["sort"] = sort == "created" ? null : sort,
+            ["selected"] = selected.Count == 0 ? null : string.Join(",", selected.Order())
         });
         Navigation.NavigateTo(uri, replace: true);
     }
+    private void SelectProduct(Guid id, bool value) { if (value) selected.Add(id); else selected.Remove(id); PushUrl(); }
+    private void SelectVisible() { selected.UnionWith(FilteredProducts.Select(x => x.Id)); PushUrl(); }
+    private void ClearSelected() { selected.Clear(); PushUrl(); }
+    private void OpenPricing() => Navigation.NavigateTo($"/products/pricing?ids={Uri.EscapeDataString(string.Join(",", selected.Order()))}&q={Uri.EscapeDataString(query)}&filter={Uri.EscapeDataString(filter ?? "")}&sort={Uri.EscapeDataString(sort)}");
     private async Task LoadAsync()
     {
         isLoading = true;
@@ -239,7 +257,6 @@
     {
         "price" => values.OrderByDescending(value => value.SellingPriceUzs ?? 0),
         "stock" => values.OrderBy(value => value.Quantity),
-        "margin" => values.OrderByDescending(value => value.MarkupPercent),
         _ => values.OrderByDescending(value => value.CreatedAt)
     };
     private static List<string> Issues(Product product) => new[]

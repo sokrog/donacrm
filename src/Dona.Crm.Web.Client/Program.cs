@@ -14,6 +14,8 @@ builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.H
 builder.Services.AddScoped<BrowserCrmRepository>();
 builder.Services.AddScoped<IBackupSnapshotStore>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<BackupRestoreService>();
+builder.Services.AddScoped<PortableBackupService>();
+builder.Services.AddScoped<IImageTransferStore>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<IBackupArchiveFileService, BrowserBackupArchiveFileService>();
 builder.Services.AddScoped<ICatalogRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<ICommerceRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
@@ -55,6 +57,8 @@ builder.Services.AddScoped<SalesPaymentService>();
 builder.Services.AddScoped<SalesReturnService>();
 builder.Services.AddScoped<PurchaseReceivingService>();
 builder.Services.AddScoped<ProductEditingService>();
+builder.Services.AddScoped<ProductPricingService>();
+builder.Services.AddScoped<IPricingRepository>(services => services.GetRequiredService<BrowserCrmRepository>());
 builder.Services.AddScoped<SupplierAnalyticsService>();
 builder.Services.AddScoped<IntermediaryAnalyticsService>();
 builder.Services.AddScoped<AnalyticsService>();

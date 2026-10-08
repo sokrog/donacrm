@@ -1,0 +1,206 @@
+@page "/products/{ProductId:guid}/pricing"
+@page "/purchases/{PurchaseId:guid}/pricing"
+@page "/products/pricing"
+@using Dona.Crm.Web.Storage
+@inject ICatalogRepository Catalog
+@inject ICommerceRepository Commerce
+@inject ProductPricingService Pricing
+@inject NavigationManager Navigation
+
+<PageTitle>Установка продажной цены — DONA CRM</PageTitle>
+<div class="dona-page dona-page--wide" aria-busy="@busy">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="@BackUrl" aria-label="Вернуться к источнику"><OrbitIcon Name="back" /></a>
+        <div><p>@sourceName</p><h1>Установка продажной цены</h1></div>
+    </header>
+    <p class="dona-note">Цена едина для всех вариантов и партий товара. Себестоимость учитывает физический остаток, включая резерв. Ранее созданные продажи сохраняют свои цены.</p>
+    @if (loading) { <p class="dona-state" role="status">Собираем основания расчёта…</p> }
+    else if (rows.Count == 0) { <div class="dona-state">@error <a href="@BackUrl">Вернуться</a></div> }
+    else
+    {
+        <EditForm Model="form" OnSubmit="ApplyAsync" class="dona-stack">
+            <UnsavedChangesGuard @ref="guard" />
+            <section class="dona-section">
+                <h2>Общий расчёт для выбранных товаров</h2>
+                <p>Выбрано @rows.Count(x => x.Selected) из @rows.Count. Общая фиксированная цена назначит всем выбранным товарам одинаковую сумму.</p>
+                <div class="dona-field-row">
+                    <DonaNumberField Label="Общая наценка" Suffix="%" Value="bulkMarkup" ValueChanged="@(v => { bulkMarkup = v; Edited(); })" Disabled="busy" />
+                    <DonaNumberField Label="Общая фиксированная цена" Suffix="UZS" Value="bulkPrice" ValueChanged="@(v => { bulkPrice = v; Edited(); })" Disabled="busy" />
+                </div>
+                <label class="dona-field">Округление вверх<OrbitSelect TValue="int" @bind-Value="rounding" @bind-Value:after="RoundingChanged" Options="RoundingOptions" Label="Шаг округления" Disabled="busy" /></label>
+                <div class="dona-toolbar">
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@(busy || bulkMarkup is null)" @onclick="UseBulkMarkup">Рассчитать по проценту</button>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@(busy || bulkPrice is null)" @onclick="UseBulkPrice">Назначить общую цену</button>
+                    <button type="button" class="dona-btn dona-btn--ghost" disabled="@busy" @onclick="RefreshAsync">Обновить основания</button>
+                </div>
+                @if (notice is not null) { <p class="dona-message" role="status">@notice</p> }
+            </section>
+            @foreach (var row in rows)
+            {
+                <section class="dona-section" @key="row.Quote.ProductId">
+                    <label class="dona-selection"><input type="checkbox" checked="@row.Selected" @onchange="e => Select(row, e.Value is true)" disabled="@busy" /><strong>@row.Quote.Name · @row.Quote.Sku</strong></label>
+                    <p>Действующая цена: <strong>@(row.Quote.CurrentPrice is null ? "Не установлена" : PricingLayers.Money(row.Quote.CurrentPrice))</strong> · <a href="@($"/products/{row.Quote.ProductId}/price-history{HistoryContext}")">История цен</a></p>
+                    <label class="dona-field">Основание расчёта<OrbitSelect TValue="string" Value="row.BasisKey" ValueChanged="@(v => ChangeBasisAsync(row, v))" ValueExpression="@(() => row.BasisKey)" Options="@BasisOptions(row)" Label="Основание расчёта" Disabled="busy" /></label>
+                    <p>В основании: @row.Quote.Quantity шт. · Известная стоимость: @PricingLayers.Money(row.Quote.KnownValue) · Средняя за единицу: <strong>@PricingLayers.Money(row.Quote.UnitCost)</strong></p>
+                    @if (row.Quote.Preliminary) { <p class="dona-message">Предварительная себестоимость: расходы могут уточняться. После уточнения пересмотрите цену.</p> }
+                    @if (row.Quote.UnknownQuantity > 0) { <p class="dona-message">Стоимость @row.Quote.UnknownQuantity шт. неизвестна. Процент рассчитать нельзя; доступна ручная цена.</p> }
+                    @if (row.Quote.Quantity == 0) { <p class="dona-message">В этом основании нет остатка. Выберите другое основание или задайте цену вручную.</p> }
+                    @if (row.Reserved > 0) { <p class="dona-note">Резерв по вариантам: @row.Reserved шт. Включён в физические остатки; распределение резерва по партиям не ведётся.</p> }
+                    <div class="dona-field-row">
+                        <DonaNumberField Label="Наценка к себестоимости" Suffix="%" Value="row.Markup" ValueChanged="@(v => ChangeMarkup(row, v))" Disabled="@(busy || row.Quote.UnitCost is null or <= 0)" />
+                        <DonaNumberField Label="Новая цена продажи" Suffix="UZS" Value="row.Price" ValueChanged="@(v => ChangePrice(row, v))" Disabled="busy" />
+                    </div>
+                    <p>Фактическая наценка: <strong>@PricingLayers.Percent(SellingPriceCalculator.Markup(row.Price, row.Quote.UnitCost))</strong> · Разница за единицу: @PricingLayers.Money(row.Price is { } p && row.Quote.UnitCost is { } c ? p - c : null)</p>
+                    @if (row.Price < row.Quote.UnitCost) { <p class="dona-message" role="status">Цена ниже себестоимости. Продажа по такой цене может быть ограничена правилами продаж.</p> }
+                    @if (row.Error is not null) { <p class="dona-message dona-message--error" role="alert">@row.Error</p> }
+                    @if (row.Input == PricingInput.ManualPrice)
+                    { <button type="button" class="dona-btn dona-btn--ghost" disabled="@(busy || row.Price is null)" @onclick="() => RoundManual(row)">Округлить ручную цену вверх</button> }
+                    <details><summary>Партии: остатки и сравнение цены</summary><PricingLayers Quote="row.Quote" Price="row.Price" /></details>
+                </section>
+            }
+            @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
+            <p class="dona-note">Изменится цен: @ChangedCount. При изменении остатков или стоимости применение будет остановлено. Обновление оснований сохранит введённые цены.</p>
+            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="@BackUrl">Отмена</a><button class="dona-btn dona-btn--primary" type="submit" disabled="@(busy || ChangedCount == 0 || rows.Any(x => x.Selected && x.Error is not null))">@(busy ? "Применяем…" : $"Применить цены ({ChangedCount})")</button></div>
+        </EditForm>
+    }
+</div>
+@code {
+    [Parameter] public Guid? ProductId { get; set; }
+    [Parameter] public Guid? PurchaseId { get; set; }
+    [SupplyParameterFromQuery(Name = "ids")] public string? Ids { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery(Name = "filter")] public string? Filter { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? Sort { get; set; }
+    private readonly object form = new();
+    private List<Row> rows = [];
+    private bool loading = true, busy;
+    private string? error, notice;
+    private string sourceName = "Каталог";
+    private Guid operationId = Guid.NewGuid();
+    private SellingPriceChange? pendingResult;
+    private PricingRequest? pendingRequest;
+    private UnsavedChangesGuard? guard;
+    private decimal? bulkMarkup, bulkPrice;
+    private int rounding = 1;
+    private static readonly IReadOnlyList<OrbitSelectOption<int>> RoundingOptions = [new(1, "До целого UZS"), new(1000, "До 1 000 UZS"), new(5000, "До 5 000 UZS"), new(10000, "До 10 000 UZS")];
+    private string HistoryContext => PricingNavigation.Context(ProductId is not null ? PricingSource.Product : PurchaseId is not null ? PricingSource.Purchase : PricingSource.Catalog, ProductId ?? PurchaseId, Ids, Query, Filter, Sort);
+    private string CatalogQuery => $"?q={Uri.EscapeDataString(Query ?? "")}&filter={Uri.EscapeDataString(Filter ?? "")}&sort={Uri.EscapeDataString(Sort ?? "")}&selected={Uri.EscapeDataString(Ids ?? "")}";
+    private string BackUrl => ProductId is { } p ? $"/products/{p}" : PurchaseId is { } u ? $"/purchases/{u}" : "/products" + CatalogQuery;
+    private int ChangedCount => rows.Count(x => x.Selected && x.Price is not null && x.Price != x.Quote.CurrentPrice);
+    private sealed class Row(PricingQuote quote, string basisKey, int reserved)
+    {
+        public PricingQuote Quote = quote;
+        public string BasisKey = basisKey;
+        public int Reserved = reserved;
+        public bool Selected = true;
+        public decimal? Price = quote.CurrentPrice, Markup = SellingPriceCalculator.Markup(quote.CurrentPrice, quote.UnitCost);
+        public PricingInput Input = PricingInput.ManualPrice;
+        public int AppliedRounding = 1;
+        public string? Error;
+        public IReadOnlyList<PricingLayer> AvailableLayers = [];
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true; error = null; rows = []; sourceName = "Каталог"; operationId = Guid.NewGuid(); pendingRequest = null;
+        try
+        {
+            var ids = new List<Guid>();
+            if (ProductId is { } p) { ids.Add(p); sourceName = "Карточка товара"; }
+            else if (PurchaseId is { } u)
+            {
+                var purchase = await Commerce.GetPurchaseAsync(u) ?? throw new InvalidOperationException("Закупка не найдена.");
+                if (purchase.Status == PurchaseStatus.Cancelled) throw new InvalidOperationException("Закупка отменена.");
+                sourceName = purchase.Number;
+                ids.AddRange(purchase.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).Distinct());
+            }
+            else ids.AddRange((Ids ?? "").Split(',').Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).Distinct());
+            if (ids.Count == 0) throw new InvalidOperationException("Сначала выберите товары в каталоге.");
+            foreach (var id in ids)
+            {
+                var all = await Pricing.QuoteAsync(id, PricingBasis.RemainingStock);
+                var quote = PurchaseId is null ? all : await Pricing.QuoteAsync(id, PricingBasis.PurchaseStock, PurchaseId);
+                var key = PurchaseId is null ? "stock" : "purchase";
+                if (PurchaseId is not null && quote.Quantity == 0) { quote = await Pricing.QuoteAsync(id, PricingBasis.PurchaseEstimate, PurchaseId); key = "estimate"; }
+                var product = await Catalog.GetProductAsync(id);
+                rows.Add(new(quote, key, product!.Variants.Sum(x => x.ReservedQuantity)) { AvailableLayers = all.Layers });
+            }
+        }
+        catch (Exception ex) { rows = []; error = UserErrors.Describe(ex, "Не удалось открыть установку цен."); }
+        finally { loading = false; }
+    }
+    private IReadOnlyList<OrbitSelectOption<string>> BasisOptions(Row row) =>
+        [new("stock", "Все оставшиеся партии — средневзвешенная стоимость"),
+        .. (PurchaseId is null ? Array.Empty<OrbitSelectOption<string>>() : [new("purchase", "Остатки партий этой закупки"), new("estimate", "Расчёт закупки — плановая оценка")]),
+        .. row.AvailableLayers.Select(l => new OrbitSelectOption<string>(l.Id.ToString(), $"Партия {l.SourceNumber} · {l.Color}/{l.Size} · {l.Quantity} шт. · {PricingLayers.Money(l.UnitCost)}"))];
+    private async Task ChangeBasisAsync(Row row, string value)
+    {
+        if (busy) return;
+        try
+        {
+            var basis = value switch { "stock" => PricingBasis.RemainingStock, "purchase" => PricingBasis.PurchaseStock, "estimate" => PricingBasis.PurchaseEstimate, _ => PricingBasis.Layer };
+            row.Quote = await Pricing.QuoteAsync(row.Quote.ProductId, basis, basis is PricingBasis.PurchaseStock or PricingBasis.PurchaseEstimate ? PurchaseId : null, Guid.TryParse(value, out var id) ? id : null);
+            row.BasisKey = value;
+            if (row.Input == PricingInput.Markup) Calculate(row); else row.Markup = SellingPriceCalculator.Markup(row.Price, row.Quote.UnitCost);
+            Edited();
+        }
+        catch (Exception ex) { row.Error = UserErrors.Describe(ex, "Основание недоступно."); }
+    }
+    private void Edited() { guard?.MarkDirty(); error = null; pendingRequest = null; operationId = Guid.NewGuid(); }
+    private void Select(Row row, bool selected) { row.Selected = selected; Edited(); }
+    private void ChangePrice(Row row, decimal? value) { row.Input = PricingInput.ManualPrice; row.AppliedRounding = 1; row.Price = value; row.Markup = SellingPriceCalculator.Markup(value, row.Quote.UnitCost); Validate(row); Edited(); }
+    private void ChangeMarkup(Row row, decimal? value) { row.Input = PricingInput.Markup; row.AppliedRounding = rounding; row.Markup = value; Calculate(row); Edited(); }
+    private void Calculate(Row row)
+    {
+        try { row.Price = row.Markup is { } m ? SellingPriceCalculator.Price(row.Quote.UnitCost, m, rounding) : null; Validate(row); }
+        catch (InvalidOperationException ex) { row.Price = null; row.Error = ex.Message; }
+    }
+    private static void Validate(Row row)
+    {
+        try { SellingPriceCalculator.ValidatePrice(row.Price ?? 0); row.Error = null; }
+        catch (InvalidOperationException ex) { row.Error = ex.Message; }
+    }
+    private void RoundingChanged() { foreach (var row in rows.Where(x => x.Input == PricingInput.Markup)) { row.AppliedRounding = rounding; Calculate(row); } Edited(); }
+    private void RoundManual(Row row) { if (row.Price is { } p) { ChangePrice(row, SellingPriceCalculator.RoundUp(p, rounding)); row.AppliedRounding = rounding; } }
+    private void UseBulkMarkup() { foreach (var row in rows.Where(x => x.Selected)) ChangeMarkup(row, bulkMarkup); }
+    private void UseBulkPrice() { foreach (var row in rows.Where(x => x.Selected)) ChangePrice(row, bulkPrice); }
+    private async Task RefreshAsync()
+    {
+        if (busy) return;
+        busy = true;
+        Edited();
+        try
+        {
+            foreach (var row in rows)
+            {
+                row.AvailableLayers = (await Pricing.QuoteAsync(row.Quote.ProductId, PricingBasis.RemainingStock)).Layers;
+                var quote = await Pricing.QuoteAsync(row.Quote.ProductId, row.Quote.Basis, row.Quote.PurchaseId, row.Quote.LayerId);
+                row.Quote = quote;
+                row.Reserved = (await Catalog.GetProductAsync(quote.ProductId))!.Variants.Sum(x => x.ReservedQuantity);
+                // Preserve the entered price exactly. Changed costs require an explicit new calculation.
+                row.Input = PricingInput.ManualPrice;
+                row.Markup = SellingPriceCalculator.Markup(row.Price, quote.UnitCost);
+                Validate(row);
+            }
+            Edited(); notice = "Основания обновлены. Введённые цены сохранены, проценты пересчитаны. Проверьте результат перед применением.";
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось обновить основания."); }
+        finally { busy = false; }
+    }
+    private async Task ApplyAsync()
+    {
+        if (busy) return;
+        foreach (var row in rows.Where(x => x.Selected)) Validate(row);
+        if (ChangedCount == 0 || rows.Any(x => x.Selected && x.Error is not null)) return;
+        busy = true; error = null;
+        try
+        {
+            pendingRequest ??= new(operationId, ProductId is not null ? PricingSource.Product : PurchaseId is not null ? PricingSource.Purchase : PricingSource.Catalog,
+                ProductId ?? PurchaseId, rows.Where(x => x.Selected).Select(x => new PricingRequestLine(x.Quote, x.Price!.Value, x.Input, x.Input == PricingInput.Markup ? x.Markup : null, x.AppliedRounding)).ToList());
+            pendingResult = await Pricing.ApplyAsync(pendingRequest);
+            guard?.MarkClean();
+            Navigation.NavigateTo(BackUrl + (BackUrl.Contains('?') ? "&" : "?") + "priced=" + pendingResult.Lines.Count);
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось применить цены. Введённые значения сохранены."); }
+        finally { busy = false; }
+    }
+}

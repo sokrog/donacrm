@@ -21,9 +21,9 @@ public sealed record PurchaseLayerReport(IReadOnlyList<PurchaseLayerRow> Layers,
         IEnumerable<Sale> sales, IEnumerable<StockMovement> movements)
     {
         var productList = products.ToList();
-        var saleList = sales.ToList();
+        var saleList = sales.Where(x => x.DeletedAt is null).ToList();
         var facts = SaleFinancialEvents.Build(saleList);
-        var adjustments = movements.Where(x => x.Type == StockMovementType.Adjustment && x.QuantityDelta < 0)
+        var adjustments = movements.Where(x => x.IsInventoryLoss())
             .SelectMany(x => x.Consumptions).ToList();
         var returns = saleList.Where(x => x.Status is SaleStatus.Shipped or SaleStatus.Completed or SaleStatus.Returned)
             .SelectMany(x => x.Returns).SelectMany(x => x.Items).ToList();

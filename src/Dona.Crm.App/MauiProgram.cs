@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 #if !WINDOWS
@@ -98,6 +98,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SqliteSyncStore>();
 		builder.Services.AddSingleton<IBackupSnapshotStore>(services => services.GetRequiredService<SqliteSyncStore>());
 		builder.Services.AddSingleton<BackupRestoreService>();
+		builder.Services.AddSingleton<PortableBackupService>();
+		builder.Services.AddSingleton<IImageTransferStore>(services => services.GetRequiredService<SqliteSyncStore>());
 		builder.Services.AddSingleton<IBackupArchiveFileService, MauiBackupArchiveFileService>();
 		builder.Services.AddSingleton<SqliteSyncOperationStore>();
 		builder.Services.AddSingleton<SqliteSyncCheckpointStore>();
@@ -112,6 +114,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SalesReturnService>();
 		builder.Services.AddSingleton<PurchaseReceivingService>();
 		builder.Services.AddSingleton<ProductEditingService>();
+        builder.Services.AddSingleton<ProductPricingService>();
+        builder.Services.AddSingleton<IPricingRepository, SqlitePricingRepository>();
 		builder.Services.AddSingleton<SupplierAnalyticsService>();
 		builder.Services.AddSingleton<IntermediaryAnalyticsService>();
 		builder.Services.AddSingleton<AnalyticsService>();

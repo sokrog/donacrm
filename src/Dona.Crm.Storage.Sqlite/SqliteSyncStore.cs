@@ -10,17 +10,20 @@ public sealed class SqliteSyncStore(
     SqliteMarketingRepository marketing,
     SqliteBusinessSettingsRepository settings,
     SqliteStockMovementRepository movements,
-    SqlitePurchaseHistoryRepository history) : IBackupSnapshotStore
+    SqlitePurchaseHistoryRepository history) : IBackupSnapshotStore, IImageTransferStore
 {
+    public Task ApplyUploadedImageAsync(string localUrl, GoogleDriveFile file, CancellationToken cancellationToken = default) =>
+        store.ApplyUploadedImageAsync(localUrl, file, cancellationToken);
     public async Task<DonaSyncSnapshot> ReadAsync(CancellationToken cancellationToken = default) => new()
     {
+        PriceChanges = (await new SqlitePricingRepository(store).GetPriceChangesAsync(cancellationToken)).ToList(),
         Products = (await catalog.GetProductsAsync(cancellationToken)).ToList(),
         Suppliers = (await commerce.GetSuppliersAsync(cancellationToken)).ToList(),
         Intermediaries = (await commerce.GetIntermediariesAsync(cancellationToken)).ToList(),
         Categories = (await commerce.GetCategoriesAsync(cancellationToken)).ToList(),
         Purchases = (await commerce.GetPurchasesAsync(cancellationToken)).ToList(),
         Customers = (await sales.GetCustomersAsync(cancellationToken)).ToList(),
-        Sales = (await sales.GetSalesAsync(cancellationToken)).ToList(),
+        Sales = (await sales.GetAllSalesAsync(cancellationToken)).ToList(),
         Marketing = await marketing.GetDataAsync(cancellationToken),
         BusinessSettings = await settings.GetAsync(cancellationToken),
         StockMovements = (await movements.GetAsync(cancellationToken)).ToList(),

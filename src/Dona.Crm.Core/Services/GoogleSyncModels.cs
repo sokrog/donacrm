@@ -22,6 +22,7 @@ public sealed class DonaSyncSnapshot
         foreach (var variant in Products.SelectMany(x => x.Variants).Where(x => x.StockLayerVersion != 0 || x.Layers.Count > 0))
             FifoCostCalculator.Validate(variant);
     }
+    public List<SellingPriceChange> PriceChanges { get; set; } = [];
     public List<Product> Products { get; set; } = [];
     public List<Supplier> Suppliers { get; set; } = [];
     public List<Intermediary> Intermediaries { get; set; } = [];
@@ -140,6 +141,7 @@ public static class DonaSyncFingerprint
         var normalized = new DonaSyncSnapshot
         {
             SchemaVersion = snapshot.SchemaVersion,
+            PriceChanges = snapshot.PriceChanges.OrderBy(value => value.Id).ToList(),
             Products = snapshot.Products.OrderBy(value => value.Id).ToList(),
             Suppliers = snapshot.Suppliers.OrderBy(value => value.Id).ToList(),
             Intermediaries = snapshot.Intermediaries.OrderBy(value => value.Id).ToList(),
@@ -171,6 +173,7 @@ public static class DonaSyncFingerprint
         new("purchases", "Закупки", local.Purchases.Count + local.PurchaseHistory.ProductCosts.Count + local.PurchaseHistory.ExchangeRates.Count, google.Purchases.Count + google.PurchaseHistory.ProductCosts.Count + google.PurchaseHistory.ExchangeRates.Count),
         new("sales", "Клиенты и продажи", local.Customers.Count + local.Sales.Count, google.Customers.Count + google.Sales.Count),
         new("marketing", "Маркетинг", local.Marketing.Collections.Count + local.Marketing.Outfits.Count + local.Marketing.ContentPosts.Count, google.Marketing.Collections.Count + google.Marketing.Outfits.Count + google.Marketing.ContentPosts.Count),
+        new("prices", "История продажных цен", local.PriceChanges.Count, google.PriceChanges.Count),
         new("movements", "Движения склада", local.StockMovements.Count, google.StockMovements.Count)
     ];
 }

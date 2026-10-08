@@ -9,6 +9,7 @@ public sealed class SalesPaymentService(IInventoryStore store, ISalesRepository?
     public Task<SalePayment> AddAsync(Sale sale, SalePayment payment, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
+        if (sale.DeletedAt is not null) throw new InventoryException("Продажа удалена.");
         if (sales is not null && await sales.GetSaleAsync(sale.Id, cancellationToken) is { } saved
             && JsonSerializer.Serialize(saved) != JsonSerializer.Serialize(sale))
             throw new InventoryException("Продажа изменена или содержит несохранённые правки. Откройте её заново перед платежом.");

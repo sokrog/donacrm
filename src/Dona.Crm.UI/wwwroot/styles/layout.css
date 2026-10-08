@@ -20,13 +20,7 @@
 }
 
 @media (min-width: 900px) {
-    .dona-page--wide { width: min(100%, var(--dona-page-wide)); max-width: var(--dona-page-wide); }
-    .dona-page--form { width: min(100%, var(--dona-page-form)); max-width: var(--dona-page-form); }
-}
-
-/* Very wide screens: list pages get a bit more room (3-column grids are opted into by the pages) */
-@media (min-width: 1400px) {
-    .dona-page--wide { width: min(100%, 1320px); max-width: 1320px; }
+    .dona-page, .dona-page--wide, .dona-page--form { width: 100%; max-width: none; }
 }
 
 /* Vertical rhythm between page sections */
@@ -43,6 +37,10 @@
     gap: var(--dona-space-3);
     margin-bottom: var(--dona-space-5);
 }
+
+/* Header actions wrap within the shared page rhythm. */
+.dona-page-header--actions { flex-wrap: wrap; }
+.dona-page-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dona-space-3); }
 
 /* Header with a back button on the left (editors) */
 .dona-page-header--back {

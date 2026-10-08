@@ -141,6 +141,8 @@ public sealed class FifoOperationTests
             Reason = StockAdjustmentReason.OpeningBalance, NewQuantity = 2, Note = "Начальный остаток", UnitCost = 100 };
         await service.AdjustAsync(request);
         request.NewQuantity = 3; request.UnitCost = null;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AdjustAsync(request));
+        request.Reason = StockAdjustmentReason.InventoryCount;
         var unknown = await service.AdjustAsync(request);
         Assert.Null(unknown.ValueDelta);
         Assert.Equal(1, unknown.UnvaluedQuantity);

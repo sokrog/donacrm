@@ -1,25 +1,29 @@
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Services
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
-<div class="orbit-autocomplete @(Disabled ? "disabled" : null)" @onfocusout="CloseLaterAsync">
+<div class="orbit-autocomplete @(open ? "open" : null) @(Disabled ? "disabled" : null)" @onfocusin="() => focusVersion++" @onfocusout="CloseLaterAsync">
     <div class="autocomplete-input">
-        <input role="combobox" aria-expanded="@open" aria-controls="@listId" aria-autocomplete="list"
+        <input id="@inputId" role="combobox" aria-expanded="@(open ? "true" : "false")" aria-controls="@listId" aria-autocomplete="list"
                value="@query" placeholder="@Placeholder" disabled="@Disabled" autocomplete="off"
-               @onfocus="Open" @oninput="InputAsync" @onkeydown="KeyDownAsync" />
+               @onfocus="Open" @onclick="Open" @oninput="InputAsync" @onkeydown="KeyDownAsync" />
         @if (Value is not null && !Disabled)
         {
             <button type="button" class="autocomplete-clear" aria-label="Очистить выбор" title="Очистить выбор"
-                    @onmousedown="ClearAsync" @onmousedown:preventDefault="true">×</button>
+                    @onclick="ClearAsync" @onmousedown:preventDefault="true">×</button>
         }
     </div>
     @if (open && !Disabled)
     {
+        <div class="autocomplete-dismiss" aria-hidden="true" @onclick="() => open = false" @onclick:preventDefault="true" @onclick:stopPropagation="true"></div>
         <div id="@listId" class="autocomplete-results" role="listbox">
             @for (var index = 0; index < Results.Count; index++)
             {
                 var product = Results[index];
-                <button type="button" role="option" aria-selected="@(index == activeIndex)" class="@(index == activeIndex ? "active" : null)"
-                        @onmouseenter="() => activeIndex = index" @onmousedown="() => SelectAsync(product)" @onmousedown:preventDefault="true">
+                var resultIndex = index;
+                <button type="button" role="option" aria-selected="@(index == activeIndex ? "true" : "false")" class="@(index == activeIndex ? "active" : null)"
+                        @onmouseenter="() => activeIndex = resultIndex" @onclick="() => SelectAsync(product)" @onmousedown:preventDefault="true">
                     <span><strong>@product.Name</strong><small>@product.Sku · @product.Status.Display()</small></span>
                     <b>@product.Variants.Sum(item => item.AvailableQuantity) шт.</b>
                 </button>
@@ -36,12 +40,25 @@
     [Parameter] public EventCallback<Product?> OnSelected { get; set; }
     [Parameter] public string Placeholder { get; set; } = "Название или SKU";
     [Parameter] public bool Disabled { get; set; }
+    private readonly string inputId = $"product-input-{Guid.NewGuid():N}";
     private readonly string listId = $"products-{Guid.NewGuid():N}";
     private string query = string.Empty;
     private bool open;
+    private bool focusPending;
     private int activeIndex;
+    private int focusVersion;
     private Guid? lastValue;
-    private IReadOnlyList<Product> Results => ProductSearch.Filter(Products, query).Take(8).ToList();
+    private IReadOnlyList<Product> Results => ProductSearch.Filter(Products, lastValue is not null ? string.Empty : query).Take(8).ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("orbitModal.prepareAutocomplete", inputId);
+        if (focusPending)
+        {
+            focusPending = false;
+            await JS.InvokeVoidAsync("orbitModal.focusElement", inputId);
+        }
+    }
 
     protected override void OnParametersSet()
     {
@@ -78,6 +95,7 @@
         lastValue = null;
         query = string.Empty;
         open = true;
+        focusPending = true;
         activeIndex = 0;
         await ValueChanged.InvokeAsync(null);
         await OnSelected.InvokeAsync(null);
@@ -85,7 +103,9 @@
 
     private async Task CloseLaterAsync()
     {
+        var version = focusVersion;
         await Task.Delay(120);
+        if (version != focusVersion) return;
         open = false;
         await InvokeAsync(StateHasChanged);
     }

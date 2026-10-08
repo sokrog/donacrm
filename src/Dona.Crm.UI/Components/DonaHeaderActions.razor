@@ -1,0 +1,29 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div class="dona-header-actions-desktop" role="group" aria-label="@Label">
+    @foreach (var action in Actions)
+    {
+        <button type="button" class="dona-btn dona-btn--secondary" disabled="@action.Disabled" @onclick="action.Callback">@action.Label</button>
+    }
+</div>
+<details class="dona-context-menu" id="@menuId">
+    <summary class="dona-icon-button" role="button" aria-label="@Label" aria-expanded="false" aria-controls="@(menuId + "-panel")"><OrbitIcon Name="more" /></summary>
+    <div class="dona-context-menu-panel" id="@(menuId + "-panel")" role="group" aria-label="@Label">
+        @foreach (var action in Actions)
+        {
+            <button type="button" class="dona-btn dona-btn--ghost" disabled="@action.Disabled" @onclick="() => ExecuteAsync(action)">@action.Label</button>
+        }
+    </div>
+</details>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Действия";
+    [Parameter] public IReadOnlyList<DonaHeaderAction> Actions { get; set; } = [];
+    private readonly string menuId = $"header-actions-{Guid.NewGuid():N}";
+    private async Task ExecuteAsync(DonaHeaderAction action)
+    {
+        await JS.InvokeVoidAsync("orbitModal.closeActionMenu", menuId);
+        await action.Callback.InvokeAsync();
+    }
+}

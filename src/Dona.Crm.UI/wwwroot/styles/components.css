@@ -3,7 +3,7 @@
 /* ================= Buttons ================= */
 .dona-btn {
     display: inline-flex;
-    min-height: 48px;
+    min-height: var(--dona-control-height);
     align-items: center;
     justify-content: center;
     gap: var(--dona-space-2);
@@ -67,13 +67,26 @@
     display: inline-grid;
     flex: none;
     place-items: center;
-    width: 48px;
-    height: 48px;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     padding: 0;
     line-height: 0;
 }
 
 .dona-btn--icon > svg { display: block; width: 22px; height: 22px; }
+
+/* Removing one editable list item always uses the same square cross button. */
+.dona-btn--remove {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: var(--dona-remove-size);
+    height: var(--dona-remove-size);
+    min-height: var(--dona-remove-size);
+    padding: 0;
+    font-size: var(--dona-type-title-sm);
+    line-height: 1;
+}
 
 /* Icon buttons used in page headers (legacy orbit-* aliases) */
 .dona-icon-button {
@@ -92,8 +105,8 @@
 }
 
 .dona-add-button {
-    width: 52px;
-    height: 52px;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     border: 0;
     border-radius: 17px;
     background: linear-gradient(145deg, var(--dona-brand), var(--dona-brand-deep));
@@ -102,8 +115,8 @@
 }
 
 .dona-back-button {
-    width: 48px;
-    height: 48px;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     border: 1px solid var(--dona-line-strong);
     border-radius: 15px;
     background: transparent;
@@ -222,11 +235,13 @@
     font-size: var(--dona-type-label);
 }
 
-.dona-field :is(input, select, textarea),
+.dona-field :is(input:not([type="checkbox"]):not([type="radio"]), select),
+.dona-field textarea,
 .dona-input {
     width: 100%;
     min-width: 0;
-    min-height: 48px;
+    height: var(--dona-control-height);
+    min-height: var(--dona-control-height);
     border: 1px solid var(--dona-line-strong);
     border-radius: var(--dona-radius-md);
     padding: 0 var(--dona-space-3);
@@ -236,7 +251,7 @@
     font-size: var(--dona-type-body-sm);
 }
 
-.dona-field textarea { min-height: 80px; padding-top: var(--dona-space-3); }
+.dona-field textarea { padding-block: var(--dona-space-2); }
 
 .dona-field :is(input, select, textarea):focus-visible,
 .dona-input:focus-visible {
@@ -261,20 +276,76 @@
     font-size: var(--dona-type-label);
 }
 
-/* EditForm field state classes (needed on both hosts) */
-.valid.modified:not([type=checkbox]) { outline: 1px solid var(--dona-success); }
+/* Entering a valid value keeps the normal field appearance; only errors add a validation outline. */
 .invalid { outline: 1px solid var(--dona-danger); }
 
-/* Checkbox / switch row: <label class="dona-field dona-toggle"><input type=checkbox/><span><strong/><small/></span></label> */
+/* Shared checkbox appearance for InputCheckbox and plain HTML inputs on every screen. */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-grid;
+    flex: none;
+    place-content: center;
+    width: var(--dona-checkbox-size);
+    height: var(--dona-checkbox-size);
+    min-width: var(--dona-checkbox-size);
+    min-height: var(--dona-checkbox-size);
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--dona-line-strong);
+    border-radius: var(--dona-checkbox-radius);
+    background: var(--dona-field);
+    color: var(--dona-on-brand);
+    cursor: pointer;
+    vertical-align: middle;
+}
+input[type="checkbox"]::before {
+    content: "";
+    width: 7px;
+    height: 13px;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    transform: translateY(-2px) rotate(45deg);
+    visibility: hidden;
+}
+input[type="checkbox"]:is(:checked, :indeterminate) {
+    border-color: var(--dona-brand);
+    background: var(--dona-brand);
+}
+input[type="checkbox"]:is(:checked, :indeterminate)::before { visibility: visible; }
+input[type="checkbox"]:indeterminate::before {
+    width: 12px;
+    height: 2px;
+    border: 0;
+    background: currentColor;
+    transform: none;
+}
+input[type="checkbox"]:focus-visible {
+    outline: 3px solid var(--dona-brand);
+    outline-offset: 3px;
+}
+input[type="checkbox"]:disabled { opacity: .5; cursor: not-allowed; }
+@media (hover: hover) {
+    input[type="checkbox"]:not(:disabled):hover { border-color: var(--dona-brand); }
+    input[type="checkbox"]:checked:not(:disabled):hover { background: var(--dona-brand-deep); }
+}
+@media (forced-colors: active) {
+    input[type="checkbox"] { appearance: auto; -webkit-appearance: auto; }
+    input[type="checkbox"]::before { display: none; }
+}
+
+/* Checkbox row: the entire label is a touch target. */
 .dona-toggle {
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: var(--dona-checkbox-size) minmax(0, 1fr);
     align-items: center;
+    gap: var(--dona-space-3);
+    min-height: var(--dona-tap);
     border: 1px solid var(--dona-line);
     border-radius: var(--dona-radius-md);
     padding: var(--dona-space-2);
+    cursor: pointer;
 }
 
-.dona-toggle > input { width: 26px; min-height: 26px; }
 .dona-toggle span, .dona-toggle strong, .dona-toggle small { display: block; }
 .dona-toggle strong { color: var(--dona-text); font-size: var(--dona-type-small); }
 .dona-toggle small { margin-top: var(--dona-space-1); font-size: var(--dona-type-caption); line-height: 1.4; }
@@ -282,6 +353,7 @@
 .dona-field-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
     gap: 9px;
 }
 
@@ -351,13 +423,10 @@
     margin-top: var(--dona-space-3);
     margin-right: calc(var(--dona-page-inline) * -1);
     padding: 2px var(--dona-page-inline) 7px 0;
-    scrollbar-width: none;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x;
 }
-
-.dona-chips::-webkit-scrollbar { display: none; }
 
 .dona-chips > button {
     flex: 0 0 auto;
@@ -423,6 +492,7 @@
 .dona-search input, .dona-search__control {
     width: 100%;
     min-width: 0;
+    height: var(--dona-control-height);
     min-height: var(--dona-control-height);
     border: 1px solid var(--dona-line-strong);
     border-radius: var(--dona-radius-md);
@@ -765,6 +835,7 @@ button.dona-list-row {
     display: flex;
     width: 100%;
     min-width: 0;
+    height: var(--dona-control-height);
     min-height: var(--dona-control-height);
     align-items: center;
     justify-content: space-between;
@@ -776,6 +847,13 @@ button.dona-list-row {
     color: var(--dona-text);
     font-size: var(--dona-type-body-sm);
     text-align: left;
+}
+
+.dona-select-trigger > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dona-select-trigger--empty { color: var(--dona-muted); }
@@ -802,8 +880,8 @@ button.dona-list-row {
 /* Round icon button (header shortcuts, lightbox close) */
 .dona-icon-button--round {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     border: 1px solid var(--dona-line);
     border-radius: 50%;
     background: var(--dona-surface);
@@ -813,3 +891,59 @@ button.dona-list-row {
 /* Document paragraphs use the section gap instead of browser paragraph margins. */
 .dona-section--document > p { margin: 0; overflow-wrap: anywhere; }
 .dona-section--document > h2 { overflow-wrap: anywhere; }
+
+/* Shared single-line control dimensions. */
+.dona-btn, .dona-section-title > button, .dona-section-title > a,
+.dona-add-button, .dona-back-button, .dona-date-trigger {
+ box-sizing: border-box; height: var(--dona-control-height); min-height: var(--dona-control-height);
+ font-size: var(--dona-type-body-sm); display: inline-flex; align-items: center; justify-content: center;
+}
+.dona-btn--icon, .dona-btn--remove, .dona-add-button, .dona-back-button { width: var(--dona-control-height); min-width: var(--dona-control-height); }
+.dona-field textarea { height: auto; min-height: 0; }
+.dona-toggle { min-height: var(--dona-control-height); box-sizing: border-box; }
+/* Shared numeric inputs, selection rows, toolbars and responsive record tables. */
+.dona-number-field { display: flex; align-items: center; gap: var(--dona-space-2); min-width: 0; }
+.dona-number-field input { flex: 1; width: 0; min-width: 0; }
+.dona-number-field > span { flex: none; color: var(--dona-muted); }
+.dona-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dona-space-3); }
+.dona-header-actions-desktop { display: none; }
+.dona-context-menu { position: relative; }
+.dona-context-menu > summary { list-style: none; cursor: pointer; }
+.dona-context-menu > summary::-webkit-details-marker { display: none; }
+.dona-context-menu:not([open]) > .dona-context-menu-panel { display: none; }
+.dona-context-menu-panel {
+    position: absolute;
+    inset-block-start: calc(100% + var(--dona-space-2));
+    inset-inline-end: 0;
+    z-index: var(--dona-layer-context-menu);
+    display: grid;
+    gap: var(--dona-space-1);
+    width: min(var(--dona-context-menu-width), calc(100vw - var(--dona-page-inline) * 2 - var(--dona-control-height) - var(--dona-space-3)));
+    padding: var(--dona-space-2);
+    background: var(--dona-surface);
+    border: var(--dona-border-width) solid var(--dona-line);
+    border-radius: var(--dona-radius-md);
+    box-shadow: var(--dona-shadow-md);
+}
+.dona-context-menu-panel > .dona-btn { justify-content: flex-start; text-align: start; }
+@media (min-width: 900px) {
+    .dona-header-actions-desktop { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dona-space-3); }
+    .dona-context-menu { display: none; }
+}
+.dona-selection { display: flex; align-items: center; gap: var(--dona-space-3); min-height: var(--dona-control-height); cursor: pointer; }
+.dona-selection input { flex: none; }
+.dona-selection-row { display: flex; align-items: center; gap: var(--dona-space-2); min-width: 0; }
+.dona-selection-row > a { flex: 1; min-width: 0; }
+.dona-record-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--dona-type-body-sm); }
+.dona-record-table caption { text-align: start; font-weight: var(--dona-weight-strong); padding-block: var(--dona-space-3); }
+.dona-record-table th, .dona-record-table td { text-align: start; vertical-align: top; overflow-wrap: anywhere; padding: var(--dona-space-3); border-bottom: solid var(--dona-line); border-bottom-width: var(--dona-border-width); }
+.dona-record-table th { color: var(--dona-muted); font-weight: var(--dona-weight-strong); }
+details:not([open]) .dona-record-table { display: none; }
+@media (max-width: 899px) {
+    .dona-record-table, .dona-record-table tbody, .dona-record-table tr, .dona-record-table td { display: block; }
+    .dona-record-table caption { display: block; width: 100%; }
+    .dona-record-table thead { display: none; }
+    .dona-record-table tr { padding-block: var(--dona-space-3); border-bottom: solid var(--dona-line); border-bottom-width: var(--dona-border-width); }
+    .dona-record-table td { display: grid; grid-template-columns: 1fr 1fr; gap: var(--dona-space-3); border: none; padding: var(--dona-space-2) 0; }
+    .dona-record-table td::before { content: attr(data-label); color: var(--dona-muted); }
+}

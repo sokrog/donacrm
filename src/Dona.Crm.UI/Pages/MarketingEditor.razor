@@ -32,6 +32,7 @@
         <EditForm class="dona-stack" Model="FormModel" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
+            <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <section class="dona-section">
                 <h2>Основное</h2>
                 @if (IsCollection)
@@ -74,10 +75,10 @@
                 {
                     @foreach (var item in collection.Products)
                     {
-                        <div class="product-row" @key="item.Id">
+                        <div class="product-row" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
                             <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => CollectionProductChanged(item, product)" /></label>
                             <small>@MarketingCatalog.ProductLabel(item.ProductId, item.ProductName, products)</small>
-                            <button type="button" class="dona-btn dona-btn--danger dona-btn--icon" aria-label="Убрать товар" @onclick="() => RemoveCollectionProduct(item)">×</button>
+                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove" aria-label="Убрать товар" @onclick="() => RemoveCollectionProduct(item)">×</button>
                         </div>
                     }
                 }
@@ -85,10 +86,10 @@
                 {
                     @foreach (var item in outfit.Products)
                     {
-                        <div class="outfit-row" @key="item.Id">
+                        <div class="outfit-row" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
                             <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => OutfitProductChanged(item, product)" /></label>
                             <div class="dona-field"><span>@MarketingCatalog.ProductLabel(item.ProductId, item.ProductName, products)</span><strong>@(MarketingCatalog.Price(item.ProductId, products) is { } itemPrice ? Money(itemPrice) + " UZS" : "Цена недоступна")</strong></div>
-                            <button type="button" class="dona-btn dona-btn--danger dona-btn--icon" aria-label="Убрать товар" @onclick="() => RemoveOutfitProduct(item)">×</button>
+                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove" aria-label="Убрать товар" @onclick="() => RemoveOutfitProduct(item)">×</button>
                         </div>
                     }
                 }
@@ -126,6 +127,7 @@
     private IReadOnlyList<Product> products = [];
     private EntityImageEditor? imageEditor;
     private UnsavedChangesGuard? unsavedGuard;
+    private ListItemRemovalConfirmation? removalConfirmation;
     private bool isLoading = true;
     private bool saving;
     private bool confirmDelete;
@@ -215,14 +217,18 @@
         MarkDirty();
     }
 
-    private void RemoveCollectionProduct(CollectionProduct item)
+    private async Task RemoveCollectionProduct(CollectionProduct item)
     {
+        var filled = item.ProductId is not null || !string.IsNullOrWhiteSpace(item.ProductName);
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(item, filled)) return;
         collection.Products.Remove(item);
         MarkDirty();
     }
 
-    private void RemoveOutfitProduct(OutfitProduct item)
+    private async Task RemoveOutfitProduct(OutfitProduct item)
     {
+        var filled = item.ProductId is not null || !string.IsNullOrWhiteSpace(item.ProductName) || item.SellingPriceUzs is not null;
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(item, filled)) return;
         outfit.Products.Remove(item);
         MarkDirty();
     }

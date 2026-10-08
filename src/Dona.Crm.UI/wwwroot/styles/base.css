@@ -5,6 +5,35 @@
     box-sizing: border-box;
 }
 
+/* Shared by the document, dialogs, pickers, text areas and horizontal lists. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--dona-scrollbar-thumb) var(--dona-scrollbar-track);
+}
+
+@supports selector(::-webkit-scrollbar) {
+    /* Standard scrollbar properties override the rounded WebView styling when set. */
+    * { scrollbar-width: auto; scrollbar-color: auto; }
+    *::-webkit-scrollbar {
+        width: var(--dona-scrollbar-size);
+        height: var(--dona-scrollbar-size);
+    }
+    *::-webkit-scrollbar-track {
+        background: var(--dona-scrollbar-track);
+        border-radius: var(--dona-radius-pill);
+    }
+    *::-webkit-scrollbar-thumb {
+        min-width: 32px;
+        min-height: 32px;
+        border: 2px solid var(--dona-scrollbar-track);
+        border-radius: var(--dona-radius-pill);
+        background: var(--dona-scrollbar-thumb);
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--dona-scrollbar-thumb-hover); }
+    *::-webkit-scrollbar-thumb:active { background: var(--dona-brand); }
+    *::-webkit-scrollbar-corner { background: var(--dona-scrollbar-track); }
+}
+
 html, body, #app {
     min-height: 100%;
 }
@@ -35,12 +64,26 @@ body.orbit-modal-open {
 }
 
 button, a, input, select, textarea {
+    height: auto;
     font: inherit;
     -webkit-tap-highlight-color: transparent;
 }
 
 input, select, textarea {
     accent-color: var(--dona-brand);
+}
+
+/* Text entry and choice fields have one fixed size on every viewport. */
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]), select) {
+    height: var(--dona-control-height);
+    min-height: var(--dona-control-height);
+    margin: 0;
+    line-height: 1.4;
+}
+
+textarea {
+    resize: none;
+    overflow-y: auto;
 }
 
 /* iOS zooms into inputs below 16px. The :not() chain keeps specificity above control rules in components/pages. */

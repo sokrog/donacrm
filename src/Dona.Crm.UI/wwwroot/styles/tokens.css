@@ -67,9 +67,20 @@
     --dona-card-gap: 12px;
     --dona-field-gap: 8px;
 
+    --dona-border-width: 1px;
+    --dona-context-menu-width: 280px;
+    --dona-layer-context-menu: 60;
+
     /* controls */
     --dona-tap: 44px;
-    --dona-control-height: 50px;
+    --dona-control-height: 48px;
+    --dona-remove-size: var(--dona-control-height);
+    --dona-checkbox-size: 26px;
+    --dona-checkbox-radius: 6px;
+    --dona-scrollbar-size: 10px;
+    --dona-scrollbar-thumb: rgba(var(--dona-brand-rgb), .5);
+    --dona-scrollbar-thumb-hover: rgba(var(--dona-brand-rgb), .72);
+    --dona-scrollbar-track: var(--dona-surface-soft);
 
     /* type */
     --dona-root-font-size: 16px;
@@ -105,6 +116,5 @@
         --dona-section-gap: 20px;
         --dona-card-gap: 14px;
         --dona-field-gap: 10px;
-        --dona-control-height: 52px;
     }
 }

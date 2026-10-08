@@ -1,6 +1,7 @@
 .orbit-select-search {
     width: 100%;
-    min-height: 48px;
+    height: var(--dona-control-height);
+    min-height: var(--dona-control-height);
     border: 1px solid var(--dona-line-strong);
     border-radius: var(--dona-radius-md);
     padding: 0 var(--dona-space-3);
@@ -12,7 +13,7 @@
 
 .orbit-select-options > button {
     display: grid;
-    min-height: 54px;
+    min-height: var(--dona-control-height);
     grid-template-columns: minmax(0, 1fr) 22px;
     align-items: center;
     gap: var(--dona-space-2);
@@ -95,10 +96,6 @@
 
     .orbit-select-dialog > header {
         display: none;
-    }
-
-    .orbit-select-search {
-        min-height: 40px;
     }
 
     .orbit-select-options > button {

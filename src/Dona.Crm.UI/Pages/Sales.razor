@@ -14,6 +14,7 @@
         </div>
         <a class="dona-icon-button dona-add-button" href="/sales/new" aria-label="Создать продажу"><OrbitIcon Name="plus" /></a>
     </header>
+    <SalesNavigation />
     <div class="dona-kpis dona-kpis--3">
         <article class="dona-kpi">
             <span>Выручка · @PeriodLabel(period)</span>
@@ -37,14 +38,6 @@
             <button type="button" class="@(period==option.Key?"active":null)" aria-pressed="@(period==option.Key)" @onclick="() => Period = option.Key">@option.Label</button>
         }
     </div>
-    <a class="dona-list-row customers-link" href="/customers">
-        <span class="dona-icon-tile"><OrbitIcon Name="catalog" /></span>
-        <span>
-            <strong>Клиенты</strong>
-            <small>Контакты и история заказов</small>
-        </span>
-        <b aria-hidden="true">›</b>
-    </a>
     <div class="dona-chips" role="group" aria-label="Фильтр по статусу">
         @foreach(var option in StatusFilters)
         {

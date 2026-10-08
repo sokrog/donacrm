@@ -1,0 +1,10 @@
+<table class="dona-record-table">
+    <caption>@Caption</caption>
+    <thead><tr>@foreach (var header in Headers) { <th scope="col">@header</th> }</tr></thead>
+    <tbody>@ChildContent</tbody>
+</table>
+@code {
+    [Parameter] public string Caption { get; set; } = "";
+    [Parameter] public IReadOnlyList<string> Headers { get; set; } = [];
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

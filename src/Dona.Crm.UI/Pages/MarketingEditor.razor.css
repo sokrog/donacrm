@@ -1,20 +1,15 @@
 .product-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--dona-tap);
+    grid-template-columns: minmax(0, 1fr) var(--dona-remove-size);
     align-items: end;
     gap: var(--dona-space-2);
 }
 
 .outfit-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr) var(--dona-tap);
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr) var(--dona-remove-size);
     align-items: end;
     gap: var(--dona-space-2);
-}
-
-.product-row > .dona-btn, .outfit-row > .dona-btn {
-    width: var(--dona-tap);
-    font-size: var(--dona-type-title-sm);
 }
 
 .delete-toggle {

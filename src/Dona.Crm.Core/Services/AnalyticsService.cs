@@ -9,7 +9,7 @@ public sealed class AnalyticsService
     {
         var productList = products.ToList();
         var categories = productList.ToDictionary(x => x.Id, x => string.IsNullOrWhiteSpace(x.Category) ? "Без категории" : x.Category);
-        var sales = source.ToList();
+        var sales = source.Where(x => x.DeletedAt is null).ToList();
         var facts = SaleFinancialEvents.Build(sales).Where(x => SaleFinancialEvents.InPeriod(x.At, from, to)).ToList();
         var expenses = new List<PeriodExpenseRow>();
         var valuations = (purchases ?? []).SelectMany(x => x.StockValuations.Select(v => (Source: x.Number, Value: v)))
@@ -25,9 +25,11 @@ public sealed class AnalyticsService
                     StockValuationReason.InitialValuation => "Первоначальная оценка",
                     _ => "Доначисление себестоимости"
                 }, value.ExpenseDelta));
-        foreach (var movement in (movements ?? []).Where(x => x.Type == StockMovementType.Adjustment && x.QuantityDelta < 0
+        foreach (var movement in (movements ?? []).Where(x => x.IsInventoryLoss()
             && SaleFinancialEvents.InPeriod(x.CreatedAt, from, to)))
-            expenses.Add(new(movement.CreatedAt, movement.SourceNumber, "Списание со склада", -movement.ValueDelta));
+            expenses.Add(new(movement.CreatedAt, movement.SourceNumber, "Списание со склада", movement.SourceType == "SaleDeletionDefect"
+                ? movement.Consumptions.Any(x => x.TotalCost is null) ? null : movement.Consumptions.Sum(x => x.TotalCost)
+                : -movement.ValueDelta));
         IReadOnlyList<AnalyticsRow> Group(Func<SaleFinancialEvent, string> key) => facts.GroupBy(key)
             .Select(g => new AnalyticsRow(g.Key, g.Sum(x => x.Quantity), g.Where(x => x.IsSale).Select(x => x.Sale.Id).Distinct().Count(),
                 g.Sum(x => x.Revenue), g.Sum(x => x.Cost)))

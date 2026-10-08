@@ -1,6 +1,6 @@
 .date-dialog header {
     display: grid;
-    grid-template-columns: 46px 1fr 46px;
+    grid-template-columns: var(--dona-control-height) 1fr var(--dona-control-height);
     align-items: center;
     gap: var(--dona-space-2);
 }
@@ -11,8 +11,8 @@
 }
 
 .date-dialog header button {
-    width: 46px;
-    height: 46px;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     border: 1px solid var(--dona-line);
     border-radius: var(--dona-radius-md);
     background: rgba(var(--dona-brand-rgb), .04);

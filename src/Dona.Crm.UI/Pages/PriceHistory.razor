@@ -1,0 +1,67 @@
+@page "/products/{ProductId:guid}/price-history"
+@page "/pricing/{OperationId:guid}"
+@using Dona.Crm.Web.Storage
+@inject IPricingRepository History
+@inject ICatalogRepository Catalog
+<PageTitle>История продажных цен — DONA CRM</PageTitle>
+<div class="dona-page dona-page--wide">
+    <header class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="@BackUrl" aria-label="Вернуться к источнику"><OrbitIcon Name="back" /></a>
+        <div><p>@name</p><h1>История продажных цен</h1></div>
+    </header>
+    @if (error is not null) { <p class="dona-state dona-state--error" role="alert">@error</p> }
+    else if (loading) { <p class="dona-state">Загружаем историю…</p> }
+    else if (operations.Count == 0) { <p class="dona-state">Изменения цен ещё не записывались. Ранее установленная цена сохранена без выдуманной истории.</p> }
+    else
+    {
+        @foreach (var operation in operations)
+        {
+            <section class="dona-section">
+                <h2><a href="@($"/pricing/{operation.Id}{ContextQuery}")">@operation.AppliedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</a> · @Source(operation.Source)</h2>
+                @if (operation.SourceId is { } sourceId && operation.Source != PricingSource.Catalog)
+                { <a href="@(operation.Source == PricingSource.Purchase ? $"/purchases/{sourceId}" : $"/products/{sourceId}")">Открыть источник операции</a> }
+                @foreach (var line in operation.Lines.Where(x => ProductId is null || x.Quote.ProductId == ProductId))
+                {
+                    <div class="dona-stack">
+                        <h3>@line.Quote.Name · @line.Quote.Sku</h3>
+                        <p><strong>@(line.Quote.CurrentPrice is null ? "Не была установлена" : PricingLayers.Money(line.Quote.CurrentPrice)) → @PricingLayers.Money(line.NewPrice)</strong></p>
+                        <p>@Basis(line.Quote.Basis) · @line.Quote.Quantity шт. · Себестоимость за единицу: @PricingLayers.Money(line.Quote.UnitCost) · @(line.Quote.Preliminary ? "Предварительная" : "По сохранённому основанию")</p>
+                        <p>@(line.Input == PricingInput.Markup ? $"Задана наценка {PricingLayers.Percent(line.TargetMarkup)}" : "Цена задана вручную") · Округление: @line.RoundingStep UZS · Фактическая наценка: @PricingLayers.Percent(line.ActualMarkup)</p>
+                        <details><summary>Снимок партий на дату установки цены</summary><PricingLayers Quote="line.Quote" Price="line.NewPrice" Caption="Партии по сохранённому основанию" /></details>
+                        <a class="dona-btn dona-btn--secondary" href="/products/@line.Quote.ProductId/pricing">Пересмотреть цену</a>
+                    </div>
+                }
+            </section>
+        }
+    }
+</div>
+@code {
+    [Parameter] public Guid? ProductId { get; set; }
+    [Parameter] public Guid? OperationId { get; set; }
+    [SupplyParameterFromQuery] public string? Entry { get; set; }
+    [SupplyParameterFromQuery] public Guid? SourceId { get; set; }
+    [SupplyParameterFromQuery] public string? Ids { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+    [SupplyParameterFromQuery] public string? Filter { get; set; }
+    [SupplyParameterFromQuery] public string? Sort { get; set; }
+    private string ContextQuery => Enum.TryParse<PricingSource>(Entry, out var source) && Enum.IsDefined(source) ? PricingNavigation.Context(source, SourceId, Ids, Query, Filter, Sort) : "";
+    private IReadOnlyList<SellingPriceChange> operations = [];
+    private bool loading = true;
+    private string? error;
+    private string name = "Каталог";
+    private string BackUrl => PricingNavigation.Editor(Entry, SourceId, Ids, Query, Filter, Sort) ?? (ProductId is { } p ? $"/products/{p}" : operations.FirstOrDefault() is { Source: PricingSource.Purchase, SourceId: { } u } ? $"/purchases/{u}" : "/products");
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true; error = null; name = "Операция установки цены";
+        try
+        {
+            if (ProductId is { } p) name = (await Catalog.GetProductAsync(p))?.Name ?? throw new InvalidOperationException("Товар не найден.");
+            operations = (await History.GetPriceChangesAsync()).Where(x => OperationId is { } id ? x.Id == id : x.Lines.Any(l => l.Quote.ProductId == ProductId)).OrderByDescending(x => x.AppliedAt).ToList();
+            if (OperationId is not null && operations.Count == 0) throw new InvalidOperationException("Операция не найдена.");
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось загрузить историю цен."); }
+        finally { loading = false; }
+    }
+    private static string Source(PricingSource source) => source switch { PricingSource.Product => "Из карточки товара", PricingSource.Purchase => "Из закупки", _ => "Из каталога" };
+    private static string Basis(PricingBasis basis) => basis switch { PricingBasis.RemainingStock => "Все оставшиеся партии", PricingBasis.PurchaseStock => "Остатки закупки", PricingBasis.PurchaseEstimate => "Плановая оценка закупки", _ => "Отдельная партия" };
+}

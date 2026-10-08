@@ -54,7 +54,7 @@
                 @if (Delta > 0)
                 {
                     <label class="dona-field">Себестоимость единицы<InputNumber @bind-Value="model.UnitCost" min="0" /></label>
-                    <small>Если стоимость неизвестна, оставьте поле пустым. Ноль означает бесплатный товар.</small>
+                    <small>Для начального остатка укажите себестоимость. Ноль означает бесплатный товар.</small>
                 }
                 @if (Delta < 0)
                 {
@@ -109,6 +109,9 @@
         products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();
         if(ProductId is not null&&products.FirstOrDefault(item=>item.Id==ProductId) is{}preset){
             model.ProductId=preset.Id;
+            model.Reason=StockAdjustmentReason.OpeningBalance;
+            model.Note="Начальный остаток";
+            if (VariantId is null && preset.Variants.Count == 1) VariantId = preset.Variants[0].Id;
             if(VariantId is not null&&preset.Variants.Any(item=>item.Id==VariantId)){
                 model.ProductVariantId=VariantId;
                 VariantChanged();

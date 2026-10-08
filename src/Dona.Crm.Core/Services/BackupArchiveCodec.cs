@@ -26,9 +26,11 @@ public interface IBackupArchiveFileService
 
 public sealed class BackupSnapshot
 {
+    public bool IncludesAllImages { get; set; }
     [System.Text.Json.Serialization.JsonRequired]
     public int SchemaVersion { get; init; } = DonaSyncSnapshot.CurrentSchemaVersion;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
+    public IReadOnlyList<SellingPriceChange> PriceChanges { get; init; } = [];
     public IReadOnlyList<Product> Products { get; init; } = [];
     public CommerceData Commerce { get; init; } = new();
     public SalesData Sales { get; init; } = new();
@@ -43,6 +45,7 @@ public static class BackupSnapshotMapper
     public static BackupSnapshot FromSyncSnapshot(DonaSyncSnapshot snapshot) => new()
     {
         SchemaVersion = snapshot.SchemaVersion,
+        PriceChanges = snapshot.PriceChanges,
         Products = snapshot.Products,
         Commerce = new CommerceData
         {
@@ -61,6 +64,7 @@ public static class BackupSnapshotMapper
     public static DonaSyncSnapshot ToSyncSnapshot(BackupSnapshot snapshot) => new()
     {
         SchemaVersion = snapshot.SchemaVersion,
+        PriceChanges = snapshot.PriceChanges.ToList(),
         Products = snapshot.Products.ToList(),
         Suppliers = snapshot.Commerce.Suppliers.ToList(),
         Intermediaries = snapshot.Commerce.Intermediaries.ToList(),
@@ -137,7 +141,9 @@ public static class BackupArchiveCodec
 
             var readme = archive.CreateEntry("README.txt", CompressionLevel.Optimal);
             using (var writer = new StreamWriter(readme.Open()))
-                writer.Write("Dona CRM backup. Credentials and OAuth tokens are intentionally excluded. Google Drive images remain in Drive; local product images are included in the images folder.");
+                writer.Write(snapshot.IncludesAllImages
+                    ? "Dona CRM portable backup. All referenced images are included in images/. No credentials or source Google account access are required to restore."
+                    : "Dona CRM backup. Credentials and OAuth tokens are intentionally excluded. Google Drive images remain in Drive; local product images are included in the images folder.");
 
             foreach (var image in images ?? [])
             {
@@ -229,6 +235,15 @@ public static class BackupArchiveCodec
             if (images.Any(x => x.FullName.Split('/').Any(part => part is ".." or ".")))
                 throw new InvalidOperationException("В архиве найден небезопасный путь изображения.");
 
+            if (snapshot.IncludesAllImages)
+            {
+                var keys = images.Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
+                if (keys.Count != images.Count || images.Any(x => x.Length == 0 || x.Length > PortableBackupService.MaxImageBytes)
+                    || images.Sum(x => x.Length) > PortableBackupService.MaxTotalImageBytes
+                    || LocalImageKey.EnumerateImages(BackupSnapshotMapper.ToSyncSnapshot(snapshot)).Any(x =>
+                        x.Storage != ProductImageStorage.Local || !LocalImageKey.TryParseUrl(x.Url, out var key) || !keys.Contains(key)))
+                    throw new InvalidOperationException("Полная копия повреждена: отсутствуют фотографии или нарушены ограничения файлов.");
+            }
             return new BackupArchiveInspection(snapshot, images.Count, images.Sum(x => x.Length));
         }
         catch (InvalidDataException exception)

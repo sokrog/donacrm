@@ -22,32 +22,19 @@ public sealed class ProductEconomicsTests
         Assert.Empty(product.Name);
         Assert.Empty(product.Category);
         Assert.Null(product.Status);
-        Assert.Null(product.RateToUzs);
+        Assert.Null(product.UnitWeightKg);
         Assert.Null(product.SellingPriceUzs);
     }
 
     [Fact]
-    public void Calculates_cost_profit_and_markup()
+    public void Product_requires_variants_and_rejects_normalized_duplicates()
     {
-        var product = new Product
-        {
-            PlannedPurchasePrice = 28,
-            RateToUzs = 1_800,
-            AgentCommissionPercent = 5,
-            DeliveryCostUzs = 18_000,
-            SellingPriceUzs = 119_000
-        };
-
-        Assert.Equal(70_920, product.CostUzs);
-        Assert.Equal(48_080, product.ProfitUzs);
-        Assert.Equal(67.8m, product.MarkupPercent);
-    }
-
-    [Fact]
-    public void Calculates_product_cost_from_any_source_currency_into_main_currency()
-    {
-        var product = new Product { PurchaseCurrencyCode = "USD", PlannedPurchasePrice = 10, RateToUzs = 12_500, DeliveryCostUzs = 5_000 };
-        Assert.Equal(130_000, product.CostUzs);
+        var product = new Product();
+        Assert.NotEmpty(product.Validate(new(product)));
+        product.Variants = [new() { Color = " белый  цвет ", Size = " M " }, new() { Color = "БЕЛЫЙ ЦВЕТ", Size = "m" }];
+        Assert.NotEmpty(product.Validate(new(product)));
+        product.Variants[1].Size = "L";
+        Assert.Empty(product.Validate(new(product)));
     }
 
     [Theory]
@@ -247,9 +234,13 @@ public sealed class InventoryAnalyticsServiceTests
     public void Calculates_inventory_value_turnover_cover_and_stale_stock()
     {
         var variant = new ProductVariant { Color = "Чёрный", Size = "M", Quantity = 10, ReservedQuantity = 2 };
-        var product = new Product { Name = "Футболка", Sku = "TS-1", Category = "Футболки", PlannedPurchasePrice = 10, RateToUzs = 1_000, DeliveryCostUzs = 1_000, SellingPriceUzs = 25_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [variant] };
+        var product = new Product { Name = "Футболка", Sku = "TS-1", Category = "Футболки", SellingPriceUzs = 25_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [variant] };
         var staleVariant = new ProductVariant { Color = "Белый", Size = "L", Quantity = 5 };
-        var stale = new Product { Name = "Худи", Sku = "HD-1", Category = "Худи", PlannedPurchasePrice = 5, RateToUzs = 1_000, SellingPriceUzs = 15_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [staleVariant] };
+        var stale = new Product { Name = "Худи", Sku = "HD-1", Category = "Худи", SellingPriceUzs = 15_000, CreatedAt = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.FromHours(5)), Variants = [staleVariant] };
+        FifoFixtures.OpeningBalance(product, 11_000);
+        FifoFixtures.OpeningBalance(stale, 5_000);
+        variant.Layers[0].ReceivedAt = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.FromHours(5));
+        staleVariant.Layers[0].ReceivedAt = stale.CreatedAt;
         var sale = new Sale { Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.FromHours(5)), Items = [new SaleItem { ProductId = product.Id, ProductVariantId = variant.Id, SoldQuantity = 2 }] };
         var receipt = new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, CreatedAt = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.FromHours(5)), QuantityDelta = 10 };
 
@@ -274,7 +265,7 @@ public sealed class ProfitAnalyticsServiceTests
     [Fact]
     public void Attributes_profit_to_purchase_source_collections_outfits_and_published_content()
     {
-        var product = new Product { Name = "Футболка", Sku = "TS-1", SupplierName = "Fallback" };
+        var product = new Product { Name = "Футболка", Sku = "TS-1" };
         var unsold = new Product { Name = "Сумка", Sku = "BG-1" };
         var purchase = new Purchase { SupplierName = "Store A", IntermediaryName = "Cargo A", Items = [new PurchaseItem { ProductId = product.Id, ProductName = product.Name }], Receipts = [new PurchaseReceipt { ReceivedAt = new DateTimeOffset(2026, 7, 1, 0, 0, 0, TimeSpan.FromHours(5)), Lines = [new PurchaseReceiptLine { ProductId = product.Id }] }] };
         var sale = new Sale { Status = SaleStatus.Completed, CreatedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.FromHours(5)), Items = [new SaleItem { ProductId = product.Id, ProductName = product.Name, Quantity = 2, SoldQuantity = 2, UnitPriceUzs = 100, UnitCostUzs = 50 }] };

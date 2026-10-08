@@ -2,6 +2,7 @@
     position: relative;
     min-width: 0;
     color: var(--dona-text);
+    font-size: var(--dona-type-body-sm);
 }
 
 .autocomplete-input {
@@ -11,20 +12,22 @@
 .autocomplete-input input {
     width: 100%;
     min-width: 0;
+    height: var(--dona-control-height);
     min-height: var(--dona-control-height);
     border: 1px solid var(--dona-line-strong);
     border-radius: var(--dona-radius-md);
-    padding: 0 44px 0 var(--dona-space-3);
+    padding: 0 calc(var(--dona-control-height) + 4px) 0 var(--dona-space-3);
     background: var(--dona-field);
     color: var(--dona-text);
 }
 
 .autocomplete-clear {
     position: absolute;
-    top: var(--dona-space-1);
-    right: var(--dona-space-1);
-    width: 40px;
-    height: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 0;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
     border: 0;
     border-radius: var(--dona-radius-sm);
     background: transparent;
@@ -114,3 +117,7 @@
         font-size: var(--dona-type-label);
     }
 }
+
+.autocomplete-dismiss { position: fixed; inset: 0; z-index: 219; }
+
+.orbit-autocomplete.open .autocomplete-input { z-index: 220; }

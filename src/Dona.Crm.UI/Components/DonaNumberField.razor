@@ -1,0 +1,33 @@
+@using System.Globalization
+<label class="dona-field">@Label
+    <div class="dona-number-field">
+        <input value="@text" @oninput="Changed" @onblur="Format" inputmode="decimal" aria-label="@Label" aria-invalid="@invalid" aria-describedby="@(invalid ? errorId : null)" disabled="@Disabled" />
+        <span>@Suffix</span>
+    </div>
+    @if (invalid) { <small id="@errorId" role="alert">Введите число, например 125000 или 12,5.</small> }
+</label>
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Suffix { get; set; } = "";
+    [Parameter] public decimal? Value { get; set; }
+    [Parameter] public EventCallback<decimal?> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private string text = "";
+    private bool invalid;
+    private decimal? previous;
+    private readonly string errorId = $"number-error-{Guid.NewGuid():N}";
+    protected override void OnParametersSet()
+    {
+        if (Value != previous) { previous = Value; invalid = false; Format(); }
+    }
+    private void Format() { if (!invalid) text = Value?.ToString(Suffix == "UZS" ? "#,0.####" : "0.####", CultureInfo.GetCultureInfo("ru-RU")) ?? ""; }
+    private async Task Changed(ChangeEventArgs args)
+    {
+        text = args.Value?.ToString() ?? "";
+        var normalized = text.Replace(" ", "").Replace("\u00a0", "").Replace("\u202f", "").Replace(',', '.');
+        invalid = normalized.Length > 0 && !decimal.TryParse(normalized, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _);
+        decimal? value = !invalid && normalized.Length > 0 ? decimal.Parse(normalized, CultureInfo.InvariantCulture) : null;
+        previous = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

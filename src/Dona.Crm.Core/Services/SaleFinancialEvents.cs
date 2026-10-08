@@ -11,7 +11,7 @@ public static class SaleFinancialEvents
     public static IReadOnlyList<SaleFinancialEvent> Build(IEnumerable<Sale> source)
     {
         var result = new List<SaleFinancialEvent>();
-        foreach (var sale in source.Where(x => x.Status == SaleStatus.Shipped || x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0))
+        foreach (var sale in source.Where(sale => sale.DeletedAt is null).Where(x => x.Status == SaleStatus.Shipped || x.Status == SaleStatus.Completed || x.Status == SaleStatus.Returned && x.Returns.Count > 0))
         {
             var weights = sale.Items.Select(x => (x.UnitPriceUzs ?? 0) * (x.SoldQuantity > 0 ? x.SoldQuantity : x.Quantity ?? 0)).ToArray();
             var revenues = Distribute(sale.TotalUzs, weights);

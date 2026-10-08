@@ -9,6 +9,8 @@
 @inject ICatalogRepository Catalog
 @inject PurchaseReceivingService Receiving
 @inject NavigationManager Navigation
+@inject IPricingRepository PricingHistory
+@inject ProductPricingService Pricing
 
 <PageTitle>@(IsNew ? "Новая закупка" : purchase.Number) — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
@@ -31,6 +33,12 @@
     {
         @if (!IsNew)
         {
+            @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
+            @if (purchase.Status != PurchaseStatus.Cancelled)
+            {
+                <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/pricing">Рассчитать продажные цены</a></div>
+                @if (reviewPrices) { <p class="dona-message">Основания ранее назначенных цен изменились. Пересмотрите цены с учётом текущих остатков и расходов.</p> }
+            }
             <div class="purchase-report-action"><a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/reconciliation">Сверка партий и стоимости</a></div>
             <ol class="purchase-flow" aria-label="Этап закупки">
                 @foreach (var value in Flow)
@@ -46,6 +54,7 @@
         <EditForm class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
+            <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <section class="dona-section">
                 <h2>Заказ</h2>
                 <h2>Поставка</h2>
@@ -89,7 +98,7 @@
                 @if (currencyReviewRequired)
                 {
                     <p class="dona-note">Валюта изменена. Цены не пересчитаны автоматически: проверьте каждую цену и новый курс. Валюты и курсы отдельных расходов сохранены.</p>
-                    <label class="cost-confirm"><InputCheckbox @bind-Value="currencyPricesReviewed" /> Цены позиций проверены в новой валюте</label>
+                    <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="currencyPricesReviewed" /> Цены позиций проверены в новой валюте</label>
                 }
                 <div class="dona-section-title">
                     <h3>Дополнительные расходы</h3>
@@ -112,7 +121,7 @@
                 }
                 @foreach (var expense in purchase.Expenses)
                 {
-                    <article class="expense-line" @key="expense.Id">
+                    <article class="expense-line" @key="expense.Id" @oninput="() => removalConfirmation?.MarkEdited(expense)">
                         <label class="dona-field">Название<InputText @bind-Value="expense.Name" placeholder="Например, доставка" /></label>
                         @if (expense.TariffCalculation is not null)
                         {
@@ -135,7 +144,7 @@
                                 <label class="dona-field">На какую позицию<OrbitSelect TValue="Guid?" @bind-Value="expense.PurchaseItemId" Options="@ExpenseItemOptions" Label="Позиция для расхода" /></label>
                             }
                         </details>
-                        <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => RemoveExpense(expense)">Убрать расход</button>
+                        <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить расход" @onclick="() => RemoveExpense(expense)">×</button>
                     </article>
                 }
                 <div class="cost-summary">
@@ -150,7 +159,7 @@
                         <p role="status">Для расчета заполните цены, количество, курсы и настройки расходов.</p>
                     }
                 </div>
-                <label class="cost-confirm"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Зафиксировать окончательную оценку при сохранении</label>
+                <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Зафиксировать окончательную оценку при сохранении</label>
                 <p class="cost-hint">Подтвердите, что известны все расходы. Поздний расход сохраняется отдельной ревизией оценки; история остаётся доступной.</p>
                 @if (purchase.Receipts.Count > 0)
                 {
@@ -171,7 +180,7 @@
                 }
                 @foreach (var item in purchase.Items)
                 {
-                    <article class="purchase-line" @key="item.Id">
+                    <article class="purchase-line" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
                         <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                         <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
                         <div class="line-fields">
@@ -182,10 +191,6 @@
                                 <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
                             }
                         </div>
-                        @if (item.UnitPrice is null && products.FirstOrDefault(x => x.Id == item.ProductId) is { } source && source.PurchaseCurrencyCode != purchase.CurrencyCode)
-                        {
-                            <p class="cost-hint">Плановая цена товара указана в @source.PurchaseCurrencyCode. Введите цену в @purchase.CurrencyCode — автоматического пересчёта нет.</p>
-                        }
                         @if (purchase.HasCompleteCostInputs)
                         {
                             <details class="unit-cost">
@@ -197,17 +202,9 @@
                         {
                             <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · оприходовано @item.StockedQuantity</div>
                         }
-                        else if (removeCandidate == item.Id)
-                        {
-                            <div class="dona-confirm dona-confirm--boxed">
-                                <span>Удалить позицию?</span>
-                                <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => removeCandidate = null">Нет</button>
-                                <button type="button" class="dona-btn dona-btn--danger" @onclick="() => RemoveItem(item)">Да, удалить</button>
-                            </div>
-                        }
                         else
                         {
-                            <button type="button" class="dona-btn dona-btn--danger" @onclick="() => removeCandidate = item.Id">Удалить позицию</button>
+                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
                         }
                     </article>
                 }
@@ -305,6 +302,7 @@
             @if (message is not null)
             {
                 <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
+                @if (success && !IsNew && purchase.Status != PurchaseStatus.Cancelled) { <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/pricing">Рассчитать продажные цены</a> }
             }
             <div class="dona-actions">
                 <a class="dona-btn dona-btn--secondary" href="/purchases">Отмена</a>
@@ -317,16 +315,18 @@
     [Parameter]
     public Guid? Id { get; set; }
 
+    [SupplyParameterFromQuery] public Guid? ProductId { get; set; }
     private Purchase purchase = new();
     private IReadOnlyList<Supplier> suppliers = [];
     private IReadOnlyList<Intermediary> intermediaries = [];
     private IReadOnlyList<Product> products = [];
+    private IReadOnlyList<Purchase> priceHistory = [];
     private readonly Dictionary<Guid, ReceiptFormLine> receiptLines = [];
     private Guid receiptId = Guid.NewGuid();
     private DateTime? receiptDate;
     private string? receiptNote;
-    private Guid? removeCandidate;
     private UnsavedChangesGuard? unsavedGuard;
+    private ListItemRemovalConfirmation? removalConfirmation;
     private bool loading = true;
     private bool saving;
     private string savedOrder = string.Empty;
@@ -340,6 +340,14 @@
     private string? error;
     private string? message;
     private bool success;
+    [SupplyParameterFromQuery(Name = "priced")] public int? Priced { get; set; }
+    private bool reviewPrices;
+    private async Task ReviewPricesAsync()
+    {
+        reviewPrices = false;
+        var lines = (await PricingHistory.GetPriceChangesAsync()).OrderByDescending(x => x.AppliedAt).SelectMany(x => x.Lines).GroupBy(x => x.Quote.ProductId).Select(x => x.First()).Where(x => x.Quote.PurchaseId == purchase.Id || x.Quote.Layers.Any(l => l.PurchaseId == purchase.Id));
+        foreach (var line in lines) if (await Pricing.NeedsReviewAsync(line)) { reviewPrices = true; break; }
+    }
     private decimal? tariffUsdRate;
     private string? tariffMessage;
     private Intermediary? SelectedIntermediary => intermediaries.FirstOrDefault(x => x.Id == purchase.IntermediaryId);
@@ -379,8 +387,12 @@
         purchase.IsCostFinalized = false;
         unsavedGuard?.MarkDirty();
     }
-    private void RemoveExpense(PurchaseExpense expense)
+    private async Task RemoveExpense(PurchaseExpense expense)
     {
+        var filled = !string.IsNullOrWhiteSpace(expense.Name) || expense.Amount is not null
+            || expense.Kind != PurchaseExpenseKind.Other || expense.Allocation != ExpenseAllocation.Value
+            || expense.PurchaseItemId is not null || expense.TariffCalculation is not null;
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(expense, filled, "Удалить расход?")) return;
         purchase.Expenses.Remove(expense);
         purchase.IsCostFinalized = false;
         unsavedGuard?.MarkDirty();
@@ -409,13 +421,23 @@
             var productTask = Catalog.GetProductsAsync();
             var purchaseTask = Commerce.GetPurchasesAsync();
             await Task.WhenAll(supplierTask, intermediaryTask, productTask, purchaseTask);
+            priceHistory = await purchaseTask;
             suppliers = await supplierTask;
             intermediaries = await intermediaryTask;
             products = (await productTask).Where(value => value.Status != ProductStatus.Archived).ToList();
             purchase = Id is null
                 ? NewPurchase(await purchaseTask)
                 : await Commerce.GetPurchaseAsync(Id.Value) ?? throw new InvalidOperationException("Закупка не найдена.");
+            if (Id is null && ProductId is { } productId && products.FirstOrDefault(x => x.Id == productId) is { } product)
+            {
+                purchase.Items.Clear();
+                var item = new PurchaseItem();
+                purchase.Items.Add(item);
+                ProductChanged(item, product);
+                if (product.Variants.Count == 1) { item.ProductVariantId = product.Variants[0].Id; VariantChanged(item); }
+            }
             purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
+            await ReviewPricesAsync();
             savedOrder = JsonSerializer.Serialize(purchase);
             ResetReceipt();
         }
@@ -448,10 +470,14 @@
         unsavedGuard?.MarkDirty();
     }
 
-    private void RemoveItem(PurchaseItem item)
+    private async Task RemoveItem(PurchaseItem item)
     {
+        if ((item.ReceivedQuantity ?? 0) > 0) return;
+        var filled = item.ProductId is not null || item.ProductVariantId is not null || !string.IsNullOrWhiteSpace(item.ProductName)
+            || !string.IsNullOrWhiteSpace(item.Color) || !string.IsNullOrWhiteSpace(item.Size)
+            || item.Quantity is not (null or 1) || item.UnitPrice is not null || item.UnitWeightKg is not null;
+        if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(item, filled)) return;
         purchase.Items.Remove(item);
-        removeCandidate = null;
         unsavedGuard?.MarkDirty();
     }
 
@@ -482,8 +508,8 @@
     {
         item.ProductId = product?.Id;
         item.ProductName = product?.Name ?? string.Empty;
-        item.UnitPrice = product is not null && CurrencyCodes.Normalize(product.PurchaseCurrencyCode, "CNY") == purchase.CurrencyCode
-            ? product.PlannedPurchasePrice : null;
+        item.UnitPrice = product is null ? null : ProductPurchaseDefaults.LastPrice(product.Id, purchase, priceHistory);
+        item.UnitWeightKg = product?.UnitWeightKg;
         item.ProductVariantId = null;
         item.Color = string.Empty;
         item.Size = string.Empty;
@@ -642,6 +668,7 @@
         try
         {
             await action();
+            await ReviewPricesAsync();
             savedOrder = JsonSerializer.Serialize(purchase);
             unsavedGuard?.MarkClean();
             message ??= text;

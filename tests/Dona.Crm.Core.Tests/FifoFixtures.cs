@@ -6,7 +6,7 @@ namespace Dona.Crm.Core.Tests;
 internal static class FifoFixtures
 {
     // Existing service fixtures describe an opening balance; give that balance its explicit layer.
-    public static Product OpeningBalance(Product product)
+    public static Product OpeningBalance(Product product, decimal unitCost = 0)
     {
         foreach (var variant in product.Variants.Where(x => x.StockLayerVersion == 0))
         {
@@ -15,8 +15,8 @@ internal static class FifoFixtures
             if (variant.Quantity > 0) variant.Layers.Add(new()
             {
                 Source = StockLayerSource.OpeningBalance, InitialQuantity = variant.Quantity.Value,
-                RemainingQuantity = variant.Quantity.Value, InitialValue = product.CostUzs * variant.Quantity,
-                RemainingValue = product.CostUzs * variant.Quantity
+                RemainingQuantity = variant.Quantity.Value, InitialValue = unitCost * variant.Quantity,
+                RemainingValue = unitCost * variant.Quantity
             });
         }
         return product;

@@ -88,7 +88,6 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
                     layer.RemainingValue = remaining;
                     layer.ValuationRevision++;
                 }
-                if (product.CostPurchaseId == purchase.Id) ApplyProductCost(purchase, product);
             }
         }
         await store.CommitAsync(InventoryCommit.Create(
@@ -146,6 +145,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         var movements = new List<StockMovement>();
         if (line.StockedQuantity > 0)
         {
+            if (product.UnitWeightKg is null && item.UnitWeightKg is > 0) product.UnitWeightKg = item.UnitWeightKg;
             var layer = StockLayerOperations.Add(variant, line.StockedQuantity, receiptValue, StockLayerSource.PurchaseReceipt, now, purchase.Number, line.Id);
             layer.PurchaseId = purchase.Id; layer.PurchaseItemId = item.Id; layer.ReceiptId = receipt.Id; layer.ReceiptLineId = line.Id;
             var movement = new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id,
@@ -282,19 +282,6 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             throw new InvalidOperationException("Нельзя менять статус закрытой закупки.");
     }
 
-    private static void ApplyProductCost(Purchase purchase, Product product)
-    {
-        var items = purchase.Items.Where(x => x.ProductId == product.Id && x.StockedQuantity > 0).ToList();
-        var quantity = items.Sum(x => x.Quantity ?? 0);
-        if (quantity <= 0) return;
-        product.PlannedPurchasePrice = items.Sum(x => (x.UnitPrice ?? 0) * (x.Quantity ?? 0)) / quantity;
-        product.PurchaseCurrencyCode = purchase.CurrencyCode;
-        product.RateToUzs = purchase.CurrencyCode == "UZS" ? 1 : purchase.RateToUzs;
-        product.AgentCommissionPercent = 0;
-        product.DeliveryCostUzs = items.Sum(x => purchase.ItemLandedCostUzs(x) - purchase.ItemGoodsCostUzs(x)) / quantity;
-        product.CostPurchaseId = purchase.Id;
-    }
-
     public Task<PurchaseReceiptResult> ReceiveAsync(Purchase purchase, IEnumerable<PurchaseReceiptInput> input, Guid? receiptId = null, DateTimeOffset? receivedAt = null, string? note = null, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(purchase, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
@@ -365,7 +352,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             item.StockedQuantity += accepted;
             line.ProductVariantId = variant.Id;
             line.StockedQuantity = accepted;
-            if (accepted > 0) ApplyProductCost(purchase, product);
+            if (accepted > 0 && product.UnitWeightKg is null && item.UnitWeightKg is > 0) product.UnitWeightKg = item.UnitWeightKg;
             if (accepted != 0) movementRecords.Add(new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = accepted, SourceType = "Purchase", SourceId = purchase.Id, SourceNumber = purchase.Number, Note = $"Приёмка {receipt.ReceivedAt.ToLocalTime():dd.MM.yyyy}" });
             if (accepted > 0) StockLayerOperations.SetValue(movementRecords[^1], new(receiptValue ?? 0, receiptValue is null ? accepted : 0), 1);
             added += accepted;

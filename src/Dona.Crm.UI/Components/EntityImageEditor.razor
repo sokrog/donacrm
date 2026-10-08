@@ -6,7 +6,7 @@
 <div class="dona-section entity-images" role="group" aria-labelledby="@headingId">
     <div class="dona-section-title">
         <h2 id="@headingId">Фотографии</h2>
-        <button type="button" disabled="@(busy || Images.Count >= MaxImages)" @onclick="PickAsync">
+        <button type="button" class="dona-btn dona-btn--ghost" disabled="@(busy || Images.Count >= MaxImages)" @onclick="PickAsync">
             @if (!busy) { <OrbitIcon Name="plus" Class="dona-inline-icon" /> }
             @(busy ? "Открываем…" : "Выбрать")
         </button>

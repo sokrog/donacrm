@@ -8,6 +8,9 @@
 @inject BackupRestoreService BackupRestore
 @inject IServiceProvider Services
 @inject NavigationManager Navigation
+@inject PortableBackupService PortableBackup
+@inject IImageTransferStore ImageTransfers
+@implements IDisposable
 
 <PageTitle>Настройки — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
@@ -37,13 +40,10 @@ else
                     <h2>Склад</h2>
                     <p>Статусы и доступный остаток</p>
                 </div>
-            </div><label class="dona-field dona-toggle">
-            <InputCheckbox @bind-Value="settings.AutoUpdateStockStatus" /><span><strong>Автоматические статусы
-            товара</strong><small>Обновлять статус по фактическому остатку</small></span>
-        </label>
+            </div>
         <div class="dona-field-row"><label class="dona-field">Порог «Заканчивается»
             <InputNumber @bind-Value="settings.LowStockThreshold" min="0" />
-        </label></div><p class="dona-note">При нулевом доступном остатке — «Нет в наличии». Возможность заказа при отсутствии включается отдельно в карточке товара.</p><label class="dona-field dona-toggle">
+        </label></div><p class="dona-note">При нулевом доступном остатке — «Нет в наличии».</p><label class="dona-field dona-toggle">
     <InputCheckbox @bind-Value="settings.CountReservedAsUnavailable" /><span><strong>Вычитать
     резерв</strong><small>Зарезервированные единицы недоступны для новой продажи</small></span>
 </label><button type="button" class="dona-btn dona-btn--ghost" disabled="@saving"
@@ -90,6 +90,23 @@ else
                     <p>Восстановление локальных данных из ZIP</p>
                 </div>
             </div>
+            <p class="dona-note">Полная ZIP-копия включает фотографии товаров, коллекций и образов, в том числе из Google Drive. Для облачных фото подключите исходный аккаунт. До 10 МБ на фото и 200 МБ фотографий в архиве.</p>
+            <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="ExportFullBackupAsync">Скачать полную копию с фотографиями</button>
+            <p class="dona-note dona-note--sm">После восстановления фото доступны на этом устройстве. Для других устройств загрузите их в новый аккаунт, затем отправьте базу на странице синхронизации.</p>
+            <button type="button" class="dona-btn dona-btn--ghost" disabled="@saving" @onclick="PrepareImageTransferAsync">Перенести фотографии в Google Drive…</button>
+            @if (transferAccount is not null)
+            {
+                <div class="dona-confirm">
+                    <p>Загрузить локальные фотографии в <strong>@transferAccount</strong>? Локальные файлы сохранятся. Уже облачные фотографии не переносятся — сначала восстановите полную ZIP-копию.</p>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="() => transferAccount = null">Отмена</button>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="TransferImagesAsync">Загрузить фотографии</button>
+                </div>
+            }
+            @if (imageOperation is not null)
+            {
+                <p role="status" aria-live="polite">@imageOperation · @imageProgress.Completed из @imageProgress.Total</p>
+                <button type="button" class="dona-btn dona-btn--secondary" @onclick="CancelImageOperation">Остановить</button>
+            }
             <p class="dona-note dona-note--sm">Перед заменой DONA CRM создаст автоматическую ZIP-копию текущих данных. Хранятся
                 последние семь копий.</p><button type="button" class="dona-btn dona-btn--ghost" disabled="@saving"
                                                  @onclick="SelectBackupAsync">Выбрать ZIP-копию</button><button type="button" class="dona-btn dona-btn--ghost"
@@ -188,7 +205,7 @@ else
                             </section>
                             @if (message is not null)
                             {
-                                <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
+                                <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status" style="white-space: pre-line">@message</p>
                             }
                             <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/more">Отмена</a><button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" :
                                          "Сохранить настройки")</button></div>
@@ -196,6 +213,64 @@ else
                         }
                     </div>
 @code {
+    private string? transferAccount, imageOperation;
+    private ImageTransferProgress imageProgress = new(0, 0);
+    private CancellationTokenSource? imageCancellation;
+    private IProgress<ImageTransferProgress> ImageProgress => new Progress<ImageTransferProgress>(value =>
+    {
+        if (imageOperation is null) return;
+        imageProgress = value;
+        _ = InvokeAsync(StateHasChanged);
+    });
+
+    private async Task ExportFullBackupAsync() => await RunAsync(async () =>
+    {
+        BeginImageOperation("Собираем фотографии");
+        try
+        {
+            var backup = await PortableBackup.ExportAsync(ImageProgress, imageCancellation!.Token);
+            await BackupFiles!.ExportAsync(backup, imageCancellation.Token);
+        }
+        finally { EndImageOperation(); }
+    }, "Полная ZIP-копия подготовлена. Она содержит все фотографии и не требует исходного аккаунта.");
+
+    private async Task PrepareImageTransferAsync() => await RunAsync(async () =>
+    {
+        var state = Google is null ? null : await Google.GetStateAsync();
+        if (state is not { IsConnected: true } || string.IsNullOrWhiteSpace(state.AccountEmail))
+            throw new InvalidOperationException("Сначала подключите целевой Google-аккаунт в разделе «Подключения».");
+        transferAccount = state.AccountEmail;
+    }, "Проверьте аккаунт для загрузки фотографий.");
+
+    private async Task TransferImagesAsync() => await RunAsync(async () =>
+    {
+        var state = Google is null ? null : await Google.GetStateAsync();
+        if (transferAccount is null || state is not { IsConnected: true } || state.AccountEmail != transferAccount)
+            throw new InvalidOperationException("Google-аккаунт изменился. Выберите перенос фотографий заново.");
+        BeginImageOperation("Загружаем фотографии");
+        try
+        {
+            await DiscardQueuedUploadsAsync();
+            var count = await PortableBackup.UploadLocalImagesAsync(ImageTransfers, ImageProgress, imageCancellation!.Token);
+            message = count == 0 ? "Локальных фотографий для переноса нет." : $"Перенесено фотографий: {count}. Теперь сравните и отправьте базу на странице «Синхронизация».";
+        }
+        finally { transferAccount = null; EndImageOperation(); }
+    }, "Фотографии перенесены.");
+
+    private void BeginImageOperation(string title)
+    {
+        imageCancellation = new();
+        imageProgress = new(0, 0);
+        imageOperation = title;
+    }
+    private void EndImageOperation()
+    {
+        imageOperation = null;
+        imageCancellation?.Dispose();
+        imageCancellation = null;
+    }
+    private void CancelImageOperation() => imageCancellation?.Cancel();
+    public void Dispose() => imageCancellation?.Cancel();
     private BusinessSettings settings = new(); private UnsavedChangesGuard? unsavedGuard; private bool
    loading = true, saving, success, confirmRestore, confirmClear; private string? message; private string
    clearConfirmation = string.Empty; private byte[]? backupContent; private BackupPreview? backupPreview; private
@@ -244,6 +319,7 @@ settings.DefaultAnalyticsPeriodDays); settings.StaleInventoryDays = Math.Max(1, 
 BackupRestore.RestoreAsync(backupContent); await DiscardQueuedUploadsAsync(); await
    BackupFiles!.SaveAutomaticBackupAsync(result.AutomaticBackup); backupContent = null; backupPreview = null;
        confirmRestore = false;
+       settings = await SettingsRepository.GetAsync();
    }, "Данные восстановлены."); private async Task LoadPersonalBackupsAsync() => await RunAsync(async () =>
    {
        personalBackups = (await
@@ -281,6 +357,8 @@ BackupRestore.RestoreAsync(backupContent); await DiscardQueuedUploadsAsync(); aw
             await
    a(); unsavedGuard?.MarkClean(); message ??= t; success = true;
         }
+        catch (OperationCanceledException)
+        { message = "Операция остановлена. Локальные фотографии сохранены; завершённые загрузки в Google не отменены."; success = false; }
         catch (Exception
    ex)
         { message = UserErrors.Describe(ex, "Не удалось выполнить действие. Попробуйте ещё раз."); success = false; }

@@ -56,13 +56,6 @@ details summary:focus-visible {
     outline-offset: 2px;
 }
 
-.cost-confirm {
-    display: flex;
-    align-items: center;
-    gap: var(--dona-space-2);
-    min-height: 44px;
-}
-
 .cost-hint, .unit-cost p {
     color: var(--dona-muted);
     font-size: var(--dona-type-small);
@@ -139,3 +132,13 @@ details summary:focus-visible {
 }
 
 .purchase-report-action { margin-bottom: var(--dona-section-gap); }
+
+.purchase-line, .expense-line {
+    position: relative;
+    padding-right: calc(var(--dona-remove-size) + var(--dona-space-2));
+}
+.remove-list-item {
+    position: absolute;
+    top: var(--dona-space-3);
+    right: 0;
+}

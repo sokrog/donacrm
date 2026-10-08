@@ -1,0 +1,8 @@
+<nav class="sales-navigation" aria-label="Раздел продаж">
+    <a href="/sales" aria-current="@(Customers ? null : "page")">Продажи</a>
+    <a href="/customers" aria-current="@(Customers ? "page" : null)">Клиенты</a>
+</nav>
+
+@code {
+    [Parameter] public bool Customers { get; set; }
+}

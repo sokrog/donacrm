@@ -22,7 +22,7 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
 - Weight: `--dona-weight-regular` 400, `--dona-weight-strong` 700. Both faces are bundled in `brand/fonts.css` (`manrope.ttf`, `manrope-bold.ttf`); other weights would be synthesized.
 - Shadow: `--dona-shadow-sm/md/lg`, `--dona-shadow-brand`. Colour on brand fills: `--dona-on-brand`.
 - Layout: `--dona-page-narrow` 520, `--dona-page-form` 960, `--dona-page-wide` 1180, `--dona-page-inline`, `--dona-section-gap`.
-- Controls: `--dona-tap` 44px, `--dona-control-height` 50/52px.
+- Controls: `--dona-tap` 44px, `--dona-control-height` 48px.
 - Type: `--dona-type-*`.
 
 ## Cheat sheet
@@ -102,3 +102,9 @@ Buttons must be direct children. With one or two buttons they share a row (the p
 <a class="dona-icon-button dona-icon-button--round" href="/x"><OrbitIcon Name="bell" /></a>                                                <!-- 48px circle; position: relative for badges -->
 ```
 The modal is centred at every width. Component-specific rules (OrbitSelect desktop popover, date grid, lightbox image sizing) stay in the component's scoped CSS and are layered on top of these classes.
+
+## Shared pricing and record components
+
+`DonaHeaderActions` renders header buttons from one action list on desktop and an anchored three-dot disclosure below 900px. Use `.dona-page-header--actions` and `.dona-page-header-actions` for the header layout. The mobile panel closes after an action, on outside pointer input, when focus leaves it, or on Escape; Escape returns focus to the trigger. Its width, layer, spacing and appearance use central tokens. Native disclosure and regular buttons support keyboard navigation without custom menu roles.
+
+`DonaNumberField` uses `.dona-number-field` for a labelled decimal input with a non-overlapping suffix and parse feedback. The value is cleared on invalid input, so an old valid value cannot be submitted accidentally. `DonaResponsiveTable` uses `.dona-record-table`: desktop columns become labelled records below the existing 900px breakpoint. Each body cell supplies `data-label`. `.dona-toolbar`, `.dona-selection` and `.dona-selection-row` provide reusable actions and selection layouts. All dimensions, colours and spacing use central tokens. Pricing pages have no scoped stylesheet or inline styles.

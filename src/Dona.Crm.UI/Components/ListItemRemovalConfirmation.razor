@@ -1,0 +1,90 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (pending is not null)
+{
+    <OrbitModalLock>
+        <div class="dona-modal dona-modal--alert" role="presentation" @onclick="() => Decide(false)" @onclick:preventDefault="true">
+            <section id="@dialogId" class="dona-modal__dialog dona-modal__dialog--sm" role="alertdialog" aria-modal="true"
+                     aria-labelledby="@titleId" aria-describedby="@descriptionId" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+                <header class="dona-modal__header"><h2 id="@titleId">@title</h2></header>
+                <div class="dona-modal__body"><p id="@descriptionId">Заполненные данные этой позиции будут удалены из формы. Продолжить?</p></div>
+                <footer class="dona-modal__footer">
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => Decide(false)">Отмена</button>
+                    <button type="button" class="dona-btn dona-btn--danger" @onclick="() => Decide(true)">Да, удалить</button>
+                </footer>
+            </section>
+        </div>
+    </OrbitModalLock>
+}
+
+@code {
+    [CascadingParameter] private EditContext? EditContext { get; set; }
+    private EditContext? subscribedContext;
+    private readonly HashSet<object> edited = new(ReferenceEqualityComparer.Instance);
+    private readonly string dialogId = $"remove-item-{Guid.NewGuid():N}";
+    private string titleId => dialogId + "-title";
+    private string descriptionId => dialogId + "-description";
+    private string title = "Удалить позицию?";
+    private TaskCompletionSource<bool>? pending;
+    private bool focusPending;
+    private bool cleanupPending;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(EditContext, subscribedContext)) return;
+        if (subscribedContext is not null) subscribedContext.OnFieldChanged -= FieldChanged;
+        subscribedContext = EditContext;
+        edited.Clear();
+        if (subscribedContext is not null) subscribedContext.OnFieldChanged += FieldChanged;
+    }
+
+    private void FieldChanged(object? sender, FieldChangedEventArgs args) => MarkEdited(args.FieldIdentifier.Model);
+    public void MarkEdited(object item) => edited.Add(item);
+
+    public Task<bool> ConfirmAsync(object item, bool containsData, string dialogTitle = "Удалить позицию?")
+    {
+        if (!containsData && !edited.Contains(item)) return Task.FromResult(true);
+        if (pending is not null) return Task.FromResult(false);
+        title = dialogTitle;
+        pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        focusPending = true;
+        StateHasChanged();
+        return pending.Task;
+    }
+
+    private void Decide(bool confirmed)
+    {
+        var decision = pending;
+        pending = null;
+        focusPending = false;
+        cleanupPending = true;
+        decision?.TrySetResult(confirmed);
+    }
+
+    private void KeyDown(KeyboardEventArgs args) { if (args.Key == "Escape") Decide(false); }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (cleanupPending)
+        {
+            cleanupPending = false;
+            await JS.InvokeVoidAsync("orbitModal.closeConfirmation", dialogId);
+        }
+        if (focusPending)
+        {
+            focusPending = false;
+            await JS.InvokeVoidAsync("orbitModal.openConfirmation", dialogId);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (subscribedContext is not null) subscribedContext.OnFieldChanged -= FieldChanged;
+        pending?.TrySetResult(false);
+        pending = null;
+        try { await JS.InvokeVoidAsync("orbitModal.closeConfirmation", dialogId); }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
+    }
+}

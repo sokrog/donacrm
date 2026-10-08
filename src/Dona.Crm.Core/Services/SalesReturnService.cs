@@ -8,6 +8,7 @@ public sealed class SalesReturnService(ICatalogRepository catalog, IInventorySto
     public Task<SaleReturn> CreateAsync(Sale sale, SaleReturn document, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(sale, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
+        if (sale.DeletedAt is not null) throw new InventoryException("Продажа удалена.");
         if (sales is not null && await sales.GetSaleAsync(sale.Id, cancellationToken) is { } saved
             && System.Text.Json.JsonSerializer.Serialize(saved) != System.Text.Json.JsonSerializer.Serialize(sale))
             throw new InventoryException("Возвраты продажи уже изменились. Откройте продажу заново.");

@@ -8,6 +8,9 @@ public interface ISalesRepository
     Task UpsertCustomerAsync(Customer customer, CancellationToken cancellationToken = default);
     Task DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default);
+    // Includes deleted documents for numbering and audit exports.
+    Task<IReadOnlyList<Sale>> GetAllSalesAsync(CancellationToken cancellationToken = default) => GetSalesAsync(cancellationToken);
+    // Includes the deletion marker so stale editors cannot revive a removed sale.
     Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default);
     Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default);
 }

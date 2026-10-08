@@ -1,4 +1,5 @@
 using Dona.Crm.Web.Domain;
+using Dona.Crm.Web.Services;
 using Dona.Crm.Web.Storage;
 
 namespace Dona.Crm.Storage.Sqlite;
@@ -53,11 +54,24 @@ public sealed class SqliteSalesRepository(SqliteAggregateStore store) : ISalesRe
     private const string Sales = "sales.sales";
 
     public Task<IReadOnlyList<Customer>> GetCustomersAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Customer>(Customers, cancellationToken);
-    public Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Sale>(Sales, cancellationToken);
-    public async Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default) => (await GetSalesAsync(cancellationToken)).FirstOrDefault(value => value.Id == id);
+    public Task<IReadOnlyList<Sale>> GetAllSalesAsync(CancellationToken cancellationToken = default) => store.ReadCollectionAsync<Sale>(Sales, cancellationToken);
+    public async Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => (await GetAllSalesAsync(cancellationToken)).Where(value => value.DeletedAt is null).ToList();
+    public async Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default) => (await GetAllSalesAsync(cancellationToken)).FirstOrDefault(value => value.Id == id);
     public Task UpsertCustomerAsync(Customer value, CancellationToken cancellationToken = default) => store.ApplyAsync([AggregateOperation.Upsert(Customers, value.Id, value)], cancellationToken);
     public Task DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default) => store.ApplyAsync([AggregateOperation.Delete(Customers, id)], cancellationToken);
-    public Task UpsertSaleAsync(Sale value, CancellationToken cancellationToken = default) => store.ApplyAsync([AggregateOperation.Upsert(Sales, value.Id, value)], cancellationToken);
+    public async Task UpsertSaleAsync(Sale value, CancellationToken cancellationToken = default)
+    {
+        using var gate = await InventoryLock.AcquireAsync(cancellationToken);
+        if (await GetSaleAsync(value.Id, cancellationToken) is { DeletedAt: not null })
+            throw new InvalidOperationException("Продажа удалена. Откройте список продаж заново.");
+        await store.ApplyAsync([AggregateOperation.Upsert(Sales, value.Id, value)], cancellationToken);
+    }
+}
+
+public sealed class SqlitePricingRepository(SqliteAggregateStore store) : IPricingRepository
+{
+    public Task<IReadOnlyList<SellingPriceChange>> GetPriceChangesAsync(CancellationToken cancellationToken = default) =>
+        store.ReadCollectionAsync<SellingPriceChange>("history.selling-prices", cancellationToken);
 }
 
 public sealed class SqliteInventoryStore(SqliteAggregateStore store) : IInventoryStore
@@ -74,6 +88,7 @@ public sealed class SqliteInventoryStore(SqliteAggregateStore store) : IInventor
         ArgumentNullException.ThrowIfNull(commit);
         commit.ValidateLayers();
         var operations = new List<AggregateOperation>();
+        operations.AddRange(commit.PriceChanges.Select(value => AggregateOperation.InsertIfMissing("history.selling-prices", value.Id, value)));
         operations.AddRange(commit.Products.Select(value => AggregateOperation.Upsert(Products, value.Id, value)));
         operations.AddRange(commit.Sales.Select(value => AggregateOperation.Upsert(Sales, value.Id, value)));
         operations.AddRange(commit.Purchases.Select(value => AggregateOperation.Upsert(Purchases, value.Id, value)));

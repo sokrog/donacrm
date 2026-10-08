@@ -43,7 +43,7 @@ public sealed partial class SqliteRepositoryTests
         await commerce.UpsertIntermediaryAsync(partner);
         var supplier = new Supplier { Name = "Тестовый поставщик", DefaultIntermediaryId = partner.Id, Moq = 100 };
         await commerce.UpsertSupplierAsync(supplier);
-        var product = new Product { Name = "Тестовый товар", PreferredSupplierId = supplier.Id, AllowOrderWhenUnavailable = true, Variants = [new()] };
+        var product = new Product { Name = "Тестовый товар", PreferredSupplierId = supplier.Id, Variants = [new()] };
         await catalog.UpsertProductAsync(product);
         var purchase = new Purchase { Number = "AUDIT-RELEASE", CurrencyCode = "UZS", IntermediaryId = partner.Id,
             SupplierId = supplier.Id, Status = PurchaseStatus.Ordered,

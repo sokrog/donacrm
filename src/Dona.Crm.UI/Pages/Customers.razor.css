@@ -1,7 +1,3 @@
-.dona-page ::deep form {
-    margin-bottom: var(--dona-space-4);
-}
-
 .customer-list {
     display: grid;
     gap: var(--dona-space-2);
@@ -13,4 +9,3 @@
 .customer-list strong {
     font-size: var(--dona-type-body);
 }
-

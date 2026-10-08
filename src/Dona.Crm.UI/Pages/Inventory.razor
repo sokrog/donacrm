@@ -2,6 +2,7 @@
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
 @inject IStockMovementRepository Movements
+@inject ICatalogRepository Catalog
 
 <PageTitle>Движения склада — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide">
@@ -15,6 +16,16 @@
         </div>
         <a class="dona-btn dona-btn--primary" href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="dona-inline-icon" />Корректировка</a>
     </header>
+    @if (!isLoading && unvalued.Count > 0)
+    {
+        <section class="dona-section"><h2>Партии без себестоимости</h2>
+            @foreach (var entry in unvalued)
+            {
+                <p><strong>@entry.Product.Name · @entry.Variant.Color @entry.Variant.Size</strong> · @entry.Layer.RemainingQuantity ед.
+                <a href="/inventory/valuation/@entry.Product.Id/@entry.Variant.Id/@entry.Layer.Id">Указать стоимость</a></p>
+            }
+        </section>
+    }
     @if (isLoading)
     {
         <div class="dona-state">Загружаем журнал…</div>
@@ -57,6 +68,7 @@
 </div>
 @code {
     private IReadOnlyList<StockMovement> items = [];
+    private List<(Product Product, ProductVariant Variant, StockLayer Layer)> unvalued = [];
     private bool isLoading = true;
     private string? error;
 
@@ -65,6 +77,9 @@
         try
         {
             items = await Movements.GetAsync();
+            unvalued = (await Catalog.GetProductsAsync()).SelectMany(product => product.Variants.SelectMany(variant =>
+                variant.Layers.Where(layer => layer.InitialValue is null && layer.Source is StockLayerSource.OpeningBalance or StockLayerSource.InventorySurplus)
+                .Select(layer => (product, variant, layer)))).ToList();
         }
         catch (Exception exception)
         {

@@ -34,3 +34,5 @@
     display: block;
     margin: var(--dona-space-3) auto 0;
 }
+
+@media (min-width: 900px) { .welcome-card { width: 100%; } }

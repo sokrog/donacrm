@@ -26,15 +26,12 @@ public sealed class AuditBusinessRulesTests
     [Fact]
     public void Order_permission_does_not_create_stock_and_closed_cancelled_orders_are_not_expected()
     {
-        var product = new Product { AllowOrderWhenUnavailable = true, Status = ProductStatus.OnOrder };
-        var settings = new BusinessSettings { AutoUpdateStockStatus = true, CountReservedAsUnavailable = true };
+        var product = new Product { Status = ProductStatus.OnOrder };
+        var settings = new BusinessSettings { CountReservedAsUnavailable = true };
         var statuses = new ProductStatusService();
         Assert.Equal(ProductStatus.OutOfStock, statuses.Calculate(product, settings));
         product.Variants.Add(new() { Quantity = 2, ReservedQuantity = 2 });
         Assert.Equal(ProductStatus.OutOfStock, statuses.Calculate(product, settings));
-        settings.AutoUpdateStockStatus = false;
-        Assert.Equal(ProductStatus.OnOrder, statuses.Calculate(product, settings));
-        settings.AutoUpdateStockStatus = true;
         product.Status = ProductStatus.Archived;
         Assert.Equal(ProductStatus.Archived, statuses.Calculate(product, settings));
         Purchase Order(PurchaseStatus status, bool closed = false) => new() { Status = status, ClosedAt = closed ? DateTimeOffset.UtcNow : null,
@@ -60,15 +57,11 @@ public sealed class AuditBusinessRulesTests
     [Fact]
     public void Neutral_price_names_preserve_source_currency_and_read_old_local_field_names()
     {
-        var product = JsonSerializer.Deserialize<Product>("{\"PurchasePriceCny\":12,\"PurchaseCurrencyCode\":\"USD\",\"CnyRateUzs\":12500}")!;
-        Assert.Equal(12, product.PlannedPurchasePrice);
-        Assert.Equal(150000, product.CostUzs);
+        var product = new Product { UnitWeightKg = 0.5m };
         var json = JsonSerializer.Serialize(product);
-        Assert.DoesNotContain("PurchasePriceCny", json);
-        Assert.DoesNotContain("CnyRateUzs", json);
-        var restored = JsonSerializer.Deserialize<Product>(json)!;
-        Assert.Equal("USD", restored.PurchaseCurrencyCode);
-        Assert.Equal(product.CostUzs, restored.CostUzs);
+        Assert.DoesNotContain("PlannedPurchasePrice", json);
+        Assert.DoesNotContain("CostUzs", json);
+        Assert.Equal(0.5m, JsonSerializer.Deserialize<Product>(json)!.UnitWeightKg);
         var purchase = JsonSerializer.Deserialize<Purchase>("{\"CurrencyCode\":\"USD\",\"CnyRateUzs\":12500,\"Items\":[{\"Quantity\":2,\"UnitPriceCny\":12}]}")!;
         Assert.Equal(300000, purchase.GoodsCostUzs);
         Assert.Equal(purchase.GoodsCostUzs, JsonSerializer.Deserialize<Purchase>(JsonSerializer.Serialize(purchase))!.GoodsCostUzs);

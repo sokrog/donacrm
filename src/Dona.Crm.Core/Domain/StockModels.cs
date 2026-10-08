@@ -37,6 +37,10 @@ public sealed class StockMovement
 
 public static class StockMovementText
 {
+    // Deleting a sale reclassifies its already accepted defects as losses without removing stock twice.
+    public static bool IsInventoryLoss(this StockMovement movement) => movement.Type == StockMovementType.Adjustment
+        && (movement.QuantityDelta < 0 || movement.SourceType == "SaleDeletionDefect");
+
     public static string Display(this StockMovementType value) => value switch
     {
         StockMovementType.PurchaseReceipt => "Приход",

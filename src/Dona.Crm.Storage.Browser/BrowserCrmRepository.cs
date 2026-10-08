@@ -8,6 +8,7 @@ namespace Dona.Crm.Storage.Browser;
 
 public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     ICatalogRepository,
+    IPricingRepository,
     ICommerceRepository,
     ISalesRepository,
     IMarketingRepository,
@@ -15,7 +16,8 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     IStockMovementRepository,
     IPurchaseHistoryRepository,
     IInventoryStore,
-    IBackupSnapshotStore
+    IBackupSnapshotStore,
+    IImageTransferStore
 {
     private const string StorageKey = "dona.crm.browser.snapshot.v2";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -25,6 +27,7 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
 
     public async Task<IReadOnlyList<Product>> GetProductsAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Products;
     public async Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Products.FirstOrDefault(value => value.Id == id);
+    public async Task<IReadOnlyList<SellingPriceChange>> GetPriceChangesAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).PriceChanges;
     public Task UpsertProductAsync(Product product, CancellationToken cancellationToken = default) => MutateAsync(snapshot => Upsert(snapshot.Products, product, value => value.Id), cancellationToken);
     public Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default) => MutateAsync(snapshot => snapshot.Products.RemoveAll(value => value.Id == id), cancellationToken);
 
@@ -44,9 +47,15 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     public async Task<IReadOnlyList<Customer>> GetCustomersAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Customers;
     public Task UpsertCustomerAsync(Customer customer, CancellationToken cancellationToken = default) => MutateAsync(snapshot => Upsert(snapshot.Customers, customer, value => value.Id), cancellationToken);
     public Task DeleteCustomerAsync(Guid id, CancellationToken cancellationToken = default) => MutateAsync(snapshot => snapshot.Customers.RemoveAll(value => value.Id == id), cancellationToken);
-    public async Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Sales;
+    public async Task<IReadOnlyList<Sale>> GetAllSalesAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Sales;
+    public async Task<IReadOnlyList<Sale>> GetSalesAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Sales.Where(value => value.DeletedAt is null).ToList();
     public async Task<Sale?> GetSaleAsync(Guid id, CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Sales.FirstOrDefault(value => value.Id == id);
-    public Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default) => MutateAsync(snapshot => Upsert(snapshot.Sales, sale, value => value.Id), cancellationToken);
+    public Task UpsertSaleAsync(Sale sale, CancellationToken cancellationToken = default) => MutateAsync(snapshot =>
+    {
+        if (snapshot.Sales.Any(value => value.Id == sale.Id && value.DeletedAt is not null))
+            throw new InvalidOperationException("Продажа удалена. Откройте список продаж заново.");
+        Upsert(snapshot.Sales, sale, value => value.Id);
+    }, cancellationToken);
 
     public async Task<MarketingData> GetDataAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Marketing;
     public async Task<IReadOnlyList<ProductCollection>> GetCollectionsAsync(CancellationToken cancellationToken = default) => (await LoadAsync(cancellationToken)).Marketing.Collections;
@@ -88,6 +97,8 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     public Task CommitAsync(InventoryCommit commit, CancellationToken cancellationToken = default) => MutateAsync(snapshot =>
     {
         commit.ValidateLayers();
+        var priceIds = snapshot.PriceChanges.Select(x => x.Id).ToHashSet();
+        snapshot.PriceChanges.AddRange(commit.PriceChanges.Where(x => priceIds.Add(x.Id)));
         foreach (var product in commit.Products) Upsert(snapshot.Products, product, value => value.Id);
         foreach (var sale in commit.Sales) Upsert(snapshot.Sales, sale, value => value.Id);
         foreach (var purchase in commit.Purchases) Upsert(snapshot.Purchases, purchase, value => value.Id);
@@ -100,6 +111,8 @@ public sealed class BrowserCrmRepository(IJSRuntime javascript) :
     }, cancellationToken);
 
     public Task<DonaSyncSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => LoadAsync(cancellationToken);
+    public Task ApplyUploadedImageAsync(string localUrl, GoogleDriveFile file, CancellationToken cancellationToken = default) =>
+        MutateAsync(snapshot => ImageTransferReferences.Apply(snapshot, localUrl, file), cancellationToken);
     public Task ReplaceSnapshotAsync(DonaSyncSnapshot snapshot, CancellationToken cancellationToken = default) => SaveSnapshotAsync(snapshot, cancellationToken);
 
     private async Task<DonaSyncSnapshot> LoadAsync(CancellationToken cancellationToken)
