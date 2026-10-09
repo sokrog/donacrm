@@ -54,4 +54,58 @@ public sealed class ProductPricingTests
     [Theory]
     [InlineData(-100)] [InlineData(100001)]
     public void Invalid_markup_is_rejected(decimal markup) => Assert.Throws<InvalidOperationException>(() => SellingPriceCalculator.Price(100, markup, 1));
+
+    [Fact]
+    public void Closing_and_reserving_do_not_require_review_but_changed_unit_cost_does()
+    {
+        var product = new Product { Variants = [new() { Quantity = 2 }] };
+        var purchase = new Purchase { CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, Quantity = 2, UnitPrice = 100 }] };
+        var variant = product.Variants[0];
+        variant.Layers.Add(new() { PurchaseId = purchase.Id, RemainingQuantity = 2, RemainingValue = 200 });
+        var original = ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, purchase);
+        purchase.ClosedAt = DateTimeOffset.UtcNow;
+        purchase.IsCostFinalized = true;
+        variant.ReservedQuantity = 1;
+        variant.StockLayerVersion++;
+        var closed = ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, purchase);
+        Assert.NotEqual(original.Fingerprint, closed.Fingerprint);
+        Assert.False(ProductPricingService.CostNeedsReview(original, closed));
+        variant.Quantity = variant.Layers[0].RemainingQuantity = 1;
+        variant.Layers[0].RemainingValue = 100;
+        Assert.False(ProductPricingService.CostNeedsReview(original, ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, purchase)));
+        variant.Layers[0].RemainingValue = 200;
+        Assert.True(ProductPricingService.CostNeedsReview(original, ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, purchase)));
+        variant.Quantity = variant.Layers[0].RemainingQuantity = 0;
+        variant.Layers[0].RemainingValue = 0;
+        Assert.False(ProductPricingService.CostNeedsReview(original, ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, purchase)));
+    }
+
+    [Fact]
+    public void Purchase_pricing_excludes_exhausted_stock_after_receiving_and_keeps_partial_stock()
+    {
+        var product = new Product { Variants = [new()] };
+        var purchase = new Purchase { CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, Quantity = 2, UnitPrice = 100 }] };
+        Assert.Equal(PricingBasis.PurchaseEstimate, ProductPricingService.BuildPurchaseQuote(product, purchase)!.Basis);
+        purchase.Items[0].ReceivedQuantity = 2;
+        Assert.Null(ProductPricingService.BuildPurchaseQuote(product, purchase));
+        purchase.ReceivingCompletedAt = DateTimeOffset.UtcNow;
+        purchase.ClosedAt = DateTimeOffset.UtcNow;
+        Assert.Null(ProductPricingService.BuildPurchaseQuote(product, purchase));
+        product.Variants[0].Layers.Add(new() { PurchaseId = Guid.NewGuid(), RemainingQuantity = 3, RemainingValue = 900 });
+        Assert.Null(ProductPricingService.BuildPurchaseQuote(product, purchase));
+        product.Variants[0].Layers.Add(new() { PurchaseId = purchase.Id, RemainingQuantity = 1, RemainingValue = 100 });
+        var remaining = ProductPricingService.BuildPurchaseQuote(product, purchase)!;
+        Assert.Equal(PricingBasis.PurchaseStock, remaining.Basis);
+        Assert.Equal(1, remaining.Quantity);
+        Assert.Equal(100, remaining.UnitCost);
+    }
+
+    [Fact]
+    public void Completed_receiving_without_goods_does_not_restore_planned_quantities()
+    {
+        var product = new Product();
+        var purchase = new Purchase { CurrencyCode = "UZS", ReceivingCompletedAt = DateTimeOffset.UtcNow,
+            Items = [new() { ProductId = product.Id, Quantity = 2, UnitPrice = 100 }] };
+        Assert.Null(ProductPricingService.BuildPurchaseQuote(product, purchase));
+    }
 }

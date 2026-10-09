@@ -1,7 +1,4 @@
 html { min-width: 320px; }
-.browser-boot { min-height:100dvh; display:grid; place-content:center; gap:.5rem; padding:2rem; text-align:center; color:var(--dona-text); background:var(--dona-bg); }
-.browser-boot strong { font-size:var(--dona-type-title-md); }
-.browser-boot span { color:var(--dona-muted); font-size:var(--dona-type-body); }
 #blazor-error-ui { position:fixed; right:1rem; bottom:1rem; left:1rem; z-index:1000; display:none; max-width:44rem; margin:auto; border:1px solid rgba(var(--dona-danger-rgb), 0.35); border-radius:14px; padding:14px 18px; background:var(--dona-surface); color:var(--dona-text); }
 #blazor-error-ui a { color:var(--dona-success); }
 @media (min-width: 900px) {

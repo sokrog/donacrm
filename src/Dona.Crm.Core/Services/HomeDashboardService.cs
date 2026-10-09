@@ -40,7 +40,7 @@ public sealed class HomeDashboardService(
         var activeSales = sales.Where(item => item.Status != SaleStatus.Cancelled).ToList();
         var todaySales = activeSales.Where(item => item.CreatedAt.LocalDateTime.Date == localDate).ToList();
         var incoming = purchases
-            .Where(item => item.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived)
+            .Where(PurchaseAvailability.IsAwaitingDelivery)
             .ToList();
 
         return new HomeDashboardSnapshot

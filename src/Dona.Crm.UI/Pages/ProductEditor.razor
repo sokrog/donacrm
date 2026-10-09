@@ -29,7 +29,7 @@
     {
         <EditForm id="producteditor-form-1" class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <div class="product-editor-workspace @(model.Images.Count > 0 ? "product-editor-workspace--with-images" : null)">
                 <div class="product-editor-media">
@@ -38,14 +38,14 @@
                 <div class="product-editor-primary">
                     <section class="dona-section" aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
                         @if (!IsNew && model.Quantity == 0) { <p class="dona-note">Остатка пока нет.</p> }
-                        <label class="dona-field">Название *<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
+                        <label class="dona-field">Название *<DonaLiveText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
                         <div class="dona-field-row">
-                            <label class="dona-field">SKU *<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label>
+                            <label class="dona-field">SKU *<DonaLiveText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label>
                             <label class="dona-field">
                                 Категория<OrbitSelect @ref="categoryPicker" TValue="string" @bind-Value="model.Category" Options="@CategoryOptions" Label="Категория">
                                     <Footer>
                                         <div class="category-picker-add">
-                                            <InputText @bind-Value="newCategoryName" placeholder="Новая категория" autocomplete="off" />
+                                            <DonaLiveText @bind-Value="newCategoryName" placeholder="Новая категория" autocomplete="off" />
                                             <button type="button" class="dona-btn dona-btn--ghost" disabled="@isSaving" @onclick="AddCategoryAsync"><OrbitIcon Name="plus" />Добавить</button>
                                         </div>
                                     </Footer>
@@ -60,12 +60,11 @@
                         @if (IsNew) { <p class="dona-note">Сохраните товар, чтобы установить цену отдельной операцией.</p> }
                         else
                         {
-                            <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/products/@model.Id/pricing">Установить цену</a></div>
                             @if (lastPriceAt is { } date) { <p class="dona-note">Последнее изменение: @date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
-                            @if (reviewPrice) { <p class="dona-message">Основание последней установки цены изменилось. Проверьте себестоимость и пересмотрите цену.</p> }
+                            @if (reviewPrice) { <p class="dona-message">Себестоимость оставшегося товара изменилась после назначения цены. Проверьте продажную цену.</p> }
                         }
                         @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Продажная цена обновлена.</p> }
-                        <label class="dona-field">Описание<InputTextArea @bind-Value="model.Notes" rows="5" placeholder="Материал, посадка, особенности модели" /></label>
+                        <label class="dona-field">Описание<DonaLiveTextArea class="product-description" @bind-Value="model.Notes" rows="8" placeholder="Материал, посадка, особенности модели" /></label>
                     </section>
             <section class="dona-section product-variants" aria-labelledby="variants">
                 <div class="dona-section-title">
@@ -80,26 +79,24 @@
                 @foreach (var variant in model.Variants)
                 {
                     <div class="variant-row" @key="variant.Id" @oninput="() => removalConfirmation?.MarkEdited(variant)">
-                        <label class="dona-field">Цвет<InputText @bind-Value="variant.Color" /></label>
-                        <label class="dona-field">Размер<InputText @bind-Value="variant.Size" /></label>
+                        <label class="dona-field">Цвет<DonaLiveText @bind-Value="variant.Color" /></label>
+                        <label class="dona-field">Размер<DonaLiveText @bind-Value="variant.Size" /></label>
                         <div class="variant-stock">
                             @if (!IsNew) { <strong>Доступно @variant.AvailableQuantity</strong> }
                             @if (Expected(variant) > 0) { <span>Ожидается @Expected(variant)</span> }
                         </div>
                         <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove" aria-label="Удалить вариант"
-                                disabled="@(model.Variants.Count == 1 || RemovalBlocker(variant) is not null)"
+                                aria-disabled="@((model.Variants.Count == 1 || RemovalBlocker(variant) is not null) ? "true" : "false")"
                                 @onclick="() => RemoveVariant(variant)"><OrbitIcon Name="close" /></button>
-                        @if (RemovalBlocker(variant) is { } reason) { <p class="variant-blocker dona-note">@reason</p> }
+
                     </div>
                 }
             </section>
 
-                </div>
-
                 <div class="product-editor-secondary">
                     <details class="dona-section"><summary><OrbitIcon Name="down" />Закупка</summary>
                         <label class="dona-field">Предпочтительный поставщик<OrbitSelect TValue="Guid?" @bind-Value="model.PreferredSupplierId" Options="@PreferredSupplierOptions" Label="Предпочтительный поставщик" Searchable="true" /></label>
-                        <label class="dona-field">Ссылка на товар у поставщика<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
+                        <label class="dona-field">Ссылка на товар у поставщика<DonaLiveText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
                         @if (Uri.TryCreate(model.SourceUrl, UriKind.Absolute, out var storeUri) && storeUri.Scheme is "http" or "https")
                         {
                             <a class="store-link" href="@storeUri" target="_blank" rel="noopener noreferrer">Открыть страницу товара в магазине ↗</a>
@@ -107,9 +104,20 @@
                         <label class="dona-field">Вес единицы, кг<InputNumber @bind-Value="model.UnitWeightKg" min="0" /></label>
                     </details>
                 </div>
+                </div>
             </div>
 
             <ValidationSummary />
+            @if (removalNotice is not null)
+            {
+                <DonaConfirmation OnCancel="() => removalNotice = null">
+                    <div class="dona-stack" role="status">
+                        <strong>Нельзя удалить вариант</strong>
+                        <p>@removalNotice</p>
+                        <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => removalNotice = null">Понятно</button>
+                    </div>
+                </DonaConfirmation>
+            }
             @if (saveError is not null) { <p class="dona-message dona-message--error" role="alert">@saveError</p> }
 @if (confirmArchive)
                 {
@@ -122,11 +130,11 @@
 
             <DonaPageActions>
                 <Primary>
-                    <button form="producteditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить товар")</button>
+                    <button form="producteditor-form-1" type="submit" class="dona-btn dona-btn--primary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@isSaving">@(isSaving ? "Сохраняем…" : "Сохранить")</button>
                 </Primary>
                 <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="/products">Отмена</a>
                     @if (!IsNew) {
+                    <a class="dona-btn dona-btn--secondary" href="/products/@model.Id/pricing">Установить цену</a>
                     <a class="dona-btn dona-btn--secondary" href="/products/@model.Id/price-history">История цен</a>
                     <a class="dona-btn dona-btn--secondary" href="/purchases/new?productId=@model.Id">Создать закупку</a>
                     <a class="dona-btn dona-btn--secondary" href="/inventory/adjustment/new?productId=@model.Id">Внести остаток</a>
@@ -141,6 +149,7 @@
 </div>
 
 @code {
+    private bool hasChanges;
     [Parameter] public Guid? Id { get; set; }
     private Product model = new();
     private bool isLoading = true;
@@ -152,6 +161,7 @@
     private string newCategoryName = string.Empty;
     private string? errorMessage;
     private string? saveError;
+    private string? removalNotice;
     private IReadOnlyList<string> categories = [];
     private IReadOnlyList<Supplier> suppliers = [];
     private IReadOnlyList<Purchase> purchases = [];
@@ -170,7 +180,7 @@
     private UnsavedChangesGuard? unsavedGuard;
     private ListItemRemovalConfirmation? removalConfirmation;
     private bool IsNew => Id is null;
-    private int Expected(ProductVariant variant) => purchases.Where(x => x.ClosedAt is null && x.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived)
+    private int Expected(ProductVariant variant) => purchases.Where(PurchaseAvailability.IsAwaitingDelivery)
         .SelectMany(x => x.Items).Where(x => x.ProductId == model.Id && x.ProductVariantId == variant.Id).Sum(x => x.MissingQuantity);
     private async Task<string> SuggestSkuAsync()
     {
@@ -182,7 +192,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        isLoading = true; errorMessage = null; confirmArchive = false; saveError = null; newCategoryName = string.Empty;
+        isLoading = true; errorMessage = null; confirmArchive = false; removalNotice = null; saveError = null; newCategoryName = string.Empty;
         try
         {
             suppliers = await Commerce.GetSuppliersAsync();
@@ -235,7 +245,8 @@
     private string? RemovalBlocker(ProductVariant variant) => removalBlockers.GetValueOrDefault(variant.Id);
     private async Task RemoveVariant(ProductVariant variant)
     {
-        if (model.Variants.Count == 1 || RemovalBlocker(variant) is not null) return;
+        if (RemovalBlocker(variant) is { } reason) { removalNotice = reason; return; }
+        if (model.Variants.Count == 1) { removalNotice = "У товара должен остаться хотя бы один вариант."; return; }
         var filled = !string.IsNullOrWhiteSpace(variant.Color) || !string.IsNullOrWhiteSpace(variant.Size)
             || variant.Quantity is not (null or 0) || variant.Layers.Count > 0;
         if (removalConfirmation is null || !await removalConfirmation.ConfirmAsync(variant, filled, "Удалить вариант?")) return;

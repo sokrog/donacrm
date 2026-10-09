@@ -6,6 +6,7 @@ public enum StockAdjustmentReason { OpeningBalance, InventoryCount, Damage, Loss
 
 public sealed class StockAdjustmentRequest
 {
+    [Range(1, 100_000, ErrorMessage = "Укажите количество для изъятия от 1 до 100 000")] public int? WithdrawQuantity { get; set; }
     public LossTreatment LossTreatment { get; set; }
     [Required] public Guid? ProductId { get; set; }
     [Required] public Guid? ProductVariantId { get; set; }

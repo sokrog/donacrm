@@ -31,17 +31,17 @@
     {
         <EditForm id="marketingeditor-form-1" class="dona-stack" Model="FormModel" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <section class="dona-section">
                 <h2>Основное</h2>
                 @if (IsCollection)
                 {
-                    <label class="dona-field">Название<InputText @bind-Value="collection.Name" /><ValidationMessage For="() => collection.Name" /></label>
-                    <label class="dona-field">Описание<InputTextArea @bind-Value="collection.Description" /></label>
+                    <label class="dona-field">Название<DonaLiveText @bind-Value="collection.Name" /><ValidationMessage For="() => collection.Name" /></label>
+                    <label class="dona-field">Описание<DonaLiveTextArea @bind-Value="collection.Description" /></label>
                     <div class="dona-field-row">
-                        <label class="dona-field">Сезон<InputText @bind-Value="collection.Season" /></label>
-                        <label class="dona-field">Стиль<InputText @bind-Value="collection.Style" /></label>
+                        <label class="dona-field">Сезон<DonaLiveText @bind-Value="collection.Season" /></label>
+                        <label class="dona-field">Стиль<DonaLiveText @bind-Value="collection.Style" /></label>
                     </div>
                     <div class="dona-field-row">
                         <label class="dona-field">Бюджет, UZS<InputNumber @bind-Value="collection.BudgetLimitUzs" /></label>
@@ -50,10 +50,10 @@
                 }
                 else
                 {
-                    <label class="dona-field">Название<InputText @bind-Value="outfit.Name" /><ValidationMessage For="() => outfit.Name" /></label>
-                    <label class="dona-field">Описание<InputTextArea @bind-Value="outfit.Description" /></label>
+                    <label class="dona-field">Название<DonaLiveText @bind-Value="outfit.Name" /><ValidationMessage For="() => outfit.Name" /></label>
+                    <label class="dona-field">Описание<DonaLiveTextArea @bind-Value="outfit.Description" /></label>
                     <div class="dona-field-row">
-                        <label class="dona-field">Повод<InputText @bind-Value="outfit.Occasion" /></label>
+                        <label class="dona-field">Повод<DonaLiveText @bind-Value="outfit.Occasion" /></label>
                         <label class="dona-field">Статус<OrbitSelect TValue="MarketingStatus?" @bind-Value="outfit.Status" Options="@MarketingStatusOptions" Label="Статус образа" /></label>
                     </div>
                 }
@@ -111,11 +111,8 @@
 
 <DonaPageActions>
                 <Primary>
-                    <button form="marketingeditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                    <button form="marketingeditor-form-1" type="submit" class="dona-btn dona-btn--primary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
                 </Primary>
-                <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="@BackUrl">Отмена</a>
-                </Secondary>
                 <Danger>
                     @if (!IsNew)
                     {
@@ -127,6 +124,7 @@
     }
 </div>
 @code {
+    private bool hasChanges;
     [Parameter]
     public Guid? Id { get; set; }
 

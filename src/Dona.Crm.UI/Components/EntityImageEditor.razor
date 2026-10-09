@@ -21,10 +21,29 @@
     {
         <p class="entity-images__empty">Выберите фото из галереи или добавьте его по ссылке.</p>
     }
+    else if (Featured)
+    {
+        var image = OrderedImages[ActiveIndex];
+        <div class="entity-images__carousel" role="group" aria-roledescription="карусель" aria-label="Фотографии товара" @onkeydown="CarouselKeyDown">
+            <button type="button" class="entity-image-preview-button" aria-label="Открыть фотографию на весь экран" @onclick="() => OpenPreview(image)">
+                <ProductImageView @key="image.Id" Image="@image" FallbackUrl="@image.Url" Class="entity-image-preview" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {ActiveIndex + 1}")" />
+            </button>
+            <button type="button" class="entity-images__overlay-button entity-images__delete" aria-label="Удалить фотографию" title="Удалить фотографию" @onclick="() => removalCandidate = image"><OrbitIcon Name="trash" /></button>
+            <div class="entity-images__photo-actions">
+                <button type="button" class="entity-images__overlay-button entity-images__star" aria-label="Главная фотография" aria-pressed="@(image.IsMain ? "true" : "false")" title="@(image.IsMain ? "Главная фотография" : "Сделать главной")" @onclick="() => SetMainAsync(image)"><OrbitIcon Name="@(image.IsMain ? "star-filled" : "star")" /></button>
+            </div>
+            @if (Images.Count > 1)
+            {
+                <button type="button" class="entity-images__overlay-button entity-images__arrow entity-images__previous" aria-label="Предыдущая фотография" @onclick="() => MovePhoto(-1)"><OrbitIcon Name="back" /></button>
+                <button type="button" class="entity-images__overlay-button entity-images__arrow entity-images__next" aria-label="Следующая фотография" @onclick="() => MovePhoto(1)"><OrbitIcon Name="forward" /></button>
+            }
+            <span class="entity-images__counter" role="status" aria-live="polite" aria-atomic="true">@(ActiveIndex + 1) / @Images.Count</span>
+        </div>
+    }
     else
     {
         <div class="entity-images__grid">
-            @foreach (var image in Images.OrderByDescending(item => Featured && item.IsMain).ThenBy(item => item.SortOrder))
+            @foreach (var image in OrderedImages)
             {
                 <article class="entity-images__item" @key="image.Id">
                     <button type="button" class="entity-image-preview-button" aria-label="Открыть фотографию на весь экран" @onclick="() => OpenPreview(image)">
@@ -32,20 +51,28 @@
                     </button>
                     <div>
                         <button type="button" class="@(image.IsMain ? "selected" : null)" @onclick="() => SetMainAsync(image)">@(image.IsMain ? "Главное" : "Сделать главным")</button>
-                        <button type="button" class="delete" aria-label="Удалить фотографию" @onclick="() => RemoveAsync(image)">×</button>
+                        <button type="button" class="delete" aria-label="Удалить фотографию" @onclick="() => removalCandidate = image">×</button>
                     </div>
                 </article>
             }
         </div>
     }
+    @if (removalCandidate is not null)
+    {
+        <DonaConfirmation OnCancel="() => removalCandidate = null">
+            <div class="entity-images__confirmation">
+                <h2>Удалить фотографию?</h2>
+                <p>Фотография исчезнет из списка. Окончательное удаление произойдёт только после сохранения изменений в карточке.</p>
+                <div class="dona-toolbar">
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => removalCandidate = null">Отмена</button>
+                    <button type="button" class="dona-btn dona-btn--danger" @onclick="ConfirmRemovalAsync">Удалить фотографию</button>
+                </div>
+            </div>
+        </DonaConfirmation>
+    }
     @if (preview is not null)
     {
-        <div class="dona-modal dona-modal--viewer" role="presentation" @onclick="ClosePreview">
-            <section class="entity-image-lightbox" role="dialog" aria-modal="true" aria-label="Полноэкранный просмотр фотографии" @onclick:stopPropagation="true" @onkeydown="PreviewKeyDown" tabindex="-1">
-                <button type="button" class="dona-icon-button dona-icon-button--round entity-image-lightbox__close" aria-label="Закрыть просмотр" @onclick="ClosePreview"><OrbitIcon Name="close" /></button>
-                <ProductImageView Image="@preview" FallbackUrl="@preview.Url" Class="entity-image-lightbox__image" Alt="@($"Фото {EntityLabel.ToLowerInvariant()} {preview.SortOrder + 1}")" />
-            </section>
-        </div>
+        <EntityImageViewer Images="@OrderedImages" Image="@preview" EntityLabel="@EntityLabel" ImageChanged="PreviewChanged" OnClose="ClosePreview" />
     }
     @if (message is not null)
     {
@@ -69,6 +96,28 @@
     private bool busy;
     private bool hasError;
     private ProductImage? preview;
+    private ProductImage? removalCandidate;
+    private Guid? activeImageId;
+    private Guid? activeOwnerId;
+    protected override void OnParametersSet()
+    {
+        if (activeOwnerId == OwnerId) return;
+        activeOwnerId = OwnerId;
+        removalCandidate = null;
+        activeImageId = null;
+    }
+    private List<ProductImage> OrderedImages => Images.OrderByDescending(item => Featured && item.IsMain).ThenBy(item => item.SortOrder).ToList();
+    private int ActiveIndex => Math.Max(0, OrderedImages.FindIndex(item => item.Id == activeImageId));
+    private void MovePhoto(int direction)
+    {
+        if (!Featured || Images.Count < 2) return;
+        activeImageId = OrderedImages[(ActiveIndex + direction + Images.Count) % Images.Count].Id;
+    }
+    private void CarouselKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "ArrowLeft") MovePhoto(-1);
+        else if (args.Key == "ArrowRight") MovePhoto(1);
+    }
 
     public async Task CommitAsync()
     {
@@ -102,6 +151,7 @@
             image.IsMain = Images.Count == 0;
             Images.Add(image);
             pending.Add(image);
+            activeImageId = image.Id;
             Normalize();
             await ImagesChanged.InvokeAsync();
             message = "Фотография добавлена. Сохраните изменения.";
@@ -141,6 +191,7 @@
         };
         Images.Add(image);
         pending.Add(image);
+        activeImageId = image.Id;
         imageUrl = null;
         Normalize();
         await ImagesChanged.InvokeAsync();
@@ -149,19 +200,29 @@
 
     private async Task SetMainAsync(ProductImage selected)
     {
+        activeImageId = selected.Id;
         foreach (var image in Images)
             image.IsMain = image.Id == selected.Id;
         Normalize();
         await ImagesChanged.InvokeAsync();
     }
 
+    private async Task ConfirmRemovalAsync()
+    {
+        var image = removalCandidate;
+        removalCandidate = null;
+        if (image is null || !Images.Contains(image)) return;
+        await RemoveAsync(image);
+        hasError = false;
+        message = "Фотография будет окончательно удалена после сохранения изменений в карточке.";
+    }
+
     private async Task RemoveAsync(ProductImage image)
     {
+        var index = ActiveIndex;
         Images.Remove(image);
-        if (pending.Remove(image))
-            await ImagePicker.DeleteAsync(image);
-        else
-            removed.Add(image);
+        activeImageId = OrderedImages.ElementAtOrDefault(Math.Min(index, Images.Count - 1))?.Id;
+        removed.Add(image);
         Normalize();
         await ImagesChanged.InvokeAsync();
     }
@@ -170,9 +231,10 @@
 
     private void ClosePreview() => preview = null;
 
-    private void PreviewKeyDown(KeyboardEventArgs eventArgs)
+    private void PreviewChanged(ProductImage image)
     {
-        if (eventArgs.Key == "Escape") ClosePreview();
+        preview = image;
+        activeImageId = image.Id;
     }
 
     private void Normalize()

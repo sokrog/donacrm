@@ -78,7 +78,7 @@ details summary:focus-visible {
 .cost-summary strong { color: var(--dona-text); }
 .cost-summary .total { font-size: var(--dona-type-body); }
 
-.purchase-line, .receipt-line {
+.receipt-line {
     display: grid;
     gap: var(--dona-space-2);
     border-top: 1px solid var(--dona-line);
@@ -133,7 +133,7 @@ details summary:focus-visible {
 
 .purchase-report-action { margin-bottom: var(--dona-section-gap); }
 
-.purchase-line, .expense-line {
+.expense-line {
     position: relative;
     padding-right: calc(var(--dona-remove-size) + var(--dona-space-2));
 }
@@ -142,3 +142,13 @@ details summary:focus-visible {
     top: var(--dona-space-3);
     right: 0;
 }
+
+/* Each purchase position is a separate card, with the controls inside its boundary. */
+.purchase-items { padding: 0; border: 0; background: transparent; gap: var(--dona-space-4); }
+.purchase-line { display: grid; gap: var(--dona-space-3); min-width: 0; padding: var(--dona-space-4); border: 1px solid var(--dona-line); border-radius: var(--dona-radius-md); background: var(--dona-surface); }
+.purchase-line-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--dona-space-3); padding-bottom: var(--dona-space-3); border-bottom: 1px solid var(--dona-line); }
+.purchase-line-heading h3 { margin: 0; color: var(--dona-brand); font-size: var(--dona-type-subtitle); }
+.purchase-line > p { margin: 0; }
+.line-fields--weighted { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .line-fields, .line-fields--weighted { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .purchase-line { padding: var(--dona-space-3); } .line-fields, .line-fields--weighted { grid-template-columns: 1fr; } }

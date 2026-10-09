@@ -89,9 +89,45 @@ html { scroll-padding-top: calc(var(--dona-sticky-header-height, 96px) + var(--d
     .dona-page-command-danger:not(:empty) { border-top: 0; padding-top: 0; }
     .dona-page-command-bar .dona-context-menu:not(:has(.dona-page-command-danger button, .dona-page-command-danger a)) { display: none; }
 }
-@media (max-width: 599px) {
-    .dona-page-command-bar { flex-basis: 100%; }
-    .dona-page-command-primary { flex: 1; }
-    .dona-page-command-primary > .dona-btn { width: 100%; }
+@media (max-width: 899px) {
+    .dona-sticky-header { flex-wrap: nowrap; }
+    .dona-sticky-header > div:not(.dona-page-header-actions) { flex: 1 1 0; }
+    .dona-sticky-header h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dona-sticky-header > .dona-icon-button { flex-shrink: 0; }
+    .dona-page-command-bar { flex: 0 1 auto; max-width: 60%; }
+    .dona-page-command-primary { flex: 0 1 auto; min-width: 0; }
+    .dona-page-command-primary > .dona-btn { max-width: 100%; white-space: normal; }
+    .dona-page-header-actions { flex-wrap: nowrap; flex-shrink: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .dona-sticky-header { transition: none; } }
+
+/* Unchanged forms must not reserve space after the visible header actions. */
+.dona-save--unchanged { display: none; }
+.dona-page-command-primary:has(> .dona-save--unchanged):not(:has(> :not(.dona-save--unchanged))) { display: none; }
+
+/* Collapse secondary actions when the actual header row does not fit. */
+.dona-page-command-bar { flex-wrap: nowrap; }
+.dona-sticky-header .dona-header-actions-desktop { flex-wrap: nowrap; white-space: nowrap; }
+.dona-header-actions-desktop > .dona-btn { flex-shrink: 0; }
+.dona-header-compact .dona-header-actions-desktop { display: none; }
+.dona-header-compact .dona-page-command-secondary { display: grid; }
+.dona-header-compact .dona-page-command-bar .dona-context-menu:has(.dona-context-menu-panel button, .dona-context-menu-panel a) { display: block; flex-shrink: 0; }
+.dona-header-compact .dona-page-command-danger:not(:empty) { border-top: var(--dona-border-width) solid var(--dona-line); padding-top: var(--dona-space-2); }
+.dona-sticky-header.dona-header-measuring > div, .dona-header-measuring > * { flex: 0 0 auto; width: max-content; max-width: none; white-space: nowrap; }
+.dona-header-measuring .dona-header-actions-desktop { display: flex; }
+.dona-header-measuring .dona-page-command-bar { flex-basis: auto; }
+.dona-header-measuring .dona-page-command-bar .dona-context-menu { display: none; }
+.dona-header-measuring .dona-page-command-bar .dona-context-menu:has(.dona-page-command-danger button, .dona-page-command-danger a) { display: block; }
+.dona-header-actions-desktop:not(:has(button, a)) { display: none; }
+
+/* Catalog keeps compact actions beside its title, including on phones. */
+.catalog-select-toggle > svg { display: none; }
+@media (max-width: 599px) {
+    .catalog-header.dona-sticky-header { flex-wrap: nowrap; }
+    .catalog-header.dona-sticky-header > div { flex: 1 1 0; }
+    .catalog-header .dona-page-command-bar { flex: 0 0 auto; }
+    .catalog-header .catalog-select-toggle { width: var(--dona-tap); height: var(--dona-tap); padding: 0; flex-shrink: 0; }
+    .catalog-header .catalog-select-toggle > svg { display: block; width: 22px; height: 22px; }
+    .catalog-header .catalog-select-toggle > span { display: none; }
+    .catalog-header .catalog-select-toggle[aria-pressed="true"] { background: var(--dona-surface-soft); border-color: var(--dona-brand); }
+}

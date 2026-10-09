@@ -23,4 +23,7 @@
     <ProjectReference Include="..\..\src\Dona.Crm.Core\Dona.Crm.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\src\Dona.Crm.UI\Components\FormChangeTracker.cs" Link="FormChangeTracker.cs" />
+  </ItemGroup>
 </Project>

@@ -28,21 +28,21 @@
     {
         <EditForm id="customereditor-form-1" class="dona-stack" Model="editing" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <section class="dona-section">
                 <h2>Контактные данные</h2>
                 <label class="dona-field">
                     Имя
-                    <InputText @bind-Value="editing.Name" />
+                    <DonaLiveText @bind-Value="editing.Name" />
                     <ValidationMessage For="() => editing.Name" />
                 </label>
-                <label class="dona-field">Телефон<InputText @bind-Value="editing.Phone" inputmode="tel" /></label>
+                <label class="dona-field">Телефон<DonaLiveText @bind-Value="editing.Phone" inputmode="tel" /></label>
                 <div class="dona-field-row">
-                    <label class="dona-field">Instagram<InputText @bind-Value="editing.Instagram" /></label>
-                    <label class="dona-field">Telegram<InputText @bind-Value="editing.Telegram" /></label>
+                    <label class="dona-field">Instagram<DonaLiveText @bind-Value="editing.Instagram" /></label>
+                    <label class="dona-field">Telegram<DonaLiveText @bind-Value="editing.Telegram" /></label>
                 </div>
-                <label class="dona-field">Адрес<InputText @bind-Value="editing.Address" /></label>
-                <label class="dona-field">Заметка<InputTextArea @bind-Value="editing.Notes" /></label>
+                <label class="dona-field">Адрес<DonaLiveText @bind-Value="editing.Address" /></label>
+                <label class="dona-field">Заметка<DonaLiveTextArea @bind-Value="editing.Notes" /></label>
                 @if (errorMessage is not null)
                 {
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
@@ -58,11 +58,8 @@
                 }
             <DonaPageActions>
                 <Primary>
-                    <button form="customereditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                    <button form="customereditor-form-1" type="submit" class="dona-btn dona-btn--primary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
                 </Primary>
-                <Secondary>
-                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="CloseEditor">Отмена</button>
-                </Secondary>
                 <Danger>
                     @if (!IsNew && !confirmDelete)
                     {
@@ -75,6 +72,7 @@
 </div>
 
 @code {
+    private bool hasChanges;
     [Parameter] public Guid? Id { get; set; }
     private bool IsNew => Id is null;
     private Customer? editing;

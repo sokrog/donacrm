@@ -54,7 +54,7 @@
         }
         <EditForm id="saleeditor-form-1" class="dona-stack" Model="sale" OnValidSubmit="SaveDraftAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
             <fieldset disabled="@IsReadOnly">
                 <section class="dona-section">
@@ -142,10 +142,10 @@
                         }
                         <label class="dona-field">Плата клиента за доставку, UZS<InputNumber @bind-Value="sale.DeliveryChargeUzs" min="0" /></label>
                     </div>
-                    <label class="dona-field">Заметка<InputTextArea @bind-Value="sale.Notes" /></label>
+                    <label class="dona-field">Заметка<DonaLiveTextArea @bind-Value="sale.Notes" /></label>
                     <label class="dona-field">
                         Номер продажи
-                        <InputText @bind-Value="sale.Number" />
+                        <DonaLiveText @bind-Value="sale.Number" />
                         <ValidationMessage For="() => sale.Number" />
                     </label>
                 </section>
@@ -190,7 +190,7 @@
                             <p>Только проданные позиции</p>
                         </div>
                     </div>
-                    <label class="dona-field">Причина<InputText @bind-Value="returnDocument.Reason" placeholder="Например, не подошёл размер" /></label>
+                    <label class="dona-field">Причина<DonaLiveText @bind-Value="returnDocument.Reason" placeholder="Например, не подошёл размер" /></label>
                     @foreach (var item in sale.Items.Where(value => value.QuantityToReturn > 0))
                     {
                         var line = ReturnLine(item);
@@ -273,7 +273,7 @@
                 </Primary>
                 <Secondary>
                     @if (IsDraft) {
-                    <button type="submit" form="saleeditor-form-1" class="dona-btn dona-btn--secondary" disabled="@saving">Черновик</button>
+                    <button type="submit" form="saleeditor-form-1" class="dona-btn dona-btn--secondary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">Черновик</button>
                     <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ReserveAsync">Зарезервировать</button>
                 }
             </Secondary>
@@ -286,6 +286,7 @@
     }
 </div>
 @code {
+    private bool hasChanges;
     [Parameter]
     public Guid? Id { get; set; }
 

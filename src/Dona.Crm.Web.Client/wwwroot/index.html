@@ -6,6 +6,8 @@
     <meta name="theme-color" content="#fce6ed" />
     <meta name="description" content="DONA CRM — локальная CRM для торговли" />
     <title>DONA CRM</title>
+    <style>html, body { margin: 0; background: #fce6ed; }</style>
+    <link rel="stylesheet" href="_content/Dona.Crm.UI/styles/boot.css" />
     <base href="/" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" />
@@ -14,7 +16,14 @@
     <link rel="stylesheet" href="browser.css" />
 </head>
 <body>
-    <div id="app"><div class="browser-boot" role="status"><img class="dona-boot-logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /><strong>DONA CRM</strong><span>Подготавливаем локальное рабочее пространство…</span></div></div>
+    <div id="app"><div class="dona-boot" role="status" aria-live="polite" aria-label="Загрузка DONA CRM">
+            <img class="dona-boot__logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" width="280" height="140" alt="DONA" />
+            <p class="dona-boot__caption">Управление магазином</p>
+            <span class="dona-boot__progress" aria-hidden="true"></span>
+            <p class="dona-boot__status">Загружаем…</p>
+        </div></div>
+
+
     <div id="blazor-error-ui" data-nosnippet>Не удалось продолжить работу. <a href=".">Перезагрузить</a></div>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="_content/Dona.Crm.UI/orbit-modal.js"></script>

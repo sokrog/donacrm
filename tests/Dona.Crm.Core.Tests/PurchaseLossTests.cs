@@ -6,6 +6,30 @@ namespace Dona.Crm.Core.Tests;
 
 public sealed class PurchaseLossTests
 {
+    [Theory]
+    [InlineData(1, 9)]
+    [InlineData(3, 7)]
+    public async Task Personal_use_withdraws_explicit_count_not_stale_target_balance(int count, int expected)
+    {
+        var s = new Scenario(10, 0); await s.Start();
+        var movement = await new StockAdjustmentService(s.Catalog, s.Store).AdjustAsync(new()
+        {
+            ProductId = s.Product.Id, ProductVariantId = s.Product.Variants[0].Id,
+            WithdrawQuantity = count, NewQuantity = 0, Reason = StockAdjustmentReason.PersonalUse, Note = "Для себя"
+        });
+        Assert.Equal(-count, movement.QuantityDelta);
+        Assert.Equal(expected, (await s.Layer()).RemainingQuantity);
+    }
+
+    [Fact]
+    public async Task Backdated_order_keeps_actual_order_date_when_saved()
+    {
+        var s = new Scenario(); var service = s.Service();
+        s.Purchase.OrderedAt = new DateTimeOffset(2025, 4, 12, 0, 0, 0, TimeSpan.FromHours(5));
+        await service.SaveAsync(s.Purchase);
+        Assert.Equal(s.Purchase.OrderedAt, Assert.Single(s.Store.Commits.Last().Purchases).OrderedAt);
+        Assert.Equal(2025, s.Purchase.OrderedAt.Year);
+    }
     private static T Copy<T>(T value) => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value))!;
     private sealed class Scenario
     {

@@ -1,8 +1,11 @@
+@using Microsoft.JSInterop
 @page "/purchases"
 @using System.Globalization
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
 @inject ICommerceRepository Commerce
+@inject NavigationManager Navigation
+@inject Microsoft.JSInterop.IJSRuntime JS
 
 
 <PageTitle>Закупки — DONA CRM</PageTitle>
@@ -46,24 +49,44 @@
             <div class="purchase-list">
                 @foreach (var item in Filtered.OrderByDescending(value => value.OrderedAt))
                 {
-                    <a class="dona-card" href="/purchases/@item.Id">
+                    <article class="dona-card purchase-card" @onclick="() => OpenPurchase(item)">
                         <div class="purchase-card-title">
-                            <strong>@item.Number</strong>
+                            <a class="purchase-card-link" @onclick:stopPropagation="true" href="/purchases/@item.Id">@item.Number</a>
                             <span class="dona-badge">@(item.ClosedAt is not null ? "Закрыта" : item.Status.Display())</span>
                         </div>
-                        <dl class="purchase-facts">
-                            @if (!string.IsNullOrWhiteSpace(item.SupplierName)) { <div><dt>Поставщик</dt><dd>@item.SupplierName</dd></div> }
-                            @if (!string.IsNullOrWhiteSpace(item.IntermediaryName)) { <div><dt>Посредник</dt><dd>@item.IntermediaryName</dd></div> }
-                            <div><dt>Товары · @item.TotalQuantity шт.</dt><dd>@Goods(item)</dd></div>
-                            <div><dt>Комиссия и доставка</dt><dd>@IntermediaryCosts(item)</dd></div>
-                            <div class="purchase-total"><dt>Закупка с расходами</dt><dd>@(item.HasCompleteCostInputs ? $"{Money(item.TotalCostUzs)} UZS" : "Сумма ещё не рассчитана")<small>@(item.IsCostFinalized ? "Все расходы внесены" : "Предварительно")</small></dd></div>
-                            <div><dt>Дата заказа</dt><dd>@item.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</dd></div>
-                            @if (item.EstimatedDeliveryDate is { } expected) { <div><dt>Ожидаемая доставка</dt><dd>@expected.ToString("dd.MM.yyyy")</dd></div> }
-                            @if (item.Receipts.Count > 0) { <div><dt>Последняя приёмка</dt><dd>@item.Receipts.Max(x => x.ReceivedAt).ToLocalTime().ToString("dd.MM.yyyy")</dd></div> }
-                            @if (item.ClosedAt is { } closed) { <div><dt>Дата закрытия</dt><dd>@closed.ToLocalTime().ToString("dd.MM.yyyy")</dd></div> }
-                        </dl>
-                        <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : $"Трек: {item.TrackingCode}")</span><span>@Delivery(item)</span></div>
-                    </a>
+                        <div class="purchase-card-body">
+                            <dl class="purchase-partners">
+                                <div><dt>Поставщик</dt><dd class="@(string.IsNullOrWhiteSpace(item.SupplierName) ? "purchase-missing" : null)">@(string.IsNullOrWhiteSpace(item.SupplierName) ? "Не указан" : item.SupplierName)</dd></div>
+                                @if (!string.IsNullOrWhiteSpace(item.IntermediaryName)) { <div><dt>Посредник</dt><dd>@item.IntermediaryName</dd></div> }
+                                <div><dt>Товары</dt><dd>@item.Items.Count поз. · @item.TotalQuantity шт.</dd></div>
+                            </dl>
+                            <dl class="purchase-amounts">
+                                <div class="purchase-total"><dt>Итого с расходами</dt>
+                                    @if (item.HasCompleteCostInputs) {
+                                        <dd>@Money(item.TotalCostUzs) UZS</dd>
+                                        <small>@(item.IsCostFinalized ? "Все расходы внесены" : "Предварительная сумма")</small>
+                                    } else { <dd class="purchase-total-pending">Пока недоступно</dd> }
+                                </div>
+                                <div class="purchase-money-row"><dt>Товары</dt><dd>@Goods(item)</dd></div>
+                                <div class="purchase-money-row"><dt>Комиссия и доставка</dt><dd>@IntermediaryCosts(item)</dd></div>
+                            </dl>
+                        </div>
+                        @if (!item.HasCompleteCostInputs) {
+                            <a class="purchase-issue" @onclick:stopPropagation="true" href="/purchases/@item.Id/costs">@CostIssue(item) <span>К расчёту →</span></a>
+                        }
+                        @if (InvalidDates(item)) {
+                            <a class="purchase-issue" @onclick:stopPropagation="true" href="/purchases/@item.Id">Проверьте даты: доставка указана раньше заказа.</a>
+                        } else if (IsOverdue(item)) { <p class="purchase-issue">Доставка просрочена — проверьте срок у посредника или поставщика.</p> }
+                        <div class="purchase-card-foot">
+                            <span><span class="purchase-date-label">@(item.Status == PurchaseStatus.Draft ? "Дата заказа в черновике" : "Заказ")</span> @item.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</span>
+                            @if (item.EstimatedDeliveryDate is { } expected) { <span><span class="purchase-date-label">Ожидается</span> @expected.ToString("dd.MM.yyyy")</span> }
+                            @if (item.ClosedAt is { } closed) { <span><span class="purchase-date-label">Закрыта</span> @closed.ToLocalTime().ToString("dd.MM.yyyy")</span> }
+                            else if (item.Receipts.Count > 0) { <span><span class="purchase-date-label">Приёмка</span> @item.Receipts.Max(x => x.ReceivedAt).ToLocalTime().ToString("dd.MM.yyyy")</span> }
+                            @if (!string.IsNullOrWhiteSpace(item.TrackingCode)) {
+                                <button type="button" class="purchase-track" @onclick:stopPropagation="true" title="Скопировать трек-код" aria-label="@($"Скопировать трек-код {item.TrackingCode}")" @onclick="() => CopyTracking(item)">Трек: @item.TrackingCode <OrbitIcon Name="copy" /></button>
+                            }
+                        </div>
+                    </article>
                 }
             </div>
         }
@@ -83,11 +106,11 @@
         .. Enum.GetValues<PurchaseStatus>().Select(value => new OrbitSelectOption<string>(value.ToString(), value.Display()))
     ];
 
-    private IEnumerable<Purchase> Active => purchases.Where(value => value.ClosedAt is null && value.ReceivingCompletedAt is null && value.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived);
+    private IEnumerable<Purchase> Active => purchases.Where(PurchaseAvailability.IsAwaitingDelivery);
 
     private int IncomingUnits => Active.Sum(value => value.Items.Sum(item => item.MissingQuantity));
 
-    private int OverdueCount => Active.Count(value => value.EstimatedDeliveryDate?.Date < DateTime.Today);
+    private int OverdueCount => Active.Count(IsOverdue);
 
     private IEnumerable<Purchase> Filtered => purchases.Where(value =>
         (string.IsNullOrWhiteSpace(query)
@@ -113,7 +136,9 @@
         }
     }
 
-    private static string Goods(Purchase value) => value.Items.Count > 0 && value.Items.All(x => x.UnitPrice is not null)
+    private void OpenPurchase(Purchase value) => Navigation.NavigateTo($"/purchases/{value.Id}");
+
+    private static string Goods(Purchase value) => value.Items.Count > 0 && value.Items.All(x => x.UnitPrice is >= 0 && x.Quantity is > 0)
         ? $"{Money(value.GoodsCost)} {value.CurrencyCode}" : "Цены ещё не заполнены";
     private static string IntermediaryCosts(Purchase value)
     {
@@ -121,13 +146,19 @@
         if (expenses.Count > 0 && expenses.All(x => x.Amount is not null && (x.CurrencyCode == "UZS" || x.RateUzs is > 0))) return $"{Money(expenses.Sum(x => x.AmountUzs))} UZS";
         return expenses.Count == 0 ? "Не внесены" : expenses.Any(x => x.Amount is null) ? "Суммы ещё не заполнены" : string.Join(" + ", expenses.GroupBy(x => x.CurrencyCode).Select(g => $"{Money(g.Sum(x => x.Amount ?? 0))} {g.Key}"));
     }
-    private static string Delivery(Purchase value) => value.ClosedAt is not null ? "Закрыта"
-         : value.ReceivingCompletedAt is not null ? "Приёмка завершена"
-        : value.Status == PurchaseStatus.Cancelled ? "Отменена"
-        : value.Status == PurchaseStatus.Received ? "Получена"
-        : value.Status == PurchaseStatus.Draft ? "Заказ ещё не оформлен"
-        : value.EstimatedDeliveryDate is null ? "Срок доставки не указан"
-        : value.EstimatedDeliveryDate.Value.Date < DateTime.Today ? "Доставка просрочена" : "Ожидается доставка";
+    private static bool InvalidDates(Purchase value) => value.EstimatedDeliveryDate?.Date < value.OrderedAt.ToLocalTime().Date;
+    private static bool IsOverdue(Purchase value) => !InvalidDates(value) && value.ClosedAt is null && value.ReceivingCompletedAt is null
+        && value.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived
+        && value.EstimatedDeliveryDate?.Date < DateTime.Today;
+    private static string CostIssue(Purchase value) => value.ValidateCostInputs()
+        .Concat(value.Validate(new System.ComponentModel.DataAnnotations.ValidationContext(value)))
+        .Select(result => result.ErrorMessage).FirstOrDefault(text => !string.IsNullOrWhiteSpace(text))
+        ?? "Проверьте заполнение расходов и их распределение.";
+    private async Task CopyTracking(Purchase value)
+    {
+        try { await JS.InvokeVoidAsync("navigator.clipboard.writeText", value.TrackingCode); }
+        catch (Microsoft.JSInterop.JSException) { }
+    }
 
     private static string Money(decimal value) => value.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
 }

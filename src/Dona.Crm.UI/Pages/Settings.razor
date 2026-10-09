@@ -33,7 +33,7 @@ else
 {
     <EditForm id="settings-form-1" class="dona-stack" Model="settings" OnValidSubmit="SaveAsync">
         <DataAnnotationsValidator />
-        <UnsavedChangesGuard @ref="unsavedGuard" />
+        <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
         <section class="dona-section">
             <div class="dona-section-title section-heading"><span>01</span>
                 <div>
@@ -68,7 +68,7 @@ else
 <div class="dona-field-row"><label class="dona-field">Залежавшийся товар, дней
     <InputNumber @bind-Value="settings.StaleInventoryDays" min="1" />
 </label><label class="dona-field">Префикс продажи
-<InputText @bind-Value="settings.SaleNumberPrefix" />
+<DonaLiveText @bind-Value="settings.SaleNumberPrefix" />
 </label></div><p class="dona-note">Валюта учёта — UZS (сум). Иностранные валюты закупок и расходов пересчитываются по курсу документа.</p>
 </section>
 <section class="dona-section">
@@ -194,7 +194,7 @@ else
 
                                     <div class="dona-confirm dona-confirm--boxed"><p><strong>Это действие нельзя
                                         отменить.</strong></p><label class="dona-field"><span>Введите <b>УДАЛИТЬ</b> для подтверждения</span>
-                                        <InputText @bind-Value="clearConfirmation" autocomplete="off" />
+                                        <DonaLiveText @bind-Value="clearConfirmation" autocomplete="off" />
                                     </label>
                                     <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving"
                                                      @onclick="CancelClear">Отмена</button><button type="button" class="dona-btn dona-btn--danger"
@@ -210,17 +210,15 @@ else
 
             <DonaPageActions>
                 <Primary>
-                    <button form="settings-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" :
+                    <button form="settings-form-1" type="submit" class="dona-btn dona-btn--primary @(hasChanges ? null : "dona-save--unchanged")" disabled="@saving">@(saving ? "Сохраняем…" :
                     "Сохранить настройки")</button>
                 </Primary>
-                <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="/more">Отмена</a>
-                </Secondary>
             </DonaPageActions>
                             </EditForm>
                         }
                     </div>
 @code {
+    private bool hasChanges;
     private string? transferAccount, imageOperation;
     private ImageTransferProgress imageProgress = new(0, 0);
     private CancellationTokenSource? imageCancellation;
@@ -292,7 +290,7 @@ else
    IPersonalCloudBackupService;
     protected override async Task OnInitializedAsync() { settings = await SettingsRepository.GetAsync(); loading = false; }
     private
-   async Task SaveAsync() => await RunAsync(async () => { Normalize(); await SettingsRepository.SaveAsync(settings); },
+   async Task SaveAsync() => await RunAsync(async () => { Normalize(); await SettingsRepository.SaveAsync(settings); unsavedGuard?.MarkClean(); },
 "Настройки сохранены."); private async Task RecalculateAsync() => await RunAsync(async () =>
    {
        Normalize(); await
@@ -363,7 +361,7 @@ BackupRestore.RestoreAsync(backupContent); await DiscardQueuedUploadsAsync(); aw
         if (saving) return; saving = true; message = null; try
         {
             await
-   a(); unsavedGuard?.MarkClean(); message ??= t; success = true;
+   a(); message ??= t; success = true;
         }
         catch (OperationCanceledException)
         { message = "Операция остановлена. Локальные фотографии сохранены; завершённые загрузки в Google не отменены."; success = false; }

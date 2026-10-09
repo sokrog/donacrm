@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>DONA CRM</title>
+    <style>html, body { margin: 0; background: #fce6ed; }</style>
+    <link rel="stylesheet" href="_content/Dona.Crm.UI/styles/boot.css" />
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="_content/Dona.Crm.UI/dona.css" />
@@ -13,14 +15,14 @@
 
 <body>
 
-    <div id="app">
-        <div class="app-boot" role="status" aria-live="polite" aria-label="Загрузка DONA CRM">
-            <img class="dona-boot-logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" />
-            <span class="app-boot-spinner" aria-hidden="true"></span>
-            <strong>DONA CRM</strong>
-            <small>Подготавливаем рабочее пространство…</small>
-        </div>
-    </div>
+    <div id="app"><div class="dona-boot" role="status" aria-live="polite" aria-label="Загрузка DONA CRM">
+            <img class="dona-boot__logo" src="_content/Dona.Crm.UI/brand/dona-logo.png" width="280" height="140" alt="DONA" />
+            <p class="dona-boot__caption">Управление магазином</p>
+            <span class="dona-boot__progress" aria-hidden="true"></span>
+            <p class="dona-boot__status">Загружаем…</p>
+        </div></div>
+
+
 
     <div id="blazor-error-ui" data-nosnippet>
         Произошла непредвиденная ошибка.

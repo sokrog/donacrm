@@ -17,7 +17,7 @@
     @if (sourcePurchase is not null && (sourcePurchase.ReceivingCompletedAt is null || PurchaseReceivingService.HasUnreviewedLosses(sourcePurchase))) { <p class="dona-message">Расхождения ещё не разобраны. Цены можно назначить предварительно; после выбора учёта потерь проверьте их ещё раз.</p> }
     <p class="dona-note">Цена едина для всех вариантов и партий товара. Себестоимость учитывает физический остаток, включая резерв. Ранее созданные продажи сохраняют свои цены.</p>
     @if (loading) { <p class="dona-state" role="status">Собираем основания расчёта…</p> }
-    else if (rows.Count == 0) { <div class="dona-state">@error <a href="@BackUrl">Вернуться</a></div> }
+    else if (rows.Count == 0) { <div class="dona-state">@(error ?? "В этой закупке нет оставшихся товаров для расчёта цен.") <a href="@BackUrl">Вернуться</a></div> }
     else
     {
         <EditForm id="productpricing-form-1" Model="form" OnSubmit="ApplyAsync" class="dona-stack">
@@ -67,9 +67,6 @@
                 <Primary>
                     <button form="productpricing-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@(busy || ChangedCount == 0 || rows.Any(x => x.Selected && x.Error is not null))">@(busy ? "Применяем…" : $"Применить цены ({ChangedCount})")</button>
                 </Primary>
-                <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="@BackUrl">Отмена</a>
-                </Secondary>
             </DonaPageActions>
         </EditForm>
     }
@@ -130,11 +127,11 @@
             foreach (var id in ids)
             {
                 var all = await Pricing.QuoteAsync(id, PricingBasis.RemainingStock);
-                var quote = PurchaseId is null ? all : await Pricing.QuoteAsync(id, PricingBasis.PurchaseStock, PurchaseId);
-                var key = PurchaseId is null ? "stock" : "purchase";
-                if (PurchaseId is not null && quote.Quantity == 0) { quote = await Pricing.QuoteAsync(id, PricingBasis.PurchaseEstimate, PurchaseId); key = "estimate"; }
-                var product = await Catalog.GetProductAsync(id);
-                rows.Add(new(quote, key, product!.Variants.Sum(x => x.ReservedQuantity)) { AvailableLayers = all.Layers });
+                var product = await Catalog.GetProductAsync(id) ?? throw new InvalidOperationException("Товар не найден.");
+                var quote = sourcePurchase is null ? all : ProductPricingService.BuildPurchaseQuote(product, sourcePurchase);
+                if (quote is null) continue;
+                var key = quote.Basis == PricingBasis.PurchaseEstimate ? "estimate" : sourcePurchase is null ? "stock" : "purchase";
+                rows.Add(new(quote, key, product.Variants.Sum(x => x.ReservedQuantity)) { AvailableLayers = all.Layers });
             }
         }
         catch (Exception ex) { rows = []; error = UserErrors.Describe(ex, "Не удалось открыть установку цен."); }
@@ -142,7 +139,8 @@
     }
     private IReadOnlyList<OrbitSelectOption<string>> BasisOptions(Row row) =>
         [new("stock", "Все оставшиеся партии — средневзвешенная стоимость"),
-        .. (PurchaseId is null ? Array.Empty<OrbitSelectOption<string>>() : [new("purchase", "Остатки партий этой закупки"), new("estimate", "Расчёт закупки — плановая оценка")]),
+        .. (PurchaseId is null ? Array.Empty<OrbitSelectOption<string>>() : [new("purchase", "Остатки партий этой закупки")]),
+        .. (sourcePurchase is not null && ProductPricingService.CanUsePurchaseEstimate(sourcePurchase) ? new OrbitSelectOption<string>[] { new("estimate", "Расчёт закупки — плановая оценка") } : []),
         .. row.AvailableLayers.Select(l => new OrbitSelectOption<string>(l.Id.ToString(), $"Партия {l.SourceNumber} · {l.Color}/{l.Size} · {l.Quantity} шт. · {PricingLayers.Money(l.UnitCost)}"))];
     private async Task ChangeBasisAsync(Row row, string value)
     {
@@ -182,8 +180,16 @@
         Edited();
         try
         {
-            foreach (var row in rows)
+            if (PurchaseId is { } purchaseId) sourcePurchase = await Commerce.GetPurchaseAsync(purchaseId);
+            foreach (var row in rows.ToList())
             {
+                var product = await Catalog.GetProductAsync(row.Quote.ProductId) ?? throw new InvalidOperationException("Товар не найден.");
+                if (sourcePurchase is not null && ProductPricingService.BuildPurchaseQuote(product, sourcePurchase) is null) { rows.Remove(row); continue; }
+                if (sourcePurchase is not null && row.Quote.Basis == PricingBasis.PurchaseEstimate && !ProductPricingService.CanUsePurchaseEstimate(sourcePurchase))
+                {
+                    row.Quote = ProductPricingService.BuildQuote(product, PricingBasis.PurchaseStock, sourcePurchase);
+                    row.BasisKey = "purchase";
+                }
                 row.AvailableLayers = (await Pricing.QuoteAsync(row.Quote.ProductId, PricingBasis.RemainingStock)).Layers;
                 var quote = await Pricing.QuoteAsync(row.Quote.ProductId, row.Quote.Basis, row.Quote.PurchaseId, row.Quote.LayerId);
                 row.Quote = quote;

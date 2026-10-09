@@ -1,0 +1,7 @@
+@inherits InputTextArea
+
+<textarea @attributes="AdditionalAttributes" class="@CssClass" value="@CurrentValueAsString" @oninput="Changed"></textarea>
+
+@code {
+    private void Changed(ChangeEventArgs args) => CurrentValueAsString = args.Value?.ToString();
+}

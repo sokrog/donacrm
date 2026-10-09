@@ -27,6 +27,9 @@
 @code {
     [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
     [Parameter] public EventCallback<bool> DirtyChanged { get; set; }
+    [Parameter] public bool TrackModelChanges { get; set; }
+    [Parameter] public Func<object?>? AdditionalState { get; set; }
+    private readonly FormChangeTracker changes = new();
 
     private readonly string titleId = $"unsaved-title-{Guid.NewGuid():N}";
     private readonly string descriptionId = $"unsaved-description-{Guid.NewGuid():N}";
@@ -40,7 +43,10 @@
     protected override void OnParametersSet()
     {
         if (ReferenceEquals(subscribedEditContext, CascadedEditContext))
+        {
+            if (TrackModelChanges) RefreshChanges();
             return;
+        }
 
         if (subscribedEditContext is not null)
             subscribedEditContext.OnFieldChanged -= FieldChanged;
@@ -48,10 +54,23 @@
         subscribedEditContext = CascadedEditContext;
         if (subscribedEditContext is not null)
             subscribedEditContext.OnFieldChanged += FieldChanged;
+        if (TrackModelChanges)
+        {
+            MarkClean();
+            _ = DirtyChanged.InvokeAsync(false);
+        }
     }
 
-    public void MarkDirty() => SetDirty(true);
-    public void MarkClean() => SetDirty(false);
+    public void MarkDirty()
+    {
+        if (TrackModelChanges) RefreshChanges(); else SetDirty(true);
+    }
+    public void MarkClean()
+    {
+        if (TrackModelChanges) changes.Accept(subscribedEditContext?.Model, AdditionalState?.Invoke());
+        SetDirty(false);
+    }
+    private void RefreshChanges() => SetDirty(changes.IsChanged(subscribedEditContext?.Model, AdditionalState?.Invoke()));
 
     public Task<bool> ConfirmDiscardAsync()
     {
@@ -65,7 +84,7 @@
         return pendingDecision.Task;
     }
 
-    private void FieldChanged(object? sender, FieldChangedEventArgs args) => SetDirty(true);
+    private void FieldChanged(object? sender, FieldChangedEventArgs args) => MarkDirty();
 
     private Task BeforeInternalNavigation(LocationChangingContext context)
     {

@@ -26,10 +26,10 @@
     {
         <EditForm id="contentposteditor-form-1" class="dona-stack" Model="post" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <section class="dona-section">
                 <h2>Публикация</h2>
-                <label class="dona-field">Тема<InputText @bind-Value="post.Title" placeholder="О чём публикация" /><ValidationMessage For="() => post.Title" /></label>
+                <label class="dona-field">Тема<DonaLiveText @bind-Value="post.Title" placeholder="О чём публикация" /><ValidationMessage For="() => post.Title" /></label>
                 <div class="dona-field-row">
                     <label class="dona-field">Формат<OrbitSelect TValue="ContentType?" @bind-Value="post.Type" Options="@ContentTypeOptions" Label="Формат публикации" /></label>
                     <label class="dona-field">Статус<OrbitSelect TValue="ContentStatus?" @bind-Value="post.Status" Options="@ContentStatusOptions" Label="Статус публикации" /></label>
@@ -62,14 +62,14 @@
                     </div>
                     <span>@(post.Caption?.Length ?? 0) знаков</span>
                 </div>
-                <label class="dona-field">Текст публикации<InputTextArea @bind-Value="post.Caption" placeholder="Текст, призыв к действию, хэштеги…" /></label>
+                <label class="dona-field">Текст публикации<DonaLiveTextArea @bind-Value="post.Caption" placeholder="Текст, призыв к действию, хэштеги…" /></label>
                 @if (post.Status == ContentStatus.Published)
                 {
-                    <label class="dona-field">Ссылка на публикацию<InputText @bind-Value="post.PublicationUrl" inputmode="url" placeholder="https://…" /></label>
+                    <label class="dona-field">Ссылка на публикацию<DonaLiveText @bind-Value="post.PublicationUrl" inputmode="url" placeholder="https://…" /></label>
                 }
                 <details>
                     <summary>Дополнительные заметки</summary>
-                    <label class="dona-field">Заметки<InputTextArea @bind-Value="post.Notes" /></label>
+                    <label class="dona-field">Заметки<DonaLiveTextArea @bind-Value="post.Notes" /></label>
                 </details>
             </section>
             @if (confirmDelete)
@@ -87,11 +87,8 @@
 
             <DonaPageActions>
                 <Primary>
-                    <button form="contentposteditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                    <button form="contentposteditor-form-1" type="submit" class="dona-btn dona-btn--primary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
                 </Primary>
-                <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="/content-plan">Отмена</a>
-                </Secondary>
                 <Danger>
                     @if (!IsNew && !confirmDelete)
                     {
@@ -103,6 +100,7 @@
     }
 </div>
 @code {
+    private bool hasChanges;
     [Parameter]
     public Guid? Id { get; set; }
 

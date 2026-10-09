@@ -174,3 +174,5 @@
         margin: 0 0 0 auto;
     }
 }
+
+.catalog-primary-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--dona-space-2); }

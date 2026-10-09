@@ -2,53 +2,6 @@ h1:focus {
     outline: none;
 }
 
-.app-boot {
-    position: fixed;
-    inset: 0;
-    display: grid;
-    min-height: 100vh;
-    min-height: 100dvh;
-    place-content: center;
-    justify-items: center;
-    gap: 10px;
-    padding:
-        calc(24px + env(safe-area-inset-top))
-        calc(24px + env(safe-area-inset-right))
-        calc(24px + env(safe-area-inset-bottom))
-        calc(24px + env(safe-area-inset-left));
-    background: var(--dona-bg);
-    color: var(--dona-text);
-    text-align: center;
-}
-
-.app-boot-spinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--dona-line);
-    border-top-color: var(--dona-brand);
-    border-right-color: var(--dona-success);
-    border-radius: 50%;
-    animation: app-boot-spin .8s linear infinite;
-}
-
-.app-boot strong {
-    margin-top: 4px;
-    font-size: 1rem;
-}
-
-.app-boot small {
-    color: var(--dona-muted);
-    font-size: .8rem;
-}
-
-@keyframes app-boot-spin {
-    to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .app-boot-spinner { animation: none; }
-}
-
 #blazor-error-ui {
     position: fixed;
     right: 1rem;

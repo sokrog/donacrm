@@ -5,21 +5,36 @@
 @using Dona.Crm.Web.Storage
 @inject ICatalogRepository Catalog
 @inject ICommerceRepository Commerce
+@inject IBusinessSettingsRepository SettingsRepository
+@inject ProductStatusService Statuses
 @inject NavigationManager Navigation
 
 <PageTitle>Каталог — DONA CRM</PageTitle>
 
 <div class="dona-page dona-page--wide" aria-busy="@isLoading">
-    <DonaPageHeader Class="dona-page-header dona-page-header--actions">
+    <DonaPageHeader Class="dona-page-header dona-page-header--actions catalog-header">
         <div>
             <p class="dona-eyebrow">DONA CRM</p>
             <h1 class="dona-title">Каталог</h1>
         </div>
-        <div class="dona-page-header-actions">
-            <DonaHeaderActions Label="Действия каталога" Actions="HeaderActions" />
-            <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
-        </div>
     </DonaPageHeader>
+    <DonaPageActions>
+        <Primary>
+            <div class="catalog-primary-actions">
+            <button type="button" class="dona-btn dona-btn--secondary catalog-select-toggle" aria-label="@(selectionMode ? "Завершить выбор" : "Выбрать товары")" title="@(selectionMode ? "Завершить выбор" : "Выбрать товары")" aria-pressed="@selectionMode" disabled="@(isLoading || products.Count == 0)" @onclick="ToggleSelection"><OrbitIcon Name="check" /><span>@(selectionMode ? "Готово" : "Выбрать товары")</span></button>
+            <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
+            </div>
+        </Primary>
+        <Secondary>
+            @if (selectionMode)
+            {
+                <button type="button" class="dona-btn dona-btn--secondary" disabled="@(selected.Count == 0)" @onclick="OpenPricing">Установить цены (@selected.Count)</button>
+                <button type="button" class="dona-btn dona-btn--secondary" disabled="@(FilteredProducts.Count == 0)" @onclick="SelectVisible">Выбрать показанные</button>
+                <button type="button" class="dona-btn dona-btn--secondary" disabled="@(selected.Count == 0)" @onclick="ClearSelected">Снять выбор</button>
+            }
+
+        </Secondary>
+    </DonaPageActions>
 
     @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
     <div class="dona-search">
@@ -84,7 +99,7 @@
                 @foreach (var product in FilteredProducts)
                 {
                     <li class="dona-selection-row">
-                        <label class="dona-selection"><input type="checkbox" checked="@selected.Contains(product.Id)" @onchange="e => SelectProduct(product.Id, e.Value is true)" aria-label="Выбрать @product.Name для установки цены" /></label>
+                        @if (selectionMode) { <label class="dona-selection"><input type="checkbox" checked="@selected.Contains(product.Id)" @onchange="e => SelectProduct(product.Id, e.Value is true)" aria-label="Выбрать @product.Name" /></label> }
                         <a class="dona-list-row product-card" href="/products/@product.Id">
                             <span class="dona-icon-tile dona-icon-tile--lg product-visual">
                                 @if (!string.IsNullOrWhiteSpace(product.PrimaryImageUrl))
@@ -102,7 +117,7 @@
                                 {
                                     <small>@subtitle</small>
                                 }
-                                <span class="dona-badge @StatusClass(product.Status)">@product.Status.Display()</span>
+                                <span class="dona-badge @StatusClass(CurrentStatus(product))">@CurrentStatus(product).Display()</span>
                                 @if (PurchaseAvailability.Expected(product.Id, purchases) is > 0 and var expected) { <span class="dona-badge">Ожидается @expected шт.</span> }
                                 @if (Issues(product) is { Count: > 0 } issues)
                                 {
@@ -121,6 +136,7 @@
                                     <small>нет цены</small>
                                 }
                                 <span>@product.Quantity ед.</span>
+                                @if (product.Variants.Sum(v => v.ReservedQuantity) is > 0 and var reserved) { <small>В резерве @reserved</small> }
                             </span>
                         </a>
                     </li>
@@ -135,12 +151,8 @@
     [SupplyParameterFromQuery(Name = "priced")] public int? Priced { get; set; }
     [SupplyParameterFromQuery(Name = "selected")] public string? SelectedParam { get; set; }
     private HashSet<Guid> selected = [];
-    private IReadOnlyList<DonaHeaderAction> HeaderActions =>
-    [
-        new($"Установить цены ({selected.Count})", EventCallback.Factory.Create(this, OpenPricing), selected.Count == 0),
-        new("Выбрать показанные", EventCallback.Factory.Create(this, SelectVisible), isLoading || FilteredProducts.Count == 0),
-        new("Снять выбор", EventCallback.Factory.Create(this, ClearSelected), selected.Count == 0)
-    ];
+    private bool selectionMode;
+    private BusinessSettings settings = new();
     private List<Product> products = [];
     private IReadOnlyList<Purchase> purchases = [];
     [SupplyParameterFromQuery(Name = "q")] [Parameter] public string? QueryParam { get; set; }
@@ -179,6 +191,7 @@
         }
         pendingUrls.Clear();
         selected = (SelectedParam ?? "").Split(',').Where(x => Guid.TryParse(x, out _)).Select(Guid.Parse).ToHashSet();
+        selectionMode = selected.Count > 0;
         query = q;
         filter = f;
         sort = s;
@@ -197,6 +210,8 @@
         });
         Navigation.NavigateTo(uri, replace: true);
     }
+    private void ToggleSelection() { selectionMode = !selectionMode; if (!selectionMode) ClearSelected(); }
+    private ProductStatus? CurrentStatus(Product product) => Statuses.Calculate(product, settings);
     private void SelectProduct(Guid id, bool value) { if (value) selected.Add(id); else selected.Remove(id); PushUrl(); }
     private void SelectVisible() { selected.UnionWith(FilteredProducts.Select(x => x.Id)); PushUrl(); }
     private void ClearSelected() { selected.Clear(); PushUrl(); }
@@ -207,6 +222,7 @@
         errorMessage = null;
         try
         {
+            settings = await SettingsRepository.GetAsync();
             products = (await Catalog.GetProductsAsync()).Where(item => item.Status != ProductStatus.Archived).ToList();
             purchases = await Commerce.GetPurchasesAsync();
         }
@@ -234,7 +250,7 @@
         "photo" => string.IsNullOrWhiteSpace(product.PrimaryImageUrl),
         "price" => product.SellingPriceUzs is null or <= 0,
         "variants" => product.Variants.Count == 0,
-        "low" => product.Status is ProductStatus.LowStock or ProductStatus.OutOfStock,
+        "low" => CurrentStatus(product) is ProductStatus.LowStock or ProductStatus.OutOfStock,
         _ => true
     };
     private string PhotoFilterClass => filter == "photo" ? "active" : string.Empty;

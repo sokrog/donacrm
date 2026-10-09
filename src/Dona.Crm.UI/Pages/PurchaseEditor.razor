@@ -37,7 +37,7 @@
             @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
             @if (purchase.Status != PurchaseStatus.Cancelled)
             {
-                @if (reviewPrices) { <p class="dona-message">Основания ранее назначенных цен изменились. Пересмотрите цены с учётом текущих остатков и расходов.</p> }
+                @if (reviewPrices) { <p class="dona-message">Себестоимость оставшихся товаров изменилась после назначения цен. Проверьте продажные цены.</p> }
             }
             @if (purchase.Status == PurchaseStatus.Cancelled || purchase.ClosedAt is not null)
             {
@@ -47,14 +47,14 @@
         <PurchaseNavigation Purchase="purchase" Current="@stage" IsNew="IsNew" PricesSet="pricesSet" />
         <EditForm @key="stage" id="purchaseeditor-form-1" class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" AdditionalState="() => new { orderDate, receiptDate }" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
             @if (stage == "order")
             {
             <section class="dona-section">
                 <h2>Заказ</h2>
                 <div class="dona-field-row">
-                    <label class="dona-field">Номер<InputText @bind-Value="purchase.Number" /></label>
+                    <label class="dona-field">Номер<DonaLiveText @bind-Value="purchase.Number" /></label>
                     @if (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null)
                     {
                         <div class="dona-field">Статус<strong>@purchase.Status.Display()</strong><small>Определяется документами приёмки и закрытия.</small></div>
@@ -71,7 +71,8 @@
                 </details>
                 <a class="manage-partners" href="/partners">Управлять поставщиками и посредниками →</a>
                 <div class="dona-field-row">
-                    <label class="dona-field">Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
+                    <label class="dona-field">Дата заказа<OrbitDatePicker @bind-Value="orderDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
+                    <label class="dona-field">Трек-код<DonaLiveText @bind-Value="purchase.TrackingCode" /></label>
                     <label class="dona-field">Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
                 </div>
                 <div class="dona-field-row">
@@ -86,9 +87,9 @@
                     <p class="dona-note">Валюта изменена. Цены не пересчитаны автоматически: проверьте каждую цену и новый курс. Валюты и курсы отдельных расходов сохранены.</p>
                     <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="currencyPricesReviewed" /> Цены позиций проверены в новой валюте</label>
                 }
-                <label class="dona-field">Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
+                <label class="dona-field">Заметка<DonaLiveTextArea @bind-Value="purchase.Notes" /></label>
             </section>
-            <section class="dona-section">
+            <section class="dona-section purchase-items">
                 <div class="dona-section-title">
                     <div>
                         <h2>Позиции</h2>
@@ -101,10 +102,17 @@
                 }
                 @foreach (var item in purchase.Items)
                 {
-                    <article class="purchase-line" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
+                    <article class="purchase-line" @key="item.Id" aria-labelledby="@($"purchase-item-{item.Id}")" @oninput="() => removalConfirmation?.MarkEdited(item)">
+                        <header class="purchase-line-heading">
+                            <h3 id="@($"purchase-item-{item.Id}")">Позиция @(purchase.Items.IndexOf(item) + 1)</h3>
+                            @if ((item.ReceivedQuantity ?? 0) == 0)
+                            {
+                                <button type="button" class="dona-btn dona-btn--danger dona-btn--remove" aria-label="@($"Удалить позицию {purchase.Items.IndexOf(item) + 1}")" @onclick="() => RemoveItem(item)">×</button>
+                            }
+                        </header>
                         <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
                         <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
-                        <div class="line-fields">
+                        <div class="line-fields @(purchase.NeedsWeight || SelectedIntermediary?.RatePerKgUsd is > 0 ? "line-fields--weighted" : null)">
                             <label class="dona-field">Количество<DonaLiveNumber @bind-Value="item.Quantity" min="1" /></label>
                             <label class="dona-field">Цена за единицу, @CurrencyCodes.Symbol(purchase.CurrencyCode)<DonaLiveNumber @bind-Value="item.UnitPrice" min="0" step="any" /></label>
                             <label class="dona-field">Сумма за все количество, @CurrencyCodes.Symbol(purchase.CurrencyCode)<DonaLiveNumber @bind-Value="item.TotalPrice" min="0" step="0.01" disabled="@(item.Quantity is not > 0)" /></label>
@@ -127,10 +135,6 @@
                         @if ((item.ReceivedQuantity ?? 0) > 0)
                         {
                             <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · оприходовано @item.StockedQuantity</div>
-                        }
-                        else
-                        {
-                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
                         }
                     </article>
                 }
@@ -167,7 +171,7 @@
                 @foreach (var expense in purchase.Expenses)
                 {
                     <article class="expense-line" @key="expense.Id" @oninput="() => removalConfirmation?.MarkEdited(expense)">
-                        <label class="dona-field">Название<InputText @bind-Value="expense.Name" placeholder="Например, доставка" /></label>
+                        <label class="dona-field">Название<DonaLiveText @bind-Value="expense.Name" placeholder="Например, доставка" /></label>
                         @if (expense.TariffCalculation is not null)
                         {
                             <p class="dona-note">Исходный расчёт: @expense.TariffCalculation Сумму и курс можно изменить вручную.</p>
@@ -219,7 +223,7 @@
                     <div class="dona-section-title">
                         <div>
                             <h2>Приёмки</h2>
-                            <p>Укажите фактически полученное</p>
+                            <p>Укажите фактически полученное, включая брак. Если товар не пришёл, укажите 0 или нажмите «Не пришло».</p>
                         </div>
                     </div>
                     @if (HasUnsavedOrder)
@@ -228,7 +232,7 @@
                     }
                     <div class="dona-field-row">
                         <label class="dona-field">Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
-                        <label class="dona-field">Комментарий<InputText @bind-Value="receiptNote" /></label>
+                        <label class="dona-field">Комментарий<DonaLiveText @bind-Value="receiptNote" /></label>
                     </div>
                     @foreach (var item in purchase.Items.Where(value => value.MissingQuantity > 0))
                     {
@@ -239,12 +243,15 @@
                                 <small>@VariantLabel(item) · осталось @item.MissingQuantity шт.</small>
                             </div>
                             <div class="dona-field-row">
-                                <label class="dona-field">Получено<InputNumber @bind-Value="line.ReceivedQuantity" min="0" max="@item.MissingQuantity" /></label>
-                                <label class="dona-field">Из них брак<InputNumber @bind-Value="line.DefectQuantity" min="0" /></label>
+                                <label class="dona-field">Получено<DonaLiveNumber @bind-Value="line.ReceivedQuantity" @bind-Value:after="() => receiptEdited = true" min="0" max="@item.MissingQuantity" /></label>
+                                <label class="dona-field">Из них брак<DonaLiveNumber @bind-Value="line.DefectQuantity" @bind-Value:after="() => receiptEdited = true" min="0" /></label>
                             </div>
+                            <p class="dona-note">Не пришло в этой поставке: @Math.Max(0, item.MissingQuantity - (line.ReceivedQuantity ?? 0)) шт.</p>
+                            <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => MarkNotReceived(line)">Не пришло</button>
                         </article>
                     }
-
+                    <p class="dona-note">Если ждёте оставшиеся товары — сохраните эту приёмку, следующую оформите позже. Если поставка завершена, сначала сохраните фактически полученные товары, затем перейдите к расхождениям. Если ничего не пришло, укажите 0 для всех позиций и сразу переходите к недостаче.</p>
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="GoToDiscrepancies">Завершить приёмку и разобрать недостачу</button>
                 </section>
             }
             @if (stage == "closing" && !IsNew && purchase.Status != PurchaseStatus.Cancelled)
@@ -324,14 +331,13 @@
             <DonaPageActions>
                 <Primary>
                     @if (stage is "order" or "costs")
-                    { <button form="purchaseeditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : stage == "costs" ? "Сохранить расходы" : "Сохранить заказ")</button> }
+                    { <button form="purchaseeditor-form-1" type="submit" class="dona-btn dona-btn--primary @(IsNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">@(saving ? "Сохраняем…" : stage == "costs" ? "Сохранить расходы" : "Сохранить заказ")</button> }
                     else if (stage == "receiving" && CanReceive)
                     { <button type="button" class="dona-btn dona-btn--primary" disabled="@(saving || !purchase.HasCompleteCostInputs)" @onclick="ReceiveAsync">Оформить приёмку</button> }
                     else if (stage == "closing" && purchase.ClosedAt is null && purchase.Status != PurchaseStatus.Cancelled)
                     { <button type="button" class="dona-btn dona-btn--primary" disabled="@(saving || purchase.ReceivingCompletedAt is null || PurchaseReceivingService.HasUnreviewedLosses(purchase))" @onclick="() => confirmClosing = true">Закрыть закупку</button> }
                 </Primary>
                 <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="/purchases">Отмена</a>
                     @if (!IsNew)
                     {
                         <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/reconciliation">Сверка партий и стоимости</a>
@@ -342,6 +348,7 @@
     }
 </div>
 @code {
+    private bool hasChanges;
     [Parameter]
     public Guid? Id { get; set; }
 
@@ -359,6 +366,8 @@
     private IReadOnlyList<Purchase> priceHistory = [];
     private readonly Dictionary<Guid, ReceiptFormLine> receiptLines = [];
     private Guid receiptId = Guid.NewGuid();
+    private bool receiptEdited;
+    private DateTime? orderDate;
     private DateTime? receiptDate;
     private string? receiptNote;
     private UnsavedChangesGuard? unsavedGuard;
@@ -482,6 +491,7 @@
                 ProductChanged(item, product);
                 if (product.Variants.Count == 1) { item.ProductVariantId = product.Variants[0].Id; VariantChanged(item); }
             }
+            orderDate = purchase.OrderedAt.ToLocalTime().Date;
             purchase.CurrencyCode = CurrencyCodes.Normalize(purchase.CurrencyCode, "CNY");
             await ReviewPricesAsync();
             savedOrder = JsonSerializer.Serialize(purchase);
@@ -665,6 +675,9 @@
     {
         if (currencyReviewRequired && !currencyPricesReviewed)
             throw new InvalidOperationException("Проверьте цены позиций и подтвердите их после смены валюты закупки.");
+        if (orderDate is null) throw new InvalidOperationException("Укажите дату фактического заказа.");
+        if (orderDate.Value.Date != purchase.OrderedAt.ToLocalTime().Date)
+            purchase.OrderedAt = new DateTimeOffset(orderDate.Value.Date, TimeZoneInfo.Local.GetUtcOffset(orderDate.Value.Date));
         purchase.Number = purchase.Number.Trim();
         purchase.Status ??= PurchaseStatus.Draft;
         if (string.IsNullOrWhiteSpace(purchase.Number))
@@ -685,8 +698,22 @@
         CurrencyChanged();
     }
 
+    private void GoToDiscrepancies()
+    {
+        if (receiptEdited && receiptLines.Values.Any(x => (x.ReceivedQuantity ?? 0) > 0 || (x.DefectQuantity ?? 0) > 0))
+        { success = false; message = "Сначала сохраните фактически полученные товары кнопкой «Оформить приёмку». Если новых поступлений нет, укажите 0."; return; }
+        unsavedGuard?.MarkClean();
+        Navigation.NavigateTo($"/purchases/{purchase.Id}/discrepancies");
+    }
+
+    private void MarkNotReceived(ReceiptFormLine line)
+    {
+        receiptEdited = true; line.ReceivedQuantity = 0; line.DefectQuantity = 0; unsavedGuard?.MarkDirty();
+    }
+
     private void ResetReceipt()
     {
+        receiptEdited = false;
         receiptLines.Clear();
         receiptId = Guid.NewGuid();
         receiptDate = null;

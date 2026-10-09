@@ -13,10 +13,32 @@ public sealed class ProductPricingService(ICatalogRepository catalog, ICommerceR
     {
         try
         {
-            var current = await QuoteAsync(line.Quote.ProductId, line.Quote.Basis, line.Quote.PurchaseId, line.Quote.LayerId, token);
-            return current.Fingerprint != line.Quote.Fingerprint;
+            var product = await catalog.GetProductAsync(line.Quote.ProductId, token);
+            if (product is null || product.Status == ProductStatus.Archived) return false;
+            var purchase = line.Quote.PurchaseId is { } id ? await commerce.GetPurchaseAsync(id, token) : null;
+            var basis = line.Quote.Basis == PricingBasis.PurchaseEstimate && purchase is not null && !CanUsePurchaseEstimate(purchase)
+                ? PricingBasis.PurchaseStock : line.Quote.Basis;
+            if (basis == PricingBasis.Layer && !product.Variants.SelectMany(v => v.Layers).Any(l => l.Id == line.Quote.LayerId && l.RemainingQuantity > 0)) return false;
+            var current = BuildQuote(product, basis, purchase, line.Quote.LayerId);
+            return CostNeedsReview(line.Quote, current);
         }
         catch (InvalidOperationException) { return true; }
+    }
+
+    // Review a saved selling price by its cost, not the concurrency fingerprint used when applying a quote.
+    public static bool CostNeedsReview(PricingQuote previous, PricingQuote current) => current.Quantity > 0
+        && (previous.UnitCost != current.UnitCost || (previous.UnknownQuantity > 0) != (current.UnknownQuantity > 0));
+
+    public static bool CanUsePurchaseEstimate(Purchase purchase) => purchase.ClosedAt is null
+        && purchase.ReceivingCompletedAt is null && purchase.Receipts.Count == 0
+        && purchase.Items.All(item => (item.ReceivedQuantity ?? 0) == 0)
+        && purchase.Status is not (PurchaseStatus.Received or PurchaseStatus.PartiallyReceived or PurchaseStatus.Cancelled);
+
+    public static PricingQuote? BuildPurchaseQuote(Product product, Purchase purchase)
+    {
+        var stock = BuildQuote(product, PricingBasis.PurchaseStock, purchase);
+        if (stock.Quantity > 0) return stock;
+        return CanUsePurchaseEstimate(purchase) ? BuildQuote(product, PricingBasis.PurchaseEstimate, purchase) : null;
     }
 
     public async Task<PricingQuote> QuoteAsync(Guid productId, PricingBasis basis, Guid? purchaseId = null,

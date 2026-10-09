@@ -20,60 +20,34 @@
     gap: var(--dona-space-3);
 }
 
-.purchase-list > a {
-    display: grid;
-    gap: var(--dona-space-3);
-    color: var(--dona-text);
-    text-decoration: none;
-}
 
-.purchase-card-title,
-.purchase-card-meta,
-.purchase-card-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--dona-space-3);
-}
-
-.purchase-card-title span,
-.purchase-card-title strong,
-.purchase-card-title small {
-    display: block;
-}
-
-.purchase-card-title strong {
-    font-size: var(--dona-type-body);
-}
-
-.purchase-card-title small {
-    margin-top: var(--dona-space-1);
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-}
-
-.purchase-card-title .dona-badge {
-    white-space: nowrap;
-}
-
-.purchase-card-meta {
-    font-size: var(--dona-type-small);
-    font-weight: var(--dona-weight-strong);
-}
-
-.purchase-card-foot {
-    border-top: 1px solid var(--dona-line);
-    padding-top: var(--dona-space-3);
-    color: var(--dona-muted);
-    font-size: var(--dona-type-caption);
-}
-
-.purchase-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dona-space-3); margin: 0; }
-.purchase-facts > div { min-width: 0; }
-.purchase-facts dt, .purchase-facts small { color: var(--dona-muted); font-size: var(--dona-type-caption); }
-.purchase-facts dd { margin: var(--dona-space-1) 0 0; font-weight: var(--dona-weight-strong); overflow-wrap: anywhere; }
-.purchase-facts small { display: block; font-weight: normal; }
-.purchase-total { grid-column: 1 / -1; padding-block: var(--dona-space-3); border-block: 1px solid var(--dona-line); }
+.purchase-card { cursor: pointer; position: relative; display: grid; gap: var(--dona-space-3); color: var(--dona-text); }
+.purchase-card-title { display: flex; align-items: center; justify-content: space-between; gap: var(--dona-space-3); }
+.purchase-card-link { color: inherit; font-size: var(--dona-type-body); font-weight: var(--dona-weight-strong); text-decoration: none; overflow-wrap: anywhere; }
+.purchase-card-link:focus-visible { outline: 2px solid var(--dona-brand); outline-offset: 2px; }
+.purchase-card-title .dona-badge { flex-shrink: 0; }
+.purchase-card-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--dona-space-5); }
+.purchase-card dl { margin: 0; min-width: 0; }
+.purchase-card dt, .purchase-card small { color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.purchase-card dd { margin: 0; overflow-wrap: anywhere; font-weight: var(--dona-weight-strong); }
+.purchase-partners { display: grid; align-content: start; gap: var(--dona-space-2); }
+.purchase-partners > div { display: grid; gap: var(--dona-space-1); }
+.purchase-partners .purchase-missing { color: var(--dona-muted); font-weight: normal; }
+.purchase-amounts { display: grid; align-content: start; gap: var(--dona-space-2); }
+.purchase-total { padding-bottom: var(--dona-space-2); }
 .purchase-total dd { font-size: var(--dona-type-title-sm); }
-.purchase-card-title, .purchase-card-foot { flex-wrap: wrap; overflow-wrap: anywhere; }
-@media (max-width: 390px) { .purchase-facts { grid-template-columns: 1fr; } }
+.purchase-total .purchase-total-pending { font-size: var(--dona-type-body); font-weight: normal; color: var(--dona-muted); }
+.purchase-money-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--dona-space-3); }
+.purchase-money-row dd { font-size: var(--dona-type-small); text-align: end; }
+.purchase-issue { position: relative; z-index: 2; display: block; margin: 0; padding: var(--dona-space-2) var(--dona-space-3); border-radius: var(--dona-radius-sm); background: var(--dona-surface-soft); color: var(--dona-brand); font-size: var(--dona-type-small); text-decoration: none; }
+.purchase-issue span { white-space: nowrap; font-weight: var(--dona-weight-strong); }
+.purchase-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dona-space-2) var(--dona-space-4); padding-top: var(--dona-space-2); border-top: 1px solid var(--dona-line); font-size: var(--dona-type-caption); }
+.purchase-date-label { color: var(--dona-muted); }
+.purchase-track { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: var(--dona-space-2); margin-left: auto; min-height: var(--dona-tap); max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--dona-brand); font: inherit; overflow-wrap: anywhere; cursor: pointer; }
+.purchase-track ::deep svg { width: 18px; height: 18px; flex-shrink: 0; }
+@media (max-width: 599px) {
+    .purchase-card-body { grid-template-columns: 1fr; gap: var(--dona-space-3); }
+    .purchase-partners { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .purchase-amounts { padding-top: var(--dona-space-3); border-top: 1px solid var(--dona-line); }
+    .purchase-track { margin-left: 0; }
+}

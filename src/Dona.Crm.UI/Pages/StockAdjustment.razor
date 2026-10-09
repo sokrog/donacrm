@@ -12,7 +12,7 @@
         <a class="dona-icon-button dona-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a>
         <div>
             <p>Склад</p>
-            <h1>@(PersonalUse ? "Личное изъятие" : "Корректировка")</h1>
+            <h1>@(IsPersonal ? "Личное изъятие" : "Корректировка")</h1>
         </div>
     </DonaPageHeader>
     @if (isLoading)
@@ -42,13 +42,18 @@
                         <strong>@(SelectedVariant?.Quantity ?? 0) ед.</strong>
                         <small>резерв @(SelectedVariant?.ReservedQuantity ?? 0)</small>
                     </div>
-                    <label class="dona-field">Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label>
+                    @if (IsPersonal)
+                    {
+                        <label class="dona-field">Количество для себя<DonaLiveNumber @bind-Value="model.WithdrawQuantity" @bind-Value:after="UpdateWithdrawal" min="1" max="@AvailableQuantity" /></label>
+                    }
+                    else
+                    { <label class="dona-field">Новый остаток<InputNumber @bind-Value="model.NewQuantity" min="0" /></label> }
                 </div>
                 @if (SelectedVariant is not null && model.NewQuantity is not null)
                 {
                     <div class="preview">
-                        <span>Изменение</span>
-                        <strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@DeltaText ед.</strong>
+                        <span>@(IsPersonal ? $"Будет списано: {model.WithdrawQuantity ?? 0} шт. · Останется на складе" : "Изменение")</span>
+                        <strong class="@(Delta > 0 ? "plus" : Delta < 0 ? "minus" : null)">@(IsPersonal ? model.NewQuantity?.ToString() : DeltaText) ед.</strong>
                     </div>
                 }
                 @if (Delta > 0)
@@ -63,7 +68,7 @@
             </section>
             <section class="dona-section">
                 <h2>Причина</h2>
-                <label class="dona-field">Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label>
+                <label class="dona-field">Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" @bind-Value:after="ReasonChanged" Options="@ReasonOptions" Label="Причина корректировки" /></label>
                 @if (Delta < 0)
                 {
                     <label class="dona-field">Как учесть стоимость<OrbitSelect TValue="LossTreatment" @bind-Value="model.LossTreatment" Options="LossOptions" Label="Как учесть стоимость" /></label>
@@ -79,11 +84,8 @@
 
             <DonaPageActions>
                 <Primary>
-                    <button form="stockadjustment-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                    <button form="stockadjustment-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : IsPersonal ? $"Списать {model.WithdrawQuantity ?? 0} шт. для себя" : "Сохранить")</button>
                 </Primary>
-                <Secondary>
-                    <a class="dona-btn dona-btn--secondary" href="/inventory">Отмена</a>
-                </Secondary>
             </DonaPageActions>
         </EditForm>
     }
@@ -108,6 +110,10 @@
     ];
     private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
     private static readonly IReadOnlyList<OrbitSelectOption<LossTreatment>> LossOptions = [new(LossTreatment.PeriodExpense, "Отдельный расход"), new(LossTreatment.RemainingStock, "В себестоимость остатка")];
+    private bool IsPersonal => model.Reason == StockAdjustmentReason.PersonalUse;
+    private int AvailableQuantity => Math.Max(0, (SelectedVariant?.Quantity ?? 0) - (SelectedVariant?.ReservedQuantity ?? 0));
+    private void UpdateWithdrawal() => model.NewQuantity = SelectedVariant is null || model.WithdrawQuantity is null ? null : (SelectedVariant.Quantity ?? 0) - model.WithdrawQuantity;
+    private void ReasonChanged() { model.WithdrawQuantity = IsPersonal ? 1 : null; if (IsPersonal) UpdateWithdrawal(); }
     private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0);
     private string LossPreview()
     {
@@ -138,11 +144,12 @@
         model.ProductVariantId=null;
         model.NewQuantity=null;
     }
-    private void VariantChanged()=>model.NewQuantity=SelectedVariant?.Quantity;
+    private void VariantChanged() { model.NewQuantity = SelectedVariant?.Quantity; model.WithdrawQuantity = IsPersonal ? 1 : null; if (IsPersonal) UpdateWithdrawal(); }
     private async Task SaveAsync(){
         saving=true;
         error=null;
         try{
+            if (IsPersonal && model.WithdrawQuantity is null or <= 0) throw new InvalidOperationException("Укажите количество для себя.");
             await Service.AdjustAsync(model);
             unsavedGuard?.MarkClean();
             Navigation.NavigateTo("/inventory");

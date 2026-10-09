@@ -1,0 +1,78 @@
+@using Dona.Crm.Web.Domain
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<OrbitModalLock>
+    <div class="dona-modal dona-modal--viewer photo-viewer" role="presentation" @onclick="OnClose">
+        <section id="@dialogId" class="photo-viewer__dialog" role="dialog" aria-modal="true" aria-label="Просмотр фотографий" @onclick:stopPropagation="true" @onkeydown="KeyDown">
+            <header class="photo-viewer__header">
+                <span>Фотографии @EntityLabel</span>
+                <button type="button" class="photo-viewer__button" aria-label="Закрыть просмотр" title="Закрыть · Esc" @onclick="OnClose"><OrbitIcon Name="close" /></button>
+            </header>
+            <div class="photo-viewer__stage" @ontouchstart="TouchStart" @ontouchend="TouchEnd" @ontouchcancel="TouchCancel">
+                <ProductImageView @key="Image.Id" Image="@Image" FallbackUrl="@Image.Url" Class="photo-viewer__image" Alt="@($"Фото {EntityLabel} {Index + 1}")" />
+                @if (Images.Count > 1)
+                {
+                    <button type="button" class="photo-viewer__button photo-viewer__previous" aria-label="Предыдущая фотография" title="Предыдущая · ←" @onclick="() => Move(-1)"><OrbitIcon Name="back" /></button>
+                    <button type="button" class="photo-viewer__button photo-viewer__next" aria-label="Следующая фотография" title="Следующая · →" @onclick="() => Move(1)"><OrbitIcon Name="forward" /></button>
+                }
+            </div>
+            <footer class="photo-viewer__footer">
+                <span class="photo-viewer__counter" role="status" aria-live="polite" aria-atomic="true">@(Index + 1) / @Images.Count</span>
+                @if (Image.IsMain) { <span class="photo-viewer__main"><OrbitIcon Name="star-filled" />Главная</span> }
+            </footer>
+        </section>
+    </div>
+</OrbitModalLock>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ProductImage> Images { get; set; } = [];
+    [Parameter, EditorRequired] public ProductImage Image { get; set; } = default!;
+    [Parameter] public string EntityLabel { get; set; } = "товара";
+    [Parameter] public EventCallback<ProductImage> ImageChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    private readonly string dialogId = $"photo-viewer-{Guid.NewGuid():N}";
+    private (double X, double Y)? touchStart;
+    private int Index => Math.Max(0, Images.ToList().FindIndex(image => image.Id == Image.Id));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("orbitModal.openConfirmation", dialogId);
+    }
+
+    private Task Move(int direction) => Images.Count > 1
+        ? ImageChanged.InvokeAsync(Images[(Index + direction + Images.Count) % Images.Count])
+        : Task.CompletedTask;
+
+    private Task KeyDown(KeyboardEventArgs args) => args.Key switch
+    {
+        "Escape" => OnClose.InvokeAsync(),
+        "ArrowLeft" => Move(-1),
+        "ArrowRight" => Move(1),
+        _ => Task.CompletedTask
+    };
+
+    private void TouchStart(TouchEventArgs args)
+    {
+        touchStart = args.Touches.Length == 1 ? (args.Touches[0].ClientX, args.Touches[0].ClientY) : null;
+    }
+
+    private void TouchCancel() => touchStart = null;
+
+    private Task TouchEnd(TouchEventArgs args)
+    {
+        var start = touchStart;
+        touchStart = null;
+        if (start is null || args.ChangedTouches.Length != 1) return Task.CompletedTask;
+        var dx = args.ChangedTouches[0].ClientX - start.Value.X;
+        var dy = args.ChangedTouches[0].ClientY - start.Value.Y;
+        return Math.Abs(dx) >= 50 && Math.Abs(dx) > Math.Abs(dy) * 1.5 ? Move(dx < 0 ? 1 : -1) : Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("orbitModal.closeConfirmation", dialogId); }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException) { }
+    }
+}

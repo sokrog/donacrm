@@ -50,27 +50,27 @@
     {
         <EditForm id="partners-form-1" class="dona-stack" Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <section class="dona-section">
                 <h2>Данные партнёра</h2>
                 <label class="dona-field">
                     Название
-                    <InputText @bind-Value="editingSupplier.Name" />
+                    <DonaLiveText @bind-Value="editingSupplier.Name" />
                     <ValidationMessage For="() => editingSupplier.Name" />
                 </label>
                 <div class="dona-field-row">
                     <label class="dona-field">Площадка<OrbitSelect TValue="string" @bind-Value="editingSupplier.Platform" Options="@PlatformOptions" Label="Торговая площадка" /></label>
                     <label class="dona-field">Минимальный заказ (справочно), шт.<InputNumber @bind-Value="editingSupplier.Moq" min="0" /></label>
                 </div>
-                <label class="dona-field">Ссылка магазина<InputText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
+                <label class="dona-field">Ссылка магазина<DonaLiveText @bind-Value="editingSupplier.StoreUrl" inputmode="url" /></label>
                 <div class="dona-field-row">
                     <label class="dona-field">Рейтинг 0–5<InputNumber @bind-Value="editingSupplier.Rating" min="0" max="5" step="0.1" /></label>
-                    <label class="dona-field">WeChat<InputText @bind-Value="editingSupplier.WeChat" /></label>
+                    <label class="dona-field">WeChat<DonaLiveText @bind-Value="editingSupplier.WeChat" /></label>
                 </div>
-                <label class="dona-field">Контакт<InputText @bind-Value="editingSupplier.Contact" /></label>
+                <label class="dona-field">Контакт<DonaLiveText @bind-Value="editingSupplier.Contact" /></label>
                 <label class="dona-field">Посредник по умолчанию<OrbitSelect TValue="Guid?" @bind-Value="editingSupplier.DefaultIntermediaryId" Options="@DefaultIntermediaryOptions" Label="Посредник по умолчанию" /></label>
                 <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="editingSupplier.IsArchived" /><span>В архиве — сохраняется в истории, не предлагается для новых закупок</span></label>
-                <label class="dona-field">Заметки<InputTextArea @bind-Value="editingSupplier.Notes" /></label>
+                <label class="dona-field">Заметки<DonaLiveTextArea @bind-Value="editingSupplier.Notes" /></label>
                 @if (errorMessage is not null)
                 {
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
@@ -86,11 +86,8 @@
                     }
             <DonaPageActions>
                 <Primary>
-                    <button form="partners-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
+                    <button form="partners-form-1" type="submit" class="dona-btn dona-btn--primary @(isNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">Сохранить</button>
                 </Primary>
-                <Secondary>
-                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
-                </Secondary>
                 <Danger>
                     @if (!isNew && !confirmDelete)
                     {
@@ -104,24 +101,24 @@
     {
         <EditForm id="partners-form-2" class="dona-stack" Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
             <DataAnnotationsValidator />
-            <UnsavedChangesGuard @ref="unsavedGuard" />
+            <UnsavedChangesGuard @ref="unsavedGuard" TrackModelChanges="true" DirtyChanged="value => hasChanges = value" />
             <section class="dona-section">
                 <h2>Данные партнёра</h2>
                 <label class="dona-field">
                     Название
-                    <InputText @bind-Value="editingIntermediary.Name" />
+                    <DonaLiveText @bind-Value="editingIntermediary.Name" />
                     <ValidationMessage For="() => editingIntermediary.Name" />
                 </label>
-                <label class="dona-field">Компания<InputText @bind-Value="editingIntermediary.Company" /></label>
+                <label class="dona-field">Компания<DonaLiveText @bind-Value="editingIntermediary.Company" /></label>
                 <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="editingIntermediary.IsArchived" /><span>В архиве — сохраняется в истории, не предлагается для новых закупок</span></label>
-                <label class="dona-field">Адрес склада в Китае<InputTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
+                <label class="dona-field">Адрес склада в Китае<DonaLiveTextArea @bind-Value="editingIntermediary.ChinaWarehouseAddress" /></label>
                 <div class="dona-field-row">
-                    <label class="dona-field">Контактное лицо<InputText @bind-Value="editingIntermediary.ContactName" /></label>
-                    <label class="dona-field">Телефон<InputText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label>
+                    <label class="dona-field">Контактное лицо<DonaLiveText @bind-Value="editingIntermediary.ContactName" /></label>
+                    <label class="dona-field">Телефон<DonaLiveText @bind-Value="editingIntermediary.Phone" inputmode="tel" /></label>
                 </div>
                 <div class="dona-field-row">
-                    <label class="dona-field">Telegram<InputText @bind-Value="editingIntermediary.Telegram" /></label>
-                    <label class="dona-field">WeChat<InputText @bind-Value="editingIntermediary.WeChat" /></label>
+                    <label class="dona-field">Telegram<DonaLiveText @bind-Value="editingIntermediary.Telegram" /></label>
+                    <label class="dona-field">WeChat<DonaLiveText @bind-Value="editingIntermediary.WeChat" /></label>
                 </div>
                 <div class="dona-field-row">
                     <label class="dona-field">Тариф, $/кг<InputNumber @bind-Value="editingIntermediary.RatePerKgUsd" min="0" step="0.01" /></label>
@@ -136,7 +133,7 @@
                     <InputCheckbox @bind-Value="editingIntermediary.OfficialImport" />
                     <span><strong>Официальный импорт</strong><small>Посредник предоставляет документы</small></span>
                 </label>
-                <label class="dona-field">Заметки<InputTextArea @bind-Value="editingIntermediary.Notes" /></label>
+                <label class="dona-field">Заметки<DonaLiveTextArea @bind-Value="editingIntermediary.Notes" /></label>
                 @if (errorMessage is not null)
                 {
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
@@ -152,11 +149,8 @@
                     }
             <DonaPageActions>
                 <Primary>
-                    <button form="partners-form-2" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
+                    <button form="partners-form-2" type="submit" class="dona-btn dona-btn--primary @(isNew || hasChanges ? null : "dona-save--unchanged")" disabled="@saving">Сохранить</button>
                 </Primary>
-                <Secondary>
-                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
-                </Secondary>
                 <Danger>
                     @if (!isNew && !confirmDelete)
                     {
@@ -232,6 +226,7 @@
     }
 </div>
 @code {
+    private bool hasChanges;
     [Parameter] public string? PartnerType { get; set; }
     [Parameter] public Guid? PartnerId { get; set; }
     [SupplyParameterFromQuery(Name = "type")] public string? ListType { get; set; }

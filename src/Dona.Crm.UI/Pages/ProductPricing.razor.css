@@ -1,0 +1,4 @@
+.dona-page > p { margin: 0 0 var(--dona-space-3); }
+.dona-page > p:last-of-type { margin-bottom: var(--dona-space-5); }
+.dona-section > p { margin: 0; line-height: 1.5; }
+.dona-section { align-content: start; }

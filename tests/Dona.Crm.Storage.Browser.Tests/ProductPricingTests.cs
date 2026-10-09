@@ -88,4 +88,28 @@ public sealed partial class BrowserCrmRepositoryTests
         Assert.Equal(100, (await repo.GetPriceChangesAsync()).Single().Lines[0].Quote.UnitCost);
         Assert.Equal(150, (await repo.GetProductAsync(p.Id))!.SellingPriceUzs);
     }
+
+    [Fact]
+    public async Task Closing_purchase_keeps_saved_prices_current_and_late_cost_still_requires_review()
+    {
+        var repo = new BrowserCrmRepository(new KeyValueJsRuntime());
+        var product = PricingProduct("CLOSE-REVIEW");
+        var purchase = new Purchase { CurrencyCode = "UZS", Items = [new() { ProductId = product.Id, Quantity = 10, UnitPrice = 100 }] };
+        product.Variants[0].Layers[0].PurchaseId = purchase.Id;
+        await repo.UpsertProductAsync(product);
+        await repo.UpsertPurchaseAsync(purchase);
+        var pricing = new ProductPricingService(repo, repo, repo, repo);
+        var quote = await pricing.QuoteAsync(product.Id, PricingBasis.PurchaseStock, purchase.Id);
+        var saved = await pricing.ApplyAsync(new(Guid.NewGuid(), PricingSource.Purchase, purchase.Id,
+            [new(quote, 150, PricingInput.ManualPrice, null, 1)]));
+        purchase.ReceivingCompletedAt = purchase.ClosedAt = DateTimeOffset.UtcNow;
+        purchase.IsCostFinalized = true;
+        await repo.UpsertPurchaseAsync(purchase);
+        Assert.False(await pricing.NeedsReviewAsync(saved.Lines[0]));
+        product = (await repo.GetProductAsync(product.Id))!;
+        product.Variants[0].Layers[0].InitialValue = product.Variants[0].Layers[0].RemainingValue = 1200;
+        await repo.UpsertProductAsync(product);
+        Assert.True(await pricing.NeedsReviewAsync(saved.Lines[0]));
+        Assert.Equal(100, (await repo.GetPriceChangesAsync()).Single().Lines[0].Quote.UnitCost);
+    }
 }

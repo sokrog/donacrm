@@ -67,9 +67,9 @@
             </section>
             <section class="dona-section">
                 <h2>Взято для себя</h2>
-                <p>Оформите отдельное личное изъятие. Оно уменьшает складской остаток и сохраняет причину в истории.</p>
+                <p>Сначала выберите товар, затем укажите количество: 1 шт. или несколько сразу. На следующем экране будет показано, сколько спишется и сколько останется. Нажатие на товар ничего не списывает.</p>
                 @foreach (var item in purchase.Items.Where(x => x.ProductId is not null && x.ProductVariantId is not null).DistinctBy(x => (x.ProductId, x.ProductVariantId)))
-                { <a class="dona-btn dona-btn--secondary" href="/inventory/adjustment/new?ProductId=@item.ProductId&VariantId=@item.ProductVariantId&PersonalUse=true">@item.ProductName · @item.Color / @item.Size — взять для себя</a> }
+                { <a class="dona-btn dona-btn--secondary" href="/inventory/adjustment/new?ProductId=@item.ProductId&VariantId=@item.ProductVariantId&PersonalUse=true">@item.ProductName · @item.Color / @item.Size — указать количество для себя →</a> }
                 <p class="dona-note">Изъятие списывает доступные партии варианта по FIFO. При выборе распределения стоимость переносится на остаток этого же варианта.</p>
             </section>
             @if (purchase.LossDecisions.Count > 0)
