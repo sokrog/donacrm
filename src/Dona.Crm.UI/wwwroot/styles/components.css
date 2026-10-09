@@ -910,6 +910,18 @@ button.dona-list-row {
 .dona-context-menu { position: relative; }
 .dona-context-menu > summary { list-style: none; cursor: pointer; }
 .dona-context-menu > summary::-webkit-details-marker { display: none; }
+.dona-context-menu-trigger {
+    box-sizing: border-box;
+    width: var(--dona-control-height);
+    height: var(--dona-control-height);
+    border: var(--dona-border-width) solid var(--dona-line-strong);
+    border-radius: var(--dona-radius-md);
+    background: var(--dona-surface);
+    color: var(--dona-text);
+}
+.dona-context-menu[open] > .dona-context-menu-trigger,
+.dona-context-menu-trigger:hover { background: var(--dona-surface-soft); border-color: var(--dona-brand); }
+.dona-context-menu-trigger:focus-visible { outline: 3px solid rgba(var(--dona-brand-rgb), .55); outline-offset: 3px; }
 .dona-context-menu:not([open]) > .dona-context-menu-panel { display: none; }
 .dona-context-menu-panel {
     position: absolute;
@@ -926,6 +938,8 @@ button.dona-list-row {
     box-shadow: var(--dona-shadow-md);
 }
 .dona-context-menu-panel > .dona-btn { justify-content: flex-start; text-align: start; }
+.dona-context-menu-panel > .dona-btn:not(:disabled):hover,
+.dona-context-menu-panel > .dona-btn:focus-visible { background: var(--dona-surface-soft); }
 @media (min-width: 900px) {
     .dona-header-actions-desktop { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dona-space-3); }
     .dona-context-menu { display: none; }

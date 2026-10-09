@@ -1,9 +1,18 @@
+.product-editor-header { flex-wrap: wrap; }
+.product-editor-title { flex: 1; min-width: 0; }
+.product-editor-title h1 { overflow-wrap: anywhere; }
+.product-editor-header > .dona-page-header-actions { margin-inline-start: auto; }
+
 .product-editor-workspace, .product-editor-primary, .product-editor-secondary {
     display: grid;
     min-width: 0;
     gap: var(--dona-section-gap);
     align-items: start;
 }
+
+.product-editor-media { min-width: 0; }
+.product-editor-workspace:not(.product-editor-workspace--with-images) > .product-editor-media { order: 1; }
+.product-editor-secondary { order: 2; }
 
 .category-picker-add {
     display: grid;
@@ -60,10 +69,6 @@
     .variant-row label:nth-child(3), .variant-row .variant-stock { grid-column: auto; }
 }
 
-@media (min-width: 900px) {
-    .product-editor-workspace { grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr); }
-}
-
 @media (max-width: 390px) {
     .remove {
         grid-column: 2;
@@ -83,12 +88,13 @@
 .product-editor-secondary > details[open] > summary ::deep svg { transform: rotate(180deg); }
 
 @media (min-width: 900px) {
- .product-editor-workspace { grid-template-columns: repeat(2, minmax(0, 1fr)); }
- .product-editor-primary, .product-editor-secondary { display: contents; }
- .product-editor-primary > section:first-child { grid-column: 1; grid-row: 1 / 3; }
- .product-variants { grid-column: 2; grid-row: 1; }
- .product-editor-secondary ::deep .entity-images { grid-column: 2; grid-row: 2 / 4; }
- .product-editor-secondary > details { grid-column: 1; grid-row: 3; }
+    .product-editor-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+    .product-editor-media { grid-column: 2; grid-row: 1; }
+    .product-editor-primary { grid-column: 1; grid-row: 1 / 3; }
+    .product-editor-secondary { grid-column: 2; grid-row: 2; }
+    .product-editor-workspace--with-images > .product-editor-media { grid-column: 1; }
+    .product-editor-workspace--with-images > .product-editor-primary { grid-column: 2; }
+    .product-editor-workspace--with-images > .product-editor-secondary { grid-column: 1; }
 }
 
 .product-editor-workspace ::deep .dona-field { color: var(--dona-text); font-weight: var(--dona-weight-strong); }

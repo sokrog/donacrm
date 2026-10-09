@@ -3,7 +3,7 @@
 @inject IProductImagePicker ImagePicker
 @implements IAsyncDisposable
 
-<div class="dona-section entity-images" role="group" aria-labelledby="@headingId">
+<div class="dona-section entity-images @(Featured && Images.Count > 0 ? "entity-images--featured" : null)" role="group" aria-labelledby="@headingId">
     <div class="dona-section-title">
         <h2 id="@headingId">Фотографии</h2>
         <button type="button" class="dona-btn dona-btn--ghost" disabled="@(busy || Images.Count >= MaxImages)" @onclick="PickAsync">
@@ -24,7 +24,7 @@
     else
     {
         <div class="entity-images__grid">
-            @foreach (var image in Images.OrderBy(item => item.SortOrder))
+            @foreach (var image in Images.OrderByDescending(item => Featured && item.IsMain).ThenBy(item => item.SortOrder))
             {
                 <article class="entity-images__item" @key="image.Id">
                     <button type="button" class="entity-image-preview-button" aria-label="Открыть фотографию на весь экран" @onclick="() => OpenPreview(image)">
@@ -58,6 +58,7 @@
     [Parameter] public Guid OwnerId { get; set; }
     [Parameter] public string EntityLabel { get; set; } = "записи";
     [Parameter] public int MaxImages { get; set; } = 12;
+    [Parameter] public bool Featured { get; set; }
     [Parameter] public EventCallback ImagesChanged { get; set; }
 
     private readonly string headingId = $"images-{Guid.NewGuid():N}";

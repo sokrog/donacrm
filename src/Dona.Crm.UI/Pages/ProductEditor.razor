@@ -14,26 +14,35 @@
 <PageTitle>@(IsNew ? "Новый товар" : "Товар") — DONA CRM</PageTitle>
 
 <div class="dona-page dona-page--form" aria-busy="@isLoading">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <header class="dona-page-header dona-page-header--back dona-heading product-editor-header">
         <a class="dona-icon-button dona-back-button" href="/products" aria-label="Вернуться в каталог"><OrbitIcon Name="back" /></a>
-        <div>
+        <div class="product-editor-title">
             <p>Каталог</p>
             <h1>@(IsNew ? "Новый товар" : "Редактирование")</h1>
         </div>
+        @if (!IsNew && !isLoading && errorMessage is null)
+        {
+            <nav class="dona-page-header-actions" aria-label="Действия с товаром">
+                <DonaHeaderActions Label="Действия с товаром" Actions="HeaderActions" />
+            </nav>
+        }
     </header>
 
     @if (isLoading) { <div class="dona-state" role="status">Загружаем товар…</div> }
     else if (errorMessage is not null) { <div class="dona-state dona-state--error" role="alert"><strong>Не удалось открыть товар</strong><p>@errorMessage</p><a href="/products">В каталог</a></div> }
     else
     {
-        @if (!IsNew && model.Quantity == 0) { <p class="dona-message">Остатка пока нет. <a href="/purchases/new?productId=@model.Id">Создать закупку</a> · <a href="/inventory/adjustment/new?productId=@model.Id">Внести остаток</a></p> }
         <EditForm class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
-            <div class="product-editor-workspace">
+            <div class="product-editor-workspace @(model.Images.Count > 0 ? "product-editor-workspace--with-images" : null)">
+                <div class="product-editor-media">
+                    <EntityImageEditor @ref="imageEditor" Images="@model.Images" OwnerId="@model.Id" EntityLabel="товара" ImagesChanged="UpdatePrimaryImage" Featured="true" />
+                </div>
                 <div class="product-editor-primary">
                     <section class="dona-section" aria-labelledby="main-fields"><h2 id="main-fields">Основное</h2>
+                        @if (!IsNew && model.Quantity == 0) { <p class="dona-note">Остатка пока нет.</p> }
                         <label class="dona-field">Название *<InputText @bind-Value="model.Name" autocomplete="off" /><ValidationMessage For="() => model.Name" /></label>
                         <div class="dona-field-row">
                             <label class="dona-field">SKU *<InputText @bind-Value="model.Sku" autocomplete="off" /><ValidationMessage For="() => model.Sku" /></label>
@@ -56,7 +65,7 @@
                         @if (IsNew) { <p class="dona-note">Сохраните товар, чтобы установить цену отдельной операцией.</p> }
                         else
                         {
-                            <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/products/@model.Id/pricing">Установить цену</a><a href="/products/@model.Id/price-history">История цен</a></div>
+                            <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/products/@model.Id/pricing">Установить цену</a></div>
                             @if (lastPriceAt is { } date) { <p class="dona-note">Последнее изменение: @date.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p> }
                             @if (reviewPrice) { <p class="dona-message">Основание последней установки цены изменилось. Проверьте себестоимость и пересмотрите цену.</p> }
                         }
@@ -93,7 +102,6 @@
                 </div>
 
                 <div class="product-editor-secondary">
-                    <EntityImageEditor @ref="imageEditor" Images="@model.Images" OwnerId="@model.Id" EntityLabel="товара" ImagesChanged="UpdatePrimaryImage" />
                     <details class="dona-section"><summary><OrbitIcon Name="down" />Закупка</summary>
                         <label class="dona-field">Предпочтительный поставщик<OrbitSelect TValue="Guid?" @bind-Value="model.PreferredSupplierId" Options="@PreferredSupplierOptions" Label="Предпочтительный поставщик" Searchable="true" /></label>
                         <label class="dona-field">Ссылка на товар у поставщика<InputText @bind-Value="model.SourceUrl" inputmode="url" placeholder="https://detail.1688.com/…" /></label>
@@ -131,6 +139,12 @@
 @code {
     [Parameter] public Guid? Id { get; set; }
     private Product model = new();
+    private IReadOnlyList<DonaHeaderAction> HeaderActions =>
+    [
+        new("История цен", Disabled: isSaving, Href: $"/products/{model.Id}/price-history"),
+        new("Создать закупку", Disabled: isSaving, Href: $"/purchases/new?productId={model.Id}"),
+        new("Внести остаток", Disabled: isSaving, Href: $"/inventory/adjustment/new?productId={model.Id}")
+    ];
     private bool isLoading = true;
     private bool isSaving;
     [SupplyParameterFromQuery(Name = "priced")] public int? Priced { get; set; }
