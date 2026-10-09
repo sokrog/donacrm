@@ -14,13 +14,13 @@
 
 <PageTitle>@(IsNew ? "Новая продажа" : sale.Number) — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/sales" aria-label="Вернуться к продажам"><OrbitIcon Name="back" /></a>
         <div>
             <p>@sale.Status.Display()</p>
             <h1>@(IsNew ? "Новая продажа" : sale.Number)</h1>
         </div>
-    </header>
+    </DonaPageHeader>
     @if (loading)
     {
         <div class="dona-state">Загружаем заказ…</div>
@@ -52,7 +52,7 @@
                 </ol>
             </section>
         }
-        <EditForm class="dona-stack" Model="sale" OnValidSubmit="SaveDraftAsync">
+        <EditForm id="saleeditor-form-1" class="dona-stack" Model="sale" OnValidSubmit="SaveDraftAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
@@ -63,7 +63,6 @@
                             <h2>Товары</h2>
                             <p>@sale.TotalQuantity ед. · @Money(sale.TotalUzs) UZS</p>
                         </div>
-                        <button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="dona-inline-icon" />Позиция</button>
                     </div>
                     @if (sale.Items.Count == 0)
                     {
@@ -81,6 +80,7 @@
                             <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-line" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
                         </article>
                     }
+                    <button type="button" class="dona-btn dona-btn--ghost dona-btn--block" @onclick="AddItem"><OrbitIcon Name="plus" />Добавить позицию</button>
                 </section>
             </fieldset>
             <details class="dona-section">
@@ -249,10 +249,9 @@
             {
                 <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
             }
-            <div class="dona-actions">
-                @if (confirm is not null)
+            @if (confirm is not null)
                 {
-                    <div class="dona-confirm" role="alertdialog">
+                    <DonaConfirmation OnCancel="() => confirm = null"><div class="dona-confirm">
                         <span>@(confirm == ConfirmKind.Delete ? "Удалить продажу? Она и её оплаты будут исключены из списков и отчётов. Резерв будет снят, списанный товар возвращён на склад за вычетом уже принятых возвратов." : confirm == ConfirmKind.Cancel ? "Отменить заказ? Резерв будет снят, полученная оплата останется к возврату." : confirm == ConfirmKind.Ship ? "Отправить заказ? Товар спишется со склада по FIFO." : "Подтвердить завершение заказа? Товар уже списан при отправке.")</span>
                         @if (confirm == ConfirmKind.Cancel && sale.DeliveryChargeUzs is > 0)
                         {
@@ -264,28 +263,25 @@
                                 class="dona-btn @(confirm is ConfirmKind.Cancel or ConfirmKind.Delete ? "dona-btn--danger" : "dona-btn--primary")"
                                 disabled="@saving"
                                 @onclick="ConfirmAsync">@(confirm == ConfirmKind.Delete ? "Да, удалить" : confirm == ConfirmKind.Cancel ? "Да, отменить" : confirm == ConfirmKind.Ship ? "Да, отправить" : "Да, завершить")</button>
-                    </div>
+                    </div></DonaConfirmation>
                 }
-                else if (IsDraft)
-                {
-                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="QuickSaleAsync">Продать · @Money(sale.TotalUzs) UZS</button>
-                    <button type="submit" class="dona-btn dona-btn--secondary" disabled="@saving">Черновик</button>
+            <DonaPageActions>
+                <Primary>
+                    @if (IsDraft) { <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="QuickSaleAsync">Продать · @Money(sale.TotalUzs) UZS</button> }
+                    else if (sale.Status is SaleStatus.Reserved) { <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Ship">Отправить заказ</button> }
+                    else if (sale.Status == SaleStatus.Shipped) { <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button> }
+                </Primary>
+                <Secondary>
+                    @if (IsDraft) {
+                    <button type="submit" form="saleeditor-form-1" class="dona-btn dona-btn--secondary" disabled="@saving">Черновик</button>
                     <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ReserveAsync">Зарезервировать</button>
                 }
-                else if (sale.Status is SaleStatus.Reserved)
-                {
-                    <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Cancel">Отменить заказ</button>
-                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Ship">Отправить заказ</button>
-                }
-                else if (sale.Status == SaleStatus.Shipped)
-                {
-                    <button type="button" class="dona-btn dona-btn--primary" disabled="@saving" @onclick="() => confirm = ConfirmKind.Complete">Завершить продажу</button>
-                }
-                @if (!IsNew && confirm is null)
-                {
-                    <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Delete">@(IsDraft ? "Удалить черновик" : "Удалить продажу")</button>
-                }
-            </div>
+            </Secondary>
+            <Danger>
+                @if (sale.Status is SaleStatus.Reserved) { <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Cancel">Отменить заказ</button> }
+                @if (!IsNew) { <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="() => confirm = ConfirmKind.Delete">@(IsDraft ? "Удалить черновик" : "Удалить продажу")</button> }
+            </Danger>
+            </DonaPageActions>
         </EditForm>
     }
 </div>

@@ -1,0 +1,27 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<OrbitModalLock>
+    <div class="dona-modal dona-modal--alert" role="presentation">
+        <section id="@dialogId" class="dona-modal__dialog dona-modal__dialog--sm dona-page-confirmation" role="alertdialog" aria-modal="true" aria-label="Подтверждение действия" @onkeydown="KeyDown">
+            @ChildContent
+        </section>
+    </div>
+</OrbitModalLock>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private readonly string dialogId = $"page-confirmation-{Guid.NewGuid():N}";
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("orbitModal.openConfirmation", dialogId);
+    }
+    private Task KeyDown(KeyboardEventArgs args) => args.Key == "Escape" ? OnCancel.InvokeAsync() : Task.CompletedTask;
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("orbitModal.closeConfirmation", dialogId); }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException) { }
+    }
+}

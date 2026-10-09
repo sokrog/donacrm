@@ -9,7 +9,7 @@ public sealed record PurchaseReceiptInput(Guid PurchaseItemId, int ReceivedQuant
 public sealed record PurchaseReceiptResult(Guid ReceiptId, int AddedUnits, int UpdatedProducts, int DefectUnits);
 public sealed record PurchaseShortageInput(Guid PurchaseItemId, decimal SupplierRefund);
 
-public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInventoryStore store, ICommerceRepository? commerce = null)
+public sealed partial class PurchaseReceivingService(ICatalogRepository catalog, IInventoryStore store, ICommerceRepository? commerce = null)
 {
     public Task SaveAsync(Purchase purchase, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(purchase, async () =>
     {
@@ -19,7 +19,10 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         var repository = commerce ?? throw new InvalidOperationException("Хранилище закупок недоступно.");
         var saved = await repository.GetPurchaseAsync(purchase.Id, cancellationToken);
         ValidateStatusAndReceiptTotals(purchase, saved);
-        if (saved is not null && (saved.ClosedAt != purchase.ClosedAt || saved.ClosingOperationId != purchase.ClosingOperationId
+        if (saved is not null && (saved.SeparateReceiptDefects != purchase.SeparateReceiptDefects || saved.ReceivingCompletedAt != purchase.ReceivingCompletedAt
+            || JsonSerializer.Serialize(saved.LossDecisions) != JsonSerializer.Serialize(purchase.LossDecisions)
+            || JsonSerializer.Serialize(saved.LossReviews) != JsonSerializer.Serialize(purchase.LossReviews)
+            || saved.ClosedAt != purchase.ClosedAt || saved.ClosingOperationId != purchase.ClosingOperationId
             || JsonSerializer.Serialize(saved.ShortageSettlements) != JsonSerializer.Serialize(purchase.ShortageSettlements)
             || JsonSerializer.Serialize(saved.CompensationCorrections) != JsonSerializer.Serialize(purchase.CompensationCorrections)
             || JsonSerializer.Serialize(saved.LateReceipts) != JsonSerializer.Serialize(purchase.LateReceipts)
@@ -31,7 +34,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             throw new InvalidOperationException("Приёмка изменилась. Откройте закупку заново перед сохранением.");
         if (saved is not null)
         {
-            if (saved.ClosedAt is not null && !saved.Items.Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.Quantity))
+            if ((saved.ClosedAt is not null || saved.ReceivingCompletedAt is not null) && !saved.Items.Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.Quantity))
                 .SequenceEqual(purchase.Items.Select(x => (x.Id, x.ProductId, x.ProductVariantId, x.Quantity))))
                 throw new InvalidOperationException("Нельзя менять состав и количество закрытой закупки.");
             foreach (var received in saved.Items.Where(x => (x.ReceivedQuantity ?? 0) > 0))
@@ -50,13 +53,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         {
             if (purchase.HasCompleteCostInputs)
                 purchase.CostRevisions.Add(new(DateTimeOffset.UtcNow, purchase.TotalCostUzs, purchase.IsCostFinalized));
-            foreach (var receipt in purchase.Receipts)
-            {
-                var (costs, _) = await BuildHistoryAsync(purchase, receipt, products, cancellationToken);
-                corrections.AddRange(costs);
-                foreach (var line in receipt.Lines.Where(x => x.ReceivedQuantity > 0 && x.ReceivedQuantity == x.DefectQuantity))
-                    RecordDefect(purchase, receipt, line, ReceiptValue(purchase, receipt, line), DateTimeOffset.UtcNow);
-            }
+            corrections.AddRange(await RevalueReceiptsAsync(purchase, products, cancellationToken));
             foreach (var settlement in purchase.ShortageSettlements)
             {
                 var item = purchase.Items.Single(x => x.Id == settlement.PurchaseItemId);
@@ -69,26 +66,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
                     purchase.StockValuations.Add(new(Guid.NewGuid(), settlement.Id, DateTimeOffset.UtcNow, StockValuationReason.Shortage,
                         null, item.Id, 0, 0, previous?.NewValue, value, 0, value - (previous?.NewValue ?? 0)));
             }
-            foreach (var product in products.Values)
-            {
-                foreach (var variant in product.Variants)
-                foreach (var layer in variant.Layers.Where(x => x.PurchaseId == purchase.Id))
-                {
-                    var receipt = purchase.Receipts.Single(x => x.Id == layer.ReceiptId);
-                    var line = receipt.Lines.Single(x => x.Id == layer.ReceiptLineId);
-                    var value = ReceiptValue(purchase, receipt, line);
-                    if (value == layer.InitialValue) continue;
-                    var remaining = FifoCostCalculator.Allocate(value, layer.InitialQuantity, 0, layer.RemainingQuantity);
-                    purchase.StockValuations.Add(new(Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UtcNow,
-                        layer.InitialValue is null ? StockValuationReason.InitialValuation : StockValuationReason.Revaluation,
-                        layer.Id, layer.PurchaseItemId, layer.ValuationRevision, layer.ValuationRevision + 1,
-                        layer.InitialValue, value, remaining - (layer.RemainingValue ?? 0),
-                        value - remaining - ((layer.InitialValue ?? 0) - (layer.RemainingValue ?? 0))));
-                    layer.InitialValue = value;
-                    layer.RemainingValue = remaining;
-                    layer.ValuationRevision++;
-                }
-            }
+
         }
         await store.CommitAsync(InventoryCommit.Create(
             products: products.Values, purchases: [purchase]) with { CostCorrections = corrections }, cancellationToken);
@@ -116,7 +94,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
                 throw new InvalidOperationException("Документ уже сохранён с другими данными.");
             return replay;
         }
-        if (purchase.ClosedAt is null || !purchase.HasCompleteCostInputs)
+        if ((purchase.ClosedAt is null && purchase.ReceivingCompletedAt is null) || !purchase.HasCompleteCostInputs)
             throw new InvalidOperationException("Нужна закрытая закупка с полной стоимостью.");
         var settlement = purchase.ShortageSettlements.SingleOrDefault(x => x.Id == settlementId)
             ?? throw new InvalidOperationException("Недостача не найдена.");
@@ -146,15 +124,16 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         if (line.StockedQuantity > 0)
         {
             if (product.UnitWeightKg is null && item.UnitWeightKg is > 0) product.UnitWeightKg = item.UnitWeightKg;
-            var layer = StockLayerOperations.Add(variant, line.StockedQuantity, receiptValue, StockLayerSource.PurchaseReceipt, now, purchase.Number, line.Id);
+            var stockValue = purchase.SeparateReceiptDefects ? FifoCostCalculator.Allocate(receiptValue, quantity, 0, line.StockedQuantity) : receiptValue;
+            var layer = StockLayerOperations.Add(variant, line.StockedQuantity, stockValue, StockLayerSource.PurchaseReceipt, now, purchase.Number, line.Id);
             layer.PurchaseId = purchase.Id; layer.PurchaseItemId = item.Id; layer.ReceiptId = receipt.Id; layer.ReceiptLineId = line.Id;
             var movement = new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id,
                 ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = line.StockedQuantity,
                 SourceType = "PurchaseLateReceipt", SourceId = operationId, SourceNumber = purchase.Number, Note = reason.Trim() };
-            StockLayerOperations.SetValue(movement, new(receiptValue, 0), 1);
+            StockLayerOperations.SetValue(movement, new(stockValue ?? 0, 0), 1);
             movements.Add(movement);
         }
-        else RecordDefect(purchase, receipt, line, receiptValue, now);
+        if (purchase.SeparateReceiptDefects || line.StockedQuantity == 0) RecordDefect(purchase, receipt, line, purchase.SeparateReceiptDefects ? receiptValue - FifoCostCalculator.Allocate(receiptValue, quantity, 0, line.StockedQuantity) : receiptValue, now);
         var oldValue = purchase.StockValuations.LastOrDefault(x => x.Reason == StockValuationReason.Shortage && x.OperationId == settlement.Id)?.NewValue
             ?? settlement.AllocatedCost ?? throw new InvalidOperationException("Стоимость недостачи неизвестна.");
         purchase.StockValuations.Add(new(Guid.NewGuid(), settlement.Id, now, StockValuationReason.Shortage, null, item.Id,
@@ -187,7 +166,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
                 throw new InvalidOperationException("Исправление с этим номером уже сохранено с другими данными.");
             return previous;
         }
-        if (purchase.ClosedAt is null) throw new InvalidOperationException("Сначала закройте закупку и учтите недостачу.");
+        if (purchase.ClosedAt is null && purchase.ReceivingCompletedAt is null) throw new InvalidOperationException("Сначала учтите недостачу на этапе расхождений.");
         var settlement = purchase.ShortageSettlements.SingleOrDefault(x => x.Id == settlementId)
             ?? throw new InvalidOperationException("Документ недостачи не найден.");
         var current = purchase.CurrentRefund(settlement);
@@ -223,7 +202,8 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             throw new InvalidOperationException("Закупка изменена. Сохраните или перечитайте её перед закрытием.");
         if (purchase.Status == PurchaseStatus.Cancelled) throw new InvalidOperationException("Отменённую закупку нельзя закрыть.");
         if (!purchase.HasCompleteCostInputs) throw new InvalidOperationException("Перед закрытием укажите стоимость закупки и расходов.");
-        var missing = purchase.Items.Where(x => x.MissingQuantity > 0).ToList();
+        if (purchase.ReceivingCompletedAt is not null && HasUnreviewedLosses(purchase)) throw new InvalidOperationException("Сначала учтите новые потери на этапе расхождений.");
+        var missing = purchase.ReceivingCompletedAt is not null ? new List<PurchaseItem>() : purchase.Items.Where(x => x.MissingQuantity > 0).ToList();
         if (input.Count != missing.Count || input.Select(x => x.PurchaseItemId).Distinct().Count() != input.Count
             || input.Any(x => missing.All(item => item.Id != x.PurchaseItemId)))
             throw new InvalidOperationException("Укажите компенсацию по каждой недополученной позиции. Ноль означает потерю.");
@@ -257,7 +237,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
     {
         if (purchase.Status is { } status && !Enum.IsDefined(status))
             throw new InvalidOperationException("Неизвестный статус закупки.");
-        if (saved is null && (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null))
+        if (saved is null && (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null || purchase.ReceivingCompletedAt is not null || purchase.SeparateReceiptDefects || purchase.LossDecisions.Count > 0 || purchase.LossReviews.Count > 0))
             throw new InvalidOperationException("Приёмка и закрытие оформляются отдельными действиями после сохранения закупки.");
         var lines = saved?.Receipts.SelectMany(x => x.Lines).ToList() ?? [];
         foreach (var item in purchase.Items)
@@ -285,10 +265,10 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
     public Task<PurchaseReceiptResult> ReceiveAsync(Purchase purchase, IEnumerable<PurchaseReceiptInput> input, Guid? receiptId = null, DateTimeOffset? receivedAt = null, string? note = null, CancellationToken cancellationToken = default) => EntityRollback.RunAsync(purchase, async () =>
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
-        if (purchase.ClosedAt is not null) throw new InvalidOperationException("Закупка закрыта. Допоставка требует отдельного корректирующего документа.");
+        if (purchase.ClosedAt is not null || purchase.ReceivingCompletedAt is not null) throw new InvalidOperationException("Приёмка завершена. Допоставка требует отдельного корректирующего документа.");
         if (commerce is not null && await commerce.GetPurchaseAsync(purchase.Id, cancellationToken) is { } saved)
         {
-            if (saved.ClosedAt is not null || saved.Status == PurchaseStatus.Cancelled)
+            if (saved.ClosedAt is not null || saved.ReceivingCompletedAt is not null || saved.Status == PurchaseStatus.Cancelled)
                 throw new InventoryException("Закупка уже закрыта или отменена. Откройте закупку заново.");
             if (JsonSerializer.Serialize(saved.Receipts) != JsonSerializer.Serialize(purchase.Receipts))
                 throw new InventoryException("Приёмки закупки уже изменились. Откройте закупку заново.");
@@ -341,11 +321,12 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
 
             var receiptValue = FifoCostCalculator.Allocate(purchase.HasCompleteCostInputs ? purchase.ItemLandedCostUzs(item) : null,
                 item.Quantity!.Value, item.ReceivedQuantity!.Value - entry.ReceivedQuantity, entry.ReceivedQuantity);
-            if (accepted == 0) RecordDefect(purchase, receipt, line, receiptValue, receipt.ReceivedAt);
+            var stockValue = purchase.SeparateReceiptDefects ? FifoCostCalculator.Allocate(receiptValue, entry.ReceivedQuantity, 0, accepted) : receiptValue;
+            if (purchase.SeparateReceiptDefects || accepted == 0) RecordDefect(purchase, receipt, line, purchase.SeparateReceiptDefects ? receiptValue - stockValue : receiptValue, receipt.ReceivedAt);
             StockLayerOperations.PrepareEmpty(variant);
             if (accepted > 0)
             {
-                var layer = StockLayerOperations.Add(variant, accepted, receiptValue, StockLayerSource.PurchaseReceipt, receipt.ReceivedAt, purchase.Number, line.Id);
+                var layer = StockLayerOperations.Add(variant, accepted, stockValue, StockLayerSource.PurchaseReceipt, receipt.ReceivedAt, purchase.Number, line.Id);
                 layer.PurchaseId = purchase.Id; layer.PurchaseItemId = item.Id; layer.ReceiptId = receipt.Id; layer.ReceiptLineId = line.Id;
             }
             item.ProductVariantId = variant.Id;
@@ -354,7 +335,7 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
             line.StockedQuantity = accepted;
             if (accepted > 0 && product.UnitWeightKg is null && item.UnitWeightKg is > 0) product.UnitWeightKg = item.UnitWeightKg;
             if (accepted != 0) movementRecords.Add(new StockMovement { Type = StockMovementType.PurchaseReceipt, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = accepted, SourceType = "Purchase", SourceId = purchase.Id, SourceNumber = purchase.Number, Note = $"Приёмка {receipt.ReceivedAt.ToLocalTime():dd.MM.yyyy}" });
-            if (accepted > 0) StockLayerOperations.SetValue(movementRecords[^1], new(receiptValue ?? 0, receiptValue is null ? accepted : 0), 1);
+            if (accepted > 0) StockLayerOperations.SetValue(movementRecords[^1], new(stockValue ?? 0, stockValue is null ? accepted : 0), 1);
             added += accepted;
             receipt.Lines.Add(line);
         }
@@ -379,8 +360,9 @@ public sealed class PurchaseReceivingService(ICatalogRepository catalog, IInvent
         var item = purchase.Items.Single(x => x.Id == line.PurchaseItemId);
         var previous = purchase.Receipts.TakeWhile(x => x.Id != receipt.Id).SelectMany(x => x.Lines)
             .Where(x => x.PurchaseItemId == item.Id).Sum(x => x.ReceivedQuantity);
-        return FifoCostCalculator.Allocate(purchase.HasCompleteCostInputs ? purchase.ItemLandedCostUzs(item) : null,
+        var gross = FifoCostCalculator.Allocate(purchase.HasCompleteCostInputs ? purchase.ItemLandedCostUzs(item) : null,
             item.Quantity!.Value, previous, line.ReceivedQuantity);
+        return purchase.SeparateReceiptDefects ? FifoCostCalculator.Allocate(gross, line.ReceivedQuantity, 0, line.StockedQuantity) : gross;
     }
 
     private async Task<(List<ProductCostHistoryEntry> Costs, ExchangeRateHistoryEntry? Rate)> BuildHistoryAsync(Purchase purchase, PurchaseReceipt receipt, Dictionary<Guid, Product> products, CancellationToken cancellationToken)

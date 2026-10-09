@@ -1,0 +1,160 @@
+@page "/purchases/{Id:guid}/discrepancies"
+@using Dona.Crm.Web.Storage
+@inject ICommerceRepository Commerce
+@inject ICatalogRepository Catalog
+@inject PurchaseReceivingService Receiving
+
+<PageTitle>Разбор расхождений — DONA CRM</PageTitle>
+<div class="dona-page dona-page--form">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases" data-back-target="explicit" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
+        <div><p>@purchase?.Number</p><h1>Разбор расхождений</h1></div>
+    </DonaPageHeader>
+    @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
+    @if (success is not null) { <p class="dona-message dona-message--success" role="status">@success</p> }
+    @if (loading) { <p class="dona-state">Загружаем закупку…</p> }
+    else if (purchase is not null)
+    {
+        <PurchaseNavigation Purchase="purchase" Current="discrepancies" />
+        <EditForm Model="form" OnSubmit="Review" class="dona-stack" id="purchase-loss-form">
+            <UnsavedChangesGuard @ref="guard" />
+            <section class="dona-section">
+                <h2>Как учесть потери</h2>
+                <p>Отдельный расход уменьшает прибыль. Распределение переносит потерю в себестоимость фактического остатка этой закупки, пропорционально его стоимости. Выручка от продаж не меняется.</p>
+                @if (!purchase.HasCompleteCostInputs)
+                { <p class="dona-message">Сначала заполните цены, курсы и расходы закупки.</p> }
+                else
+                {
+                    @foreach (var item in purchase.Items)
+                    {
+                        @if ((item.DefectQuantity ?? 0) > 0 || item.MissingQuantity > 0)
+                        {
+                            var refundForm = refunds[item.Id];
+                            <article class="dona-stack">
+                                <h3>@item.ProductName · @item.Color / @item.Size</h3>
+                                @if (item.MissingQuantity > 0)
+                                {
+                                    <p>Недостача: @item.MissingQuantity шт. · @Money(PurchaseReceivingService.ShortageCost(purchase, item))</p>
+                                    @if (Unsettled)
+                                    { <label class="dona-field">Компенсация поставщика, UZS<DonaLiveNumber @bind-Value="refundForm.Value" min="0" step="0.01" /></label> }
+                                    else if (purchase.ShortageSettlements.FirstOrDefault(x => x.PurchaseItemId == item.Id) is { } settlement)
+                                    {
+                                        <p>Компенсация: @Money(purchase.CurrentRefund(settlement))</p>
+                                        <a class="dona-btn dona-btn--secondary" href="/purchases/@Id/compensation/@settlement.Id">Исправить компенсацию</a>
+                                        <a class="dona-btn dona-btn--secondary" href="/purchases/@Id/late-receipt/@settlement.Id">Поздняя поставка</a>
+                                    }
+                                }
+                                @if ((item.DefectQuantity ?? 0) > 0)
+                                { <p>Брак: @item.DefectQuantity шт. · @Money(PurchaseReceivingService.DefectCost(purchase, item))</p> }
+                                @foreach (var kind in Enum.GetValues<PurchaseLossKind>())
+                                {
+                                    var amount = Pending(item, kind);
+                                    var choice = choices[(item.Id, kind)];
+                                    if (amount > 0)
+                                    {
+                                        <label class="dona-field">@(kind == PurchaseLossKind.Defect ? "Брак" : "Недостача после компенсации"): @Money(amount)
+                                            <OrbitSelect TValue="LossTreatment?" @bind-Value="choice.Value" Options="Treatments" Label="Как учесть потерю" />
+                                        </label>
+                                    }
+                                }
+                            </article>
+                        }
+                    }
+                    @if (PendingTotal == 0) { <p>Неучтённых потерь нет.</p> }
+                    <p>Текущий остаток закупки: @stockQuantity шт. · @Money(stockValue). Выбрано к распределению: <strong>@Money(CapitalizedTotal)</strong>; отдельным расходом: <strong>@Money(ExpensedTotal)</strong>. Ещё не выбран способ: @Money(PendingTotal - CapitalizedTotal - ExpensedTotal).</p>
+                    <p class="dona-note">Это решение по текущим суммам. Поздние расходы и компенсации сохраняются отдельными корректировками. Возмещения уменьшают расходы периода; сохранённые распределения не отменяются. Новые потери можно разобрать здесь повторно.</p>
+                }
+            </section>
+            <section class="dona-section">
+                <h2>Взято для себя</h2>
+                <p>Оформите отдельное личное изъятие. Оно уменьшает складской остаток и сохраняет причину в истории.</p>
+                @foreach (var item in purchase.Items.Where(x => x.ProductId is not null && x.ProductVariantId is not null).DistinctBy(x => (x.ProductId, x.ProductVariantId)))
+                { <a class="dona-btn dona-btn--secondary" href="/inventory/adjustment/new?ProductId=@item.ProductId&VariantId=@item.ProductVariantId&PersonalUse=true">@item.ProductName · @item.Color / @item.Size — взять для себя</a> }
+                <p class="dona-note">Изъятие списывает доступные партии варианта по FIFO. При выборе распределения стоимость переносится на остаток этого же варианта.</p>
+            </section>
+            @if (purchase.LossDecisions.Count > 0)
+            {
+                <details class="dona-section"><summary>История решений</summary>
+                    @foreach (var decision in purchase.LossDecisions.OrderByDescending(x => x.At))
+                    { <p>@decision.At.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @purchase.Items.FirstOrDefault(x => x.Id == decision.PurchaseItemId)?.ProductName · @(decision.Kind == PurchaseLossKind.Defect ? "Брак" : "Недостача") · @Money(decision.Amount) · @(decision.Treatment == LossTreatment.RemainingStock ? "В себестоимость остатка" : "Отдельный расход")</p> }
+                </details>
+            }
+            @if (confirm)
+            {
+                <DonaConfirmation OnCancel="() => confirm = false"><div class="dona-stack">
+                    <h2>Учесть расхождения?</h2>
+                    <p>На остаток: @Money(CapitalizedTotal). Отдельным расходом: @Money(PendingTotal - CapitalizedTotal). Обычная приёмка завершится; последующие поступления оформляются как поздняя поставка.</p>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@busy" @onclick="SaveAsync">Подтвердить</button>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="() => confirm = false">Отмена</button>
+                </div></DonaConfirmation>
+            }
+            <DonaPageActions><Primary>
+                <button form="purchase-loss-form" type="submit" class="dona-btn dona-btn--primary" disabled="@(busy || !purchase.HasCompleteCostInputs || purchase.Status == PurchaseStatus.Cancelled || (!Unsettled && PendingTotal == 0 && purchase.SeparateReceiptDefects))">Учесть расхождения</button>
+            </Primary><Secondary><a class="dona-btn dona-btn--secondary" href="/purchases/@Id/pricing">Перейти к ценам</a></Secondary></DonaPageActions>
+        </EditForm>
+    }
+
+</div>
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private Purchase? purchase;
+    private readonly object form = new();
+    private UnsavedChangesGuard? guard;
+    private bool loading = true, busy, confirm;
+    private string? error, success;
+    private Guid operationId = Guid.NewGuid();
+    private int stockQuantity;
+    private decimal stockValue;
+    private readonly Dictionary<Guid, RefundForm> refunds = [];
+    private readonly Dictionary<(Guid, PurchaseLossKind), ChoiceForm> choices = [];
+    private sealed class RefundForm { public decimal Value { get; set; } }
+    private sealed class ChoiceForm { public LossTreatment? Value { get; set; } }
+    private static readonly IReadOnlyList<OrbitSelectOption<LossTreatment?>> Treatments = [new(null, "Выберите способ учёта"), new(LossTreatment.PeriodExpense, "Отдельный расход"), new(LossTreatment.RemainingStock, "В себестоимость остатка")];
+    private bool Unsettled => purchase is { ClosedAt: null, ReceivingCompletedAt: null };
+    private decimal Pending(PurchaseItem item, PurchaseLossKind kind) => PurchaseReceivingService.PendingLoss(purchase!, item, kind, refunds[item.Id].Value);
+    private decimal PendingTotal => purchase?.HasCompleteCostInputs == true ? purchase.Items.Sum(i => Enum.GetValues<PurchaseLossKind>().Sum(k => Pending(i, k))) : 0;
+    private decimal ExpensedTotal => purchase?.HasCompleteCostInputs == true ? purchase.Items.Sum(i => Enum.GetValues<PurchaseLossKind>().Where(k => choices[(i.Id, k)].Value == LossTreatment.PeriodExpense).Sum(k => Pending(i, k))) : 0;
+    private decimal CapitalizedTotal => purchase?.HasCompleteCostInputs == true ? purchase.Items.Sum(i => Enum.GetValues<PurchaseLossKind>().Where(k => choices[(i.Id, k)].Value == LossTreatment.RemainingStock).Sum(k => Pending(i, k))) : 0;
+    private static string Money(decimal value) => $"{value:N2} UZS";
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    private async Task LoadAsync()
+    {
+        loading = true;
+        try
+        {
+            purchase = await Commerce.GetPurchaseAsync(Id) ?? throw new InvalidOperationException("Закупка не найдена.");
+            var products = await Catalog.GetProductsAsync();
+            var layers = products.SelectMany(x => x.Variants).SelectMany(x => x.Layers).Where(x => x.PurchaseId == Id).ToList();
+            stockQuantity = layers.Sum(x => x.RemainingQuantity); stockValue = layers.Sum(x => x.RemainingValue ?? 0);
+            refunds.Clear(); choices.Clear();
+            foreach (var item in purchase.Items) { refunds[item.Id] = new(); foreach (var kind in Enum.GetValues<PurchaseLossKind>()) choices[(item.Id, kind)] = new(); }
+            operationId = Guid.NewGuid();
+        }
+        catch (Exception ex) { error = UserErrors.Describe(ex, "Не удалось открыть расхождения."); }
+        finally { loading = false; }
+    }
+    private void Review()
+    {
+        error = success = null;
+        if (purchase is null || !purchase.HasCompleteCostInputs) return;
+        if (Unsettled && purchase.Items.Any(i => refunds[i.Id].Value < 0 || refunds[i.Id].Value > PurchaseReceivingService.ShortageCost(purchase, i))) { error = "Компенсация должна быть от нуля до стоимости недостачи."; return; }
+        if (purchase.Items.Any(i => Enum.GetValues<PurchaseLossKind>().Any(k => Pending(i, k) > 0 && choices[(i.Id, k)].Value is null))) { error = "Выберите способ учёта каждой потери."; return; }
+        if (CapitalizedTotal > 0 && stockQuantity == 0) { error = "Нет остатка для распределения. Выберите отдельный расход."; return; }
+        confirm = true;
+    }
+    private async Task SaveAsync()
+    {
+        if (busy || purchase is null) return;
+        busy = true; error = null;
+        try
+        {
+            var decisions = purchase.Items.SelectMany(i => Enum.GetValues<PurchaseLossKind>().Where(k => Pending(i, k) > 0).Select(k => new PurchaseLossInput(i.Id, k, choices[(i.Id, k)].Value!.Value))).ToList();
+            var shortages = Unsettled ? purchase.Items.Where(i => i.MissingQuantity > 0).Select(i => new PurchaseShortageInput(i.Id, refunds[i.Id].Value)).ToList() : new List<PurchaseShortageInput>();
+            await Receiving.ResolveLossesAsync(purchase, shortages, decisions, operationId);
+            guard?.MarkClean(); confirm = false;
+            await LoadAsync(); success = "Расхождения учтены. Можно проверить цены и закрыть закупку.";
+        }
+        catch (Exception ex) { confirm = false; error = UserErrors.Describe(ex, "Не удалось учесть расхождения."); }
+        finally { busy = false; }
+    }
+}

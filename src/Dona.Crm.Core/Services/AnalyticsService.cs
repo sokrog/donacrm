@@ -18,6 +18,7 @@ public sealed class AnalyticsService
             if (value.ExpenseDelta != 0)
                 expenses.Add(new(value.RecognizedAt, document, value.Reason switch
                 {
+                    StockValuationReason.LossCapitalization => "Распределение потерь на остаток",
                     StockValuationReason.ReceiptDefect => "Брак при приёмке",
                     StockValuationReason.Shortage => "Недостача",
                     StockValuationReason.ShortageCompensation => "Исправление компенсации недостачи",
@@ -27,7 +28,7 @@ public sealed class AnalyticsService
                 }, value.ExpenseDelta));
         foreach (var movement in (movements ?? []).Where(x => x.IsInventoryLoss()
             && SaleFinancialEvents.InPeriod(x.CreatedAt, from, to)))
-            expenses.Add(new(movement.CreatedAt, movement.SourceNumber, "Списание со склада", movement.SourceType == "SaleDeletionDefect"
+            expenses.Add(new(movement.CreatedAt, movement.SourceNumber, movement.SourceNumber == "Личное изъятие" ? "Личное изъятие" : "Списание со склада", movement.SourceType == "SaleDeletionDefect"
                 ? movement.Consumptions.Any(x => x.TotalCost is null) ? null : movement.Consumptions.Sum(x => x.TotalCost)
                 : -movement.ValueDelta));
         IReadOnlyList<AnalyticsRow> Group(Func<SaleFinancialEvent, string> key) => facts.GroupBy(key)

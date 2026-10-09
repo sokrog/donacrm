@@ -1,7 +1,5 @@
-.product-editor-header { flex-wrap: wrap; }
 .product-editor-title { flex: 1; min-width: 0; }
 .product-editor-title h1 { overflow-wrap: anywhere; }
-.product-editor-header > .dona-page-header-actions { margin-inline-start: auto; }
 
 .product-editor-workspace, .product-editor-primary, .product-editor-secondary {
     display: grid;
@@ -60,10 +58,6 @@
     text-underline-offset: 3px;
 }
 
-.archive-toggle {
-    justify-self: start;
-}
-
 @media (min-width: 700px) {
     .variant-row { grid-template-columns: repeat(3, minmax(0, 1fr)) var(--dona-remove-size); }
     .variant-row label:nth-child(3), .variant-row .variant-stock { grid-column: auto; }
@@ -81,8 +75,6 @@
 .product-editor-secondary > details[open] > :not(summary) { margin-top: var(--dona-space-3); }
 
 .variant-blocker { grid-column: 1 / -1; }
-.product-actions { justify-content: space-between; }
-.product-actions > .dona-btn, .product-actions > .dona-btn--primary { flex: 0 1 auto; }
 .product-editor-secondary > details > summary { display: flex; align-items: center; gap: 8px; list-style: none; }
 .product-editor-secondary > details > summary::-webkit-details-marker { display: none; }
 .product-editor-secondary > details[open] > summary ::deep svg { transform: rotate(180deg); }

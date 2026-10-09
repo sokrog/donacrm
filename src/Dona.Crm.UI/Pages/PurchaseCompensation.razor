@@ -8,10 +8,10 @@
 
 <PageTitle>Компенсация недостачи — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form" aria-busy="@loading">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
         <div><p>Закупка @purchase?.Number</p><h1>Компенсация недостачи</h1></div>
-    </header>
+    </DonaPageHeader>
     <div class="dona-stack">
     @if (loading) { <p role="status">Загружаем документ…</p> }
     else if (settlement is not null && purchase is not null)
@@ -25,7 +25,7 @@
                 <p>@correction.RecognizedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") · @correction.PreviousRefund.ToString("N2") → @correction.NewRefund.ToString("N2") UZS · @correction.Reason</p>
             }
         </section>
-        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+        <EditForm id="purchasecompensation-form-1" Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
             <UnsavedChangesGuard @ref="guard" />
             <section class="dona-section dona-section--document">
                 <h2>Новое исправление</h2>
@@ -37,7 +37,11 @@
                     <p role="status">Изменение расходов текущего периода: @((currentRefund - form.Total)?.ToString("N2")) UZS. Минус означает уменьшение расходов.</p>
                 }
                 <p>Исправление сохранится сегодняшней датой. История закрытия и прошлые отчёты сохраняются.</p>
-                <button type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить исправление")</button>
+                <DonaPageActions>
+                <Primary>
+                    <button form="purchasecompensation-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить исправление")</button>
+                </Primary>
+            </DonaPageActions>
             </section>
         </EditForm>
     }

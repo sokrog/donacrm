@@ -184,7 +184,7 @@ public static class FifoCostCalculator
             {
                 Id = x.Id, Source = x.Source, ReceivedAt = x.ReceivedAt, Sequence = x.Sequence,
                 InitialQuantity = x.InitialQuantity, RemainingQuantity = x.RemainingQuantity,
-                InitialValue = x.InitialValue, RemainingValue = x.RemainingValue, ValuationRevision = x.ValuationRevision
+                CapitalizedLossValue = x.CapitalizedLossValue, InitialValue = x.InitialValue, RemainingValue = x.RemainingValue, ValuationRevision = x.ValuationRevision
             }).ToList()
         };
     }

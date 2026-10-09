@@ -142,6 +142,26 @@ public sealed class PurchaseItem
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public decimal? UnitPriceCny { get => null; set { if (value is not null) UnitPrice = value; } }
     [Range(0, 10_000, ErrorMessage = "Вес должен быть от 0 до 10 000 кг")] public decimal? UnitWeightKg { get; set; }
+    // Editable projections: stored unit values remain the source for costing and tariffs.
+    [System.Text.Json.Serialization.JsonIgnore]
+    public decimal? TotalPrice
+    {
+        get => Quantity is > 0 && UnitPrice is { } price ? decimal.Round(price * Quantity.Value, 2, MidpointRounding.AwayFromZero) : null;
+        set => UnitPrice = PerUnit(value);
+    }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public decimal? TotalWeightKg
+    {
+        get => Quantity is > 0 && UnitWeightKg is { } weight ? decimal.Round(weight * Quantity.Value, 6, MidpointRounding.AwayFromZero) : null;
+        set => UnitWeightKg = PerUnit(value);
+    }
+
+    private decimal? PerUnit(decimal? total)
+    {
+        if (total is null) return null;
+        if (Quantity is not > 0) throw new InvalidOperationException("Сначала укажите положительное количество.");
+        return total.Value / Quantity.Value;
+    }
     [Range(0, 100_000, ErrorMessage = "Принятое количество должно быть от 0 до 100 000")] public int? ReceivedQuantity { get; set; }
     [Range(0, 100_000, ErrorMessage = "Количество брака должно быть от 0 до 100 000")] public int? DefectQuantity { get; set; }
     public int StockedQuantity { get; set; }

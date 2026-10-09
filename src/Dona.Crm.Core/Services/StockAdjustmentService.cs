@@ -13,15 +13,18 @@ public sealed class StockAdjustmentService(
     {
         using var _ = await InventoryLock.AcquireAsync(cancellationToken);
         if (request.ProductId is null || request.ProductVariantId is null) throw new InvalidOperationException("Выберите товар и вариант.");
-        if (request.Reason is null) throw new InvalidOperationException("Выберите причину корректировки.");
+        if (request.Reason is null || !Enum.IsDefined(request.Reason.Value)) throw new InvalidOperationException("Выберите причину корректировки.");
         if (request.NewQuantity is null or < 0) throw new InvalidOperationException("Укажите новый остаток.");
         if (string.IsNullOrWhiteSpace(request.Note)) throw new InvalidOperationException("Укажите причину корректировки.");
         var product = await catalog.GetProductAsync(request.ProductId.Value, cancellationToken) ?? throw new InvalidOperationException("Товар не найден.");
+        return await EntityRollback.RunAsync(product, async () =>
+        {
+        if (!Enum.IsDefined(request.LossTreatment)) throw new InvalidOperationException("Выберите способ учёта стоимости.");
         var variant = product.Variants.FirstOrDefault(x => x.Id == request.ProductVariantId) ?? throw new InvalidOperationException("Вариант товара не найден.");
         if (request.NewQuantity < variant.ReservedQuantity) throw new InvalidOperationException($"Новый остаток не может быть меньше резерва ({variant.ReservedQuantity} шт.). Сначала снимите резерв.");
         var delta = request.NewQuantity.Value - (variant.Quantity ?? 0);
         if (delta == 0) throw new InvalidOperationException("Новый остаток совпадает с текущим.");
-        if (request.Reason is StockAdjustmentReason.Damage or StockAdjustmentReason.Loss && delta > 0) throw new InvalidOperationException("Списание брака или потери не может увеличивать остаток.");
+        if (request.Reason is StockAdjustmentReason.Damage or StockAdjustmentReason.Loss or StockAdjustmentReason.PersonalUse && delta > 0) throw new InvalidOperationException("Списание брака или потери не может увеличивать остаток.");
         if (delta > 0 && request.Reason == StockAdjustmentReason.OpeningBalance && request.UnitCost is null)
             throw new InvalidOperationException("Укажите себестоимость начального остатка. Для бесплатного товара введите 0.");
         StockLayerOperations.PrepareEmpty(variant);
@@ -34,9 +37,17 @@ public sealed class StockAdjustmentService(
             product.Status = statuses.Calculate(product, await settings.GetAsync(cancellationToken));
         var movement = new StockMovement { Type = StockMovementType.Adjustment, ProductId = product.Id, ProductVariantId = variant.Id, ProductName = product.Name, Sku = product.Sku, Color = variant.Color, Size = variant.Size, QuantityDelta = delta, SourceType = "Adjustment", SourceNumber = request.Reason.Value.Display(), Note = request.Note.Trim() };
         movement.Consumptions = consumptions;
+        movement.LossTreatment = delta < 0 ? request.LossTreatment : null;
         StockLayerOperations.SetValue(movement, delta < 0 ? FifoCostCalculator.Cost(consumptions)
             : new StockCostSummary(Math.Round((request.UnitCost ?? 0) * delta, 2, MidpointRounding.AwayFromZero), request.UnitCost is null ? delta : 0), Math.Sign(delta));
+        if (delta < 0 && request.LossTreatment == LossTreatment.RemainingStock)
+        {
+            var amount = FifoCostCalculator.Cost(consumptions).TotalValue
+                ?? throw new InvalidOperationException("Стоимость списания неизвестна. Сначала оцените партии.");
+            LossCapitalization.Apply(variant.Layers, amount, movement.Id, null, product.StockValuations);
+        }
         await store.CommitAsync(InventoryCommit.Create(products: [product], movements: [movement]), cancellationToken);
         return movement;
+        });
     }
 }

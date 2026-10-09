@@ -1,0 +1,37 @@
+<nav class="purchase-navigation" aria-label="Этапы закупки">
+    <ol>
+        @foreach (var step in Steps)
+        {
+            <li class="@(Current == step.Key ? "active" : null)">
+                @if (IsNew && step.Key != "order")
+                {
+                    <span aria-disabled="true"><strong>@step.Title</strong><small>После сохранения</small></span>
+                }
+                else
+                {
+                    <a href="@(step.Key == "order" ? IsNew ? "/purchases/new" : $"/purchases/{Purchase.Id}" : $"/purchases/{Purchase.Id}/{step.Key}")" aria-current="@(Current == step.Key ? "step" : null)">
+                        <strong>@step.Title</strong><small>@State(step.Key)</small>
+                    </a>
+                }
+            </li>
+        }
+    </ol>
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public Purchase Purchase { get; set; } = default!;
+    [Parameter] public string Current { get; set; } = "order";
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public bool PricesSet { get; set; }
+    private static readonly (string Key, string Title)[] Steps =
+        [("order", "1. Заказ"), ("costs", "2. Расходы"), ("receiving", "3. Приёмка"), ("discrepancies", "4. Расхождения"), ("pricing", "5. Цены"), ("closing", "6. Закрытие")];
+    private string State(string step) => step switch
+    {
+        "order" => IsNew ? "Новый" : Purchase.Status.Display(),
+        "costs" => Purchase.IsCostFinalized ? "Все расходы внесены" : Purchase.HasCompleteCostInputs ? "Предварительный расчёт" : "Нужно заполнить",
+        "receiving" => Purchase.Receipts.Count == 0 ? "Ещё не принимали" : $"Принято {Purchase.Receipts.Sum(x => x.ReceivedQuantity)} из {Purchase.TotalQuantity}",
+        "discrepancies" => PurchaseReceivingService.HasUnreviewedLosses(Purchase) ? "Нужно решить" : Purchase.LossReviews.Count > 0 ? "Решения сохранены" : "Нужно проверить",
+        "closing" => Purchase.ClosedAt is not null ? "Закрыта" : "Не закрыта",
+        _ => PricesSet ? "Есть назначенные цены" : "Расчёт цен"
+    };
+}

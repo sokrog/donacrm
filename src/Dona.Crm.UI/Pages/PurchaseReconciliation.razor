@@ -9,10 +9,10 @@
 
 <PageTitle>Сверка закупки — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form" aria-busy="@loading">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
         <div><p>Закупка @purchase?.Number</p><h1>Сверка партий</h1></div>
-    </header>
+    </DonaPageHeader>
     <div class="dona-stack">
 
     @if (loading) { <p role="status">Собираем проведённые операции…</p> }
@@ -20,7 +20,11 @@
     else if (report is not null)
     {
         <p class="dona-note">По сохранённым данным на @loadedAt.ToString("dd.MM.yyyy HH:mm"). Несохранённые изменения закупки не учитываются.</p>
-        <div><button type="button" class="dona-btn dona-btn--secondary" @onclick="LoadAsync">Обновить сверку</button></div>
+        <DonaPageActions>
+                <Primary>
+                    <button type="button" class="dona-btn dona-btn--secondary" @onclick="LoadAsync">Обновить сверку</button>
+                </Primary>
+            </DonaPageActions>
         @if (report.Layers.Count == 0) { <p>Приходов годного товара по этой закупке пока нет.</p> }
         @foreach (var row in report.Layers)
         {

@@ -120,6 +120,7 @@
     {
         if (path == "/inventory/adjustment/new") return true;
         var last = path[(path.LastIndexOf('/') + 1)..];
+        if (path.StartsWith("/purchases/", StringComparison.Ordinal) && last is "costs" or "receiving" or "closing" or "discrepancies") return true;
         return last is "new" or "pricing" or "price-history" || Guid.TryParse(last, out _);
     }
 

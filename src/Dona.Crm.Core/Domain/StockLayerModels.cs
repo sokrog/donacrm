@@ -23,6 +23,7 @@ public sealed class StockLayer
     public int RemainingQuantity { get; set; }
     public int ValuationRevision { get; set; }
     // Totals are authoritative. A rounded unit price cannot preserve the final cent.
+    public decimal CapitalizedLossValue { get; set; }
     public decimal? InitialValue { get; set; }
     public decimal? RemainingValue { get; set; }
     [JsonIgnore] public decimal? UnitCost => InitialQuantity == 0 ? null : InitialValue / InitialQuantity;
@@ -44,7 +45,7 @@ public sealed record LayerReturnAllocation(
     int Quantity,
     decimal? OriginalCost);
 
-public enum StockValuationReason { Revaluation, InitialValuation, ReturnRevaluation, ReceiptDefect, Shortage, ShortageCompensation }
+public enum StockValuationReason { Revaluation, InitialValuation, ReturnRevaluation, ReceiptDefect, Shortage, ShortageCompensation, LossCapitalization }
 
 public sealed record PurchaseCompensationCorrection(Guid Id, Guid SettlementId, DateTimeOffset RecognizedAt,
     decimal PreviousRefund, decimal NewRefund, string Reason);

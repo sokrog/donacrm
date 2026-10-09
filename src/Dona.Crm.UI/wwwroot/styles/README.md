@@ -48,13 +48,41 @@ Entry point: `../dona.css` (linked from both hosts as `_content/Dona.Crm.UI/dona
     <div class="dona-field-row"><label class="dona-field">A <input /></label><label class="dona-field">B <input /></label></div>
   </section>
   <p class="dona-message dona-message--error">Ошибка</p>
-  <div class="dona-actions">
-    <button class="dona-btn dona-btn--primary">Сохранить</button>
-    <a class="dona-btn dona-btn--secondary" href="/">Отмена</a>
-    <button class="dona-btn dona-btn--danger">Удалить</button>
-  </div>
 </form>
 ```
+
+### Page headers and commands (Razor)
+
+Use one `DonaPageHeader` per routed page. It stays at the top and adds the shared
+rose shadow only when content has scrolled above it (2px tolerance). Do not add
+page-specific sticky positioning, shadows or bottom action bars.
+
+Declare `DonaPageActions` inside the loaded form/state. It supplies the header's
+Blazor section; it does not move DOM nodes. Bind every submit button explicitly
+to the original `EditForm` ID so validation and Enter submission remain intact.
+Only one action provider should be rendered at a time.
+
+```razor
+<DonaPageHeader>
+    <div><p class="dona-eyebrow">Каталог</p><h1 class="dona-title">Товар</h1></div>
+</DonaPageHeader>
+<EditForm id="product-form" Model="model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    @* Fields and validation messages *@
+    <DonaPageActions>
+        <Primary><button type="submit" form="product-form" class="dona-btn dona-btn--primary">Сохранить</button></Primary>
+        <Secondary><a class="dona-btn dona-btn--secondary" href="/products">Отмена</a></Secondary>
+        <Danger><button type="button" class="dona-btn dona-btn--danger" @onclick="AskToArchive">В архив</button></Danger>
+    </DonaPageActions>
+</EditForm>
+```
+
+Primary remains visible on phones; secondary commands move into the overflow
+menu. Dangerous commands remain in that menu on desktop too. Use
+`DonaConfirmation` for their confirmation, preserving the original form context.
+Item-level commands (photo selection, adding a line, recording a payment) stay
+next to their fields. Header, content and menus must not introduce a second page
+scrollbar. Menu overflow is limited to the available viewport height.
 
 ### More components
 ```html

@@ -8,10 +8,10 @@
 
 <PageTitle>Поздняя поставка — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form" aria-busy="@loading">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/purchases/@Id" aria-label="Вернуться к закупке"><OrbitIcon Name="back" /></a>
         <div><p>Закупка @purchase?.Number</p><h1>Поздняя поставка</h1></div>
-    </header>
+    </DonaPageHeader>
     <div class="dona-stack">
     @if (loading) { <p role="status">Загружаем недостачу…</p> }
     else if (purchase is not null && settlement is not null)
@@ -26,7 +26,7 @@
         </section>
         @if (missing > 0)
         {
-            <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+            <EditForm id="purchaselatereceipt-form-1" Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
                 <UnsavedChangesGuard @ref="guard" />
                 <section class="dona-section dona-section--document" aria-label="Данные поздней поставки">
                     <label class="dona-field">Получено, включая брак<InputNumber @bind-Value="form.Quantity" min="1" max="@missing" /></label>
@@ -34,7 +34,11 @@
                     <label class="dona-field">Причина поздней поставки<InputTextArea @bind-Value="form.Reason" /></label>
                     <p>@Preview()</p>
                     <p>Поставка учитывается сегодняшней датой. Закрытие сохраняется в истории. Если компенсация превышает стоимость оставшейся недостачи, сначала оформите её фактическое уменьшение.</p>
-                    <button type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Провести позднюю поставку")</button>
+                    <DonaPageActions>
+                <Primary>
+                    <button form="purchaselatereceipt-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Провести позднюю поставку")</button>
+                </Primary>
+            </DonaPageActions>
                 </section>
             </EditForm>
         }

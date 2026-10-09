@@ -1,0 +1,46 @@
+@using Microsoft.AspNetCore.Components.Sections
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<span @ref="boundary" class="dona-header-boundary" aria-hidden="true"></span>
+<header @ref="header" class="@Class dona-sticky-header">
+    @ChildContent
+    <SectionOutlet SectionName="dona-page-actions" />
+</header>
+
+@code {
+    [Parameter] public string Class { get; set; } = "dona-page-header";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private ElementReference boundary, header;
+    private IJSObjectReference? module, observer;
+    private bool disposed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var loadedModule = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Dona.Crm.UI/page-header.js");
+        if (disposed) { await loadedModule.DisposeAsync(); return; }
+        var subscription = await loadedModule.InvokeAsync<IJSObjectReference>("observe", header, boundary);
+        if (disposed)
+        {
+            await subscription.InvokeVoidAsync("dispose");
+            await subscription.DisposeAsync();
+            await loadedModule.DisposeAsync();
+            return;
+        }
+        module = loadedModule;
+        observer = subscription;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        try
+        {
+            if (observer is not null) { await observer.InvokeVoidAsync("dispose"); await observer.DisposeAsync(); }
+            if (module is not null) await module.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException) { }
+    }
+}

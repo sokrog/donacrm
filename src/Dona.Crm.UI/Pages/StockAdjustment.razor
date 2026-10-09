@@ -8,13 +8,13 @@
 
 <PageTitle>Корректировка склада — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/inventory" aria-label="Вернуться к движениям склада"><OrbitIcon Name="back" /></a>
         <div>
             <p>Склад</p>
-            <h1>Корректировка</h1>
+            <h1>@(PersonalUse ? "Личное изъятие" : "Корректировка")</h1>
         </div>
-    </header>
+    </DonaPageHeader>
     @if (isLoading)
     {
         <div class="dona-state">Загружаем остатки…</div>
@@ -29,7 +29,7 @@
     }
     else
     {
-        <EditForm class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
+        <EditForm id="stockadjustment-form-1" class="dona-stack" Model="model" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
@@ -64,6 +64,11 @@
             <section class="dona-section">
                 <h2>Причина</h2>
                 <label class="dona-field">Тип корректировки<OrbitSelect TValue="StockAdjustmentReason?" @bind-Value="model.Reason" Options="@ReasonOptions" Label="Причина корректировки" /></label>
+                @if (Delta < 0)
+                {
+                    <label class="dona-field">Как учесть стоимость<OrbitSelect TValue="LossTreatment" @bind-Value="model.LossTreatment" Options="LossOptions" Label="Как учесть стоимость" /></label>
+                    <p class="dona-note">Отдельный расход уменьшает прибыль. Распределение увеличивает себестоимость оставшихся единиц этого варианта; выручка не меняется.</p>
+                }
                 <label class="dona-field">Комментарий<InputTextArea @bind-Value="model.Note" placeholder="Что произошло и почему меняется остаток" /></label>
             </section>
             <ValidationSummary />
@@ -71,12 +76,21 @@
             {
                 <p class="dona-message dona-message--error" role="alert">@error</p>
             }
-            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/inventory">Отмена</a><button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button></div>
+
+            <DonaPageActions>
+                <Primary>
+                    <button form="stockadjustment-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить")</button>
+                </Primary>
+                <Secondary>
+                    <a class="dona-btn dona-btn--secondary" href="/inventory">Отмена</a>
+                </Secondary>
+            </DonaPageActions>
         </EditForm>
     }
 </div>
 @code {
     [SupplyParameterFromQuery] public Guid? ProductId { get; set; }
+    [SupplyParameterFromQuery] public bool PersonalUse { get; set; }
     [SupplyParameterFromQuery] public Guid? VariantId { get; set; }
     private StockAdjustmentRequest model = new();
     private IReadOnlyList<Product> products=[];
@@ -93,6 +107,7 @@
         ..(SelectedProduct?.Variants??[]).Select(value=>new OrbitSelectOption<Guid?>(value.Id,$"{VariantName(value)} · остаток {value.Quantity??0}"))
     ];
     private static readonly IReadOnlyList<OrbitSelectOption<StockAdjustmentReason?>> ReasonOptions=OrbitSelectOptions.Optional(Enum.GetValues<StockAdjustmentReason>(),"Выберите причину",value=>value.Display());
+    private static readonly IReadOnlyList<OrbitSelectOption<LossTreatment>> LossOptions = [new(LossTreatment.PeriodExpense, "Отдельный расход"), new(LossTreatment.RemainingStock, "В себестоимость остатка")];
     private int Delta => (model.NewQuantity ?? 0) - (SelectedVariant?.Quantity ?? 0);
     private string LossPreview()
     {
@@ -100,7 +115,7 @@
         try
         {
             var cost = FifoCostCalculator.Cost(FifoCostCalculator.Preview(SelectedVariant, -Delta));
-            return cost.TotalValue is { } total ? $"Будет списано по себестоимости: {total:N2}" : $"Известная стоимость списания: {cost.KnownValue:N2}; без оценки: {cost.UnvaluedQuantity} ед.";
+            return cost.TotalValue is { } total ? $"Будет списано по себестоимости: {total:N2} UZS" : $"Известная стоимость списания: {cost.KnownValue:N2}; без оценки: {cost.UnvaluedQuantity} ед.";
         }
         catch (InventoryException ex) { return ex.Message; }
     }
@@ -109,8 +124,8 @@
         products=(await Catalog.GetProductsAsync()).Where(item=>item.Status!=ProductStatus.Archived&&item.Variants.Count>0).ToList();
         if(ProductId is not null&&products.FirstOrDefault(item=>item.Id==ProductId) is{}preset){
             model.ProductId=preset.Id;
-            model.Reason=StockAdjustmentReason.OpeningBalance;
-            model.Note="Начальный остаток";
+            model.Reason=PersonalUse ? StockAdjustmentReason.PersonalUse : StockAdjustmentReason.OpeningBalance;
+            model.Note=PersonalUse ? "Личное изъятие" : "Начальный остаток";
             if (VariantId is null && preset.Variants.Count == 1) VariantId = preset.Variants[0].Id;
             if(VariantId is not null&&preset.Variants.Any(item=>item.Id==VariantId)){
                 model.ProductVariantId=VariantId;

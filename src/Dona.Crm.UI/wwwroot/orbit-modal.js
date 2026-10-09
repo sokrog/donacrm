@@ -131,10 +131,12 @@ window.orbitModal = (() => {
         if (!dialog) return;
         closeConfirmation(id);
         const previousFocus = document.activeElement;
-        const buttons = Array.from(dialog.querySelectorAll("button:not(:disabled)"));
+        const focusable = () => Array.from(dialog.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex='0']"))
+            .filter(element => element.getClientRects().length > 0);
         const trap = event => {
-            if (event.key !== "Tab" || buttons.length === 0) return;
-            const first = buttons[0], last = buttons[buttons.length - 1];
+            const elements = focusable();
+            if (event.key !== "Tab" || elements.length === 0) return;
+            const first = elements[0], last = elements[elements.length - 1];
             if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
             else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
         };
@@ -143,7 +145,7 @@ window.orbitModal = (() => {
             dialog.removeEventListener("keydown", trap);
             if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
         });
-        buttons[0]?.focus({ preventScroll: true });
+        focusable()[0]?.focus({ preventScroll: true });
     }
 
     function closeActionMenu(id, returnFocus = true) {

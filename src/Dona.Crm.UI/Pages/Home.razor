@@ -14,7 +14,7 @@
 
 <div class="dona-page dona-page--wide home" aria-busy="@isLoading">
     <div class="home-brand"><img src="_content/Dona.Crm.UI/brand/dona-logo.png" alt="DONA" /></div>
-    <header class="dona-page-header home-header">
+    <DonaPageHeader Class="dona-page-header home-header">
         <div>
             <p class="dona-eyebrow">@DateLabel</p>
             <h1 class="dona-title">@Greeting</h1>
@@ -23,7 +23,7 @@
             <OrbitIcon Name="bell" />
             @if (!isLoading && attentionTotal > 0) { <span class="attention-badge" aria-label="@attentionTotal сигналов">@attentionTotal</span> }
         </a>
-    </header>
+    </DonaPageHeader>
 
     <div class="connection-row">
         <p class="connection @ConnectionTone" role="status"><span aria-hidden="true"></span>@ConnectionLabel</p>

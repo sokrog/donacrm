@@ -5,10 +5,10 @@
 @inject ICatalogRepository Catalog
 <PageTitle>История продажных цен — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="@BackUrl" aria-label="Вернуться к источнику"><OrbitIcon Name="back" /></a>
         <div><p>@name</p><h1>История продажных цен</h1></div>
-    </header>
+    </DonaPageHeader>
     @if (error is not null) { <p class="dona-state dona-state--error" role="alert">@error</p> }
     else if (loading) { <p class="dona-state">Загружаем историю…</p> }
     else if (operations.Count == 0) { <p class="dona-state">Изменения цен ещё не записывались. Ранее установленная цена сохранена без выдуманной истории.</p> }

@@ -1,0 +1,31 @@
+@using Microsoft.AspNetCore.Components.Sections
+
+<SectionContent SectionName="dona-page-actions">
+    <nav class="dona-page-command-bar" aria-label="Действия страницы">
+        @if (Secondary is not null)
+        {
+            <div class="dona-header-actions-desktop">@Secondary</div>
+        }
+        @if (Primary is not null)
+        {
+            <div class="dona-page-command-primary">@Primary</div>
+        }
+        @if (Secondary is not null || Danger is not null)
+        {
+            <details class="dona-context-menu @(Danger is not null ? "dona-context-menu--persistent" : null)" id="@menuId">
+                <summary class="dona-icon-button dona-context-menu-trigger" role="button" aria-label="Другие действия" aria-expanded="false" aria-controls="@(menuId + "-panel")"><OrbitIcon Name="more" /></summary>
+                <div class="dona-context-menu-panel" id="@(menuId + "-panel")" role="group" aria-label="Другие действия">
+                    @if (Secondary is not null) { <div class="dona-page-command-secondary">@Secondary</div> }
+                    @if (Danger is not null) { <div class="dona-page-command-danger">@Danger</div> }
+                </div>
+            </details>
+        }
+    </nav>
+</SectionContent>
+
+@code {
+    [Parameter] public RenderFragment? Primary { get; set; }
+    [Parameter] public RenderFragment? Secondary { get; set; }
+    [Parameter] public RenderFragment? Danger { get; set; }
+    private readonly string menuId = $"page-actions-{Guid.NewGuid():N}";
+}

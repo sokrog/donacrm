@@ -10,7 +10,7 @@
 <PageTitle>Каталог — DONA CRM</PageTitle>
 
 <div class="dona-page dona-page--wide" aria-busy="@isLoading">
-    <header class="dona-page-header dona-page-header--actions">
+    <DonaPageHeader Class="dona-page-header dona-page-header--actions">
         <div>
             <p class="dona-eyebrow">DONA CRM</p>
             <h1 class="dona-title">Каталог</h1>
@@ -19,7 +19,7 @@
             <DonaHeaderActions Label="Действия каталога" Actions="HeaderActions" />
             <a class="dona-icon-button dona-add-button" href="/products/new" aria-label="Добавить товар"><OrbitIcon Name="plus" /></a>
         </div>
-    </header>
+    </DonaPageHeader>
 
     @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
     <div class="dona-search">

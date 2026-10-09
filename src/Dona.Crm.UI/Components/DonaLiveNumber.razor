@@ -1,0 +1,6 @@
+@typeparam TValue
+@inherits InputNumber<TValue>
+
+<input @attributes="AdditionalAttributes" type="number" name="@NameAttributeValue" class="@CssClass"
+       value="@CurrentValueAsString"
+       @oninput="EventCallback.Factory.CreateBinder<string?>(this, value => CurrentValueAsString = value, CurrentValueAsString)" />

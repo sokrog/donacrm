@@ -8,15 +8,15 @@
 
 <PageTitle>Оценка партии — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form" aria-busy="@loading">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="/products/@ProductId" aria-label="Вернуться к товару"><OrbitIcon Name="back" /></a>
         <div><p>Склад</p><h1>Стоимость партии</h1></div>
-    </header>
+    </DonaPageHeader>
     <div class="dona-stack">
     @if (loading) { <p role="status">Загружаем партию…</p> }
     else if (layer is not null)
     {
-        <EditForm Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
+        <EditForm id="stockvaluation-form-1" Model="form" OnValidSubmit="SaveAsync" class="dona-stack">
             <UnsavedChangesGuard @ref="guard" />
             <section class="dona-section dona-section--document">
                 <h2>@product!.Name · @variant!.Color @variant.Size</h2>
@@ -32,7 +32,11 @@
                         <p role="status">Оценка остатка: @remaining?.ToString("N2") UZS. Расход текущего периода: @((form.Total - remaining)?.ToString("N2")) UZS.</p>
                     }
                     <p>Прошлые продажи сохранят исходную отметку о неизвестной стоимости. Оценка будет записана сегодняшней датой.</p>
-                    <button type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить оценку")</button>
+                    <DonaPageActions>
+                <Primary>
+                    <button form="stockvaluation-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@(saving || form.Total is null)">@(saving ? "Сохраняем…" : "Сохранить оценку")</button>
+                </Primary>
+            </DonaPageActions>
                 }
                 else { <p>Партия уже оценена: @layer.InitialValue?.ToString("N2") UZS.</p> }
             </section>

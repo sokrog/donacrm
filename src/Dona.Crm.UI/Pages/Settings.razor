@@ -14,7 +14,7 @@
 
 <PageTitle>Настройки — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
-    <header class="dona-page-header">
+    <DonaPageHeader Class="dona-page-header">
         <div class="dona-heading"><a class="dona-icon-button dona-back-button dona-back-button--section" href="/more"
                                                 aria-label="Вернуться в меню">
             <OrbitIcon Name="back" />
@@ -24,14 +24,14 @@
             <h1 class="dona-title">Настройки</h1>
         </div>
     </div>
-</header>
+</DonaPageHeader>
 @if (loading)
 {
     <div class="dona-state">Загружаем настройки…</div>
 }
 else
 {
-    <EditForm class="dona-stack" Model="settings" OnValidSubmit="SaveAsync">
+    <EditForm id="settings-form-1" class="dona-stack" Model="settings" OnValidSubmit="SaveAsync">
         <DataAnnotationsValidator />
         <UnsavedChangesGuard @ref="unsavedGuard" />
         <section class="dona-section">
@@ -207,8 +207,16 @@ else
                             {
                                 <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status" style="white-space: pre-line">@message</p>
                             }
-                            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="/more">Отмена</a><button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" :
-                                         "Сохранить настройки")</button></div>
+
+            <DonaPageActions>
+                <Primary>
+                    <button form="settings-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" :
+                    "Сохранить настройки")</button>
+                </Primary>
+                <Secondary>
+                    <a class="dona-btn dona-btn--secondary" href="/more">Отмена</a>
+                </Secondary>
+            </DonaPageActions>
                             </EditForm>
                         }
                     </div>

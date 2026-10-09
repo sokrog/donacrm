@@ -16,17 +16,17 @@
 <div class="dona-page @(Editing ? "dona-page--form" : "dona-page--wide")">
     @if (Editing)
     {
-        <header class="dona-page-header dona-page-header--back dona-heading">
+        <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
             <button class="dona-icon-button dona-back-button" type="button" aria-label="Вернуться к партнёрам" @onclick="CloseEditor"><OrbitIcon Name="back" /></button>
             <div><p>Партнёры</p><h1>@PageHeading</h1></div>
-        </header>
+        </DonaPageHeader>
     }
     else
     {
-        <header class="dona-page-header">
+        <DonaPageHeader Class="dona-page-header">
             <div class="dona-heading"><a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a><div><p>Ещё</p><h1 class="dona-title">@PageHeading</h1></div></div>
             <button class="dona-icon-button dona-add-button" type="button" aria-label="Добавить партнёра" @onclick="NewPartner"><OrbitIcon Name="plus" /></button>
-        </header>
+        </DonaPageHeader>
     <div class="dona-tabs" role="group" aria-label="Тип партнёра">
         <button type="button"
                 class="@(mode == PartnerMode.Supplier ? "active" : null)"
@@ -48,7 +48,7 @@
     }
     else if (editingSupplier is not null)
     {
-        <EditForm class="dona-stack" Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
+        <EditForm id="partners-form-1" class="dona-stack" Model="editingSupplier" OnValidSubmit="SaveSupplierAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
@@ -76,27 +76,33 @@
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
             </section>
-                <div class="dona-actions">
-                    @if (confirmDelete)
+                @if (confirmDelete)
                     {
-                        <div class="dona-confirm dona-confirm--boxed">
+                        <DonaConfirmation OnCancel="() => confirmDelete = false"><div class="dona-confirm dona-confirm--boxed">
                             <span>Удалить поставщика? История закупок сохранится.</span>
                             <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
                             <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteSupplierAsync">Да, удалить</button>
-                        </div>
+                        </div></DonaConfirmation>
                     }
+            <DonaPageActions>
+                <Primary>
+                    <button form="partners-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
+                </Primary>
+                <Secondary>
                     <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
+                </Secondary>
+                <Danger>
                     @if (!isNew && !confirmDelete)
                     {
                         <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
                     }
-                    <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
-                </div>
+                </Danger>
+            </DonaPageActions>
         </EditForm>
     }
     else if (editingIntermediary is not null)
     {
-        <EditForm class="dona-stack" Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
+        <EditForm id="partners-form-2" class="dona-stack" Model="editingIntermediary" OnValidSubmit="SaveIntermediaryAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <section class="dona-section">
@@ -136,22 +142,28 @@
                     <p class="dona-message dona-message--error" role="alert">@errorMessage</p>
                 }
             </section>
-                <div class="dona-actions">
-                    @if (confirmDelete)
+                @if (confirmDelete)
                     {
-                        <div class="dona-confirm dona-confirm--boxed">
+                        <DonaConfirmation OnCancel="() => confirmDelete = false"><div class="dona-confirm dona-confirm--boxed">
                             <span>Удалить посредника? История закупок сохранится.</span>
                             <button type="button" class="dona-btn dona-btn--secondary" @onclick="() => confirmDelete = false">Нет</button>
                             <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="DeleteIntermediaryAsync">Да, удалить</button>
-                        </div>
+                        </div></DonaConfirmation>
                     }
+            <DonaPageActions>
+                <Primary>
+                    <button form="partners-form-2" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
+                </Primary>
+                <Secondary>
                     <button type="button" class="dona-btn dona-btn--secondary" @onclick="CloseEditor">Отмена</button>
+                </Secondary>
+                <Danger>
                     @if (!isNew && !confirmDelete)
                     {
                         <button type="button" class="dona-btn dona-btn--danger" @onclick="() => confirmDelete = true">Удалить</button>
                     }
-                    <button class="dona-btn dona-btn--primary" disabled="@saving">Сохранить</button>
-                </div>
+                </Danger>
+            </DonaPageActions>
         </EditForm>
     }
     else
@@ -204,7 +216,7 @@
                         var actual = IntermediaryActual(value.Id);
                         <li>
                             <button type="button" class="dona-list-row" @onclick="() => OpenIntermediary(value.Id)">
-                                <InitialBadge Text="@value.Name" Variant="success" />
+                                <InitialBadge Text="@value.Name" />
                                 <span>
                                     <strong>@value.Name @(value.IsArchived ? "— в архиве" : null)</strong>
                                     <small>@IntermediaryMeta(value)</small>

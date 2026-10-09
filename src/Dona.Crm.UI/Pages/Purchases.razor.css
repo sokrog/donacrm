@@ -67,3 +67,13 @@
     color: var(--dona-muted);
     font-size: var(--dona-type-caption);
 }
+
+.purchase-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dona-space-3); margin: 0; }
+.purchase-facts > div { min-width: 0; }
+.purchase-facts dt, .purchase-facts small { color: var(--dona-muted); font-size: var(--dona-type-caption); }
+.purchase-facts dd { margin: var(--dona-space-1) 0 0; font-weight: var(--dona-weight-strong); overflow-wrap: anywhere; }
+.purchase-facts small { display: block; font-weight: normal; }
+.purchase-total { grid-column: 1 / -1; padding-block: var(--dona-space-3); border-block: 1px solid var(--dona-line); }
+.purchase-total dd { font-size: var(--dona-type-title-sm); }
+.purchase-card-title, .purchase-card-foot { flex-wrap: wrap; overflow-wrap: anywhere; }
+@media (max-width: 390px) { .purchase-facts { grid-template-columns: 1fr; } }

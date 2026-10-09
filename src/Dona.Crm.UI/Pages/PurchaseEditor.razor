@@ -1,5 +1,6 @@
 @page "/purchases/new"
 @page "/purchases/{Id:guid}"
+@page "/purchases/{Id:guid}/{Step}"
 @using System.Globalization
 @using System.Text.Json
 @using Dona.Crm.Web.Domain
@@ -14,13 +15,13 @@
 
 <PageTitle>@(IsNew ? "Новая закупка" : purchase.Number) — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
-    <header class="dona-page-header dona-page-header--back dona-heading">
-        <a class="dona-icon-button dona-back-button" href="/purchases" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
+        <a class="dona-icon-button dona-back-button" href="/purchases" data-back-target="explicit" aria-label="Вернуться к закупкам"><OrbitIcon Name="back" /></a>
         <div>
             <p>@purchase.Status.Display()</p>
-            <h1>@(IsNew ? "Новая закупка" : purchase.Number)</h1>
+            <h1>@(IsNew ? "Новая закупка" : $"{StageTitle} · {purchase.Number}")</h1>
         </div>
-    </header>
+    </DonaPageHeader>
     @if (loading)
     {
         <div class="dona-state">Загружаем закупку…</div>
@@ -36,28 +37,22 @@
             @if (Priced > 0) { <p class="dona-message dona-message--success" role="status">Обновлено цен: @Priced.</p> }
             @if (purchase.Status != PurchaseStatus.Cancelled)
             {
-                <div class="dona-toolbar"><a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/pricing">Рассчитать продажные цены</a></div>
                 @if (reviewPrices) { <p class="dona-message">Основания ранее назначенных цен изменились. Пересмотрите цены с учётом текущих остатков и расходов.</p> }
             }
-            <div class="purchase-report-action"><a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/reconciliation">Сверка партий и стоимости</a></div>
-            <ol class="purchase-flow" aria-label="Этап закупки">
-                @foreach (var value in Flow)
-                {
-                    <li class="@FlowClass(value)" aria-current="@(purchase.Status == value ? "step" : null)">@value.Display()</li>
-                }
-            </ol>
             @if (purchase.Status == PurchaseStatus.Cancelled || purchase.ClosedAt is not null)
             {
                 <p role="status">@(purchase.Status == PurchaseStatus.Cancelled ? "Закупка отменена" : purchase.Items.Any(x => x.MissingQuantity > 0) ? "Закупка закрыта с недостачей" : "Закупка закрыта")</p>
             }
         }
-        <EditForm class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
+        <PurchaseNavigation Purchase="purchase" Current="@stage" IsNew="IsNew" PricesSet="pricesSet" />
+        <EditForm @key="stage" id="purchaseeditor-form-1" class="dona-stack" Model="purchase" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
             <UnsavedChangesGuard @ref="unsavedGuard" />
             <ListItemRemovalConfirmation @ref="removalConfirmation" />
+            @if (stage == "order")
+            {
             <section class="dona-section">
                 <h2>Заказ</h2>
-                <h2>Поставка</h2>
                 <div class="dona-field-row">
                     <label class="dona-field">Номер<InputText @bind-Value="purchase.Number" /></label>
                     @if (purchase.Receipts.Count > 0 || purchase.ClosedAt is not null)
@@ -79,15 +74,6 @@
                     <label class="dona-field">Трек-код<InputText @bind-Value="purchase.TrackingCode" /></label>
                     <label class="dona-field">Ожидаемая дата<OrbitDatePicker @bind-Value="purchase.EstimatedDeliveryDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
                 </div>
-                <label class="dona-field">Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
-            </section>
-            <section class="dona-section">
-                <div class="dona-section-title">
-                    <div>
-                        <h2>Расходы и оценка партии</h2>
-                        <p>@purchase.TotalQuantity ед. · @(purchase.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</p>
-                    </div>
-                </div>
                 <div class="dona-field-row">
                     <label class="dona-field">Валюта<OrbitSelect TValue="string" @bind-Value="purchase.CurrencyCode" @bind-Value:after="PurchaseCurrencyChanged" Options="@CurrencyOptions" Label="Валюта закупки" /></label>
                     @if (purchase.CurrencyCode != "UZS")
@@ -100,9 +86,68 @@
                     <p class="dona-note">Валюта изменена. Цены не пересчитаны автоматически: проверьте каждую цену и новый курс. Валюты и курсы отдельных расходов сохранены.</p>
                     <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="currencyPricesReviewed" /> Цены позиций проверены в новой валюте</label>
                 }
+                <label class="dona-field">Заметка<InputTextArea @bind-Value="purchase.Notes" /></label>
+            </section>
+            <section class="dona-section">
+                <div class="dona-section-title">
+                    <div>
+                        <h2>Позиции</h2>
+                        <p>Товары и варианты</p>
+                    </div>
+                </div>
+                @if (purchase.Items.Count == 0)
+                {
+                    <p class="dona-empty">Добавьте хотя бы одну позицию.</p>
+                }
+                @foreach (var item in purchase.Items)
+                {
+                    <article class="purchase-line" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
+                        <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
+                        <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
+                        <div class="line-fields">
+                            <label class="dona-field">Количество<DonaLiveNumber @bind-Value="item.Quantity" min="1" /></label>
+                            <label class="dona-field">Цена за единицу, @CurrencyCodes.Symbol(purchase.CurrencyCode)<DonaLiveNumber @bind-Value="item.UnitPrice" min="0" step="any" /></label>
+                            <label class="dona-field">Сумма за все количество, @CurrencyCodes.Symbol(purchase.CurrencyCode)<DonaLiveNumber @bind-Value="item.TotalPrice" min="0" step="0.01" disabled="@(item.Quantity is not > 0)" /></label>
+                            @if (purchase.NeedsWeight || SelectedIntermediary?.RatePerKgUsd is > 0)
+                            {
+                                <label class="dona-field">Общий вес, кг<DonaLiveNumber @bind-Value="item.TotalWeightKg" min="0" step="any" disabled="@(item.Quantity is not > 0)" /></label>
+                            }
+                        </div>
+                        @if (item.Quantity is not > 0)
+                        {
+                            <p class="dona-note">Укажите количество, чтобы ввести общую сумму и вес.</p>
+                        }
+                        @if (purchase.HasCompleteCostInputs)
+                        {
+                            <details class="unit-cost">
+                                <summary>Себестоимость: @Money(purchase.ItemUnitLandedCostUzs(item)) UZS / ед.</summary>
+                                <p>Товары: @Money(purchase.ItemGoodsCostUzs(item)) UZS. Расходы: @Money(purchase.ItemLandedCostUzs(item) - purchase.ItemGoodsCostUzs(item)) UZS. Всего за позицию: @Money(purchase.ItemLandedCostUzs(item)) UZS.</p>
+                            </details>
+                        }
+                        @if ((item.ReceivedQuantity ?? 0) > 0)
+                        {
+                            <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · оприходовано @item.StockedQuantity</div>
+                        }
+                        else
+                        {
+                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
+                        }
+                    </article>
+                }
+                <button type="button" class="dona-btn dona-btn--ghost dona-btn--block" @onclick="AddItem"><OrbitIcon Name="plus" />Добавить позицию</button>
+            </section>
+            }
+            @if (stage == "costs")
+            {
+            <section class="dona-section">
+                <div class="dona-section-title">
+                    <div>
+                        <h2>Расходы и оценка партии</h2>
+                        <p>@purchase.TotalQuantity ед. · @(purchase.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</p>
+                    </div>
+                </div>
                 <div class="dona-section-title">
                     <h3>Дополнительные расходы</h3>
-                    <button type="button" @onclick="AddExpense">Добавить расход</button>
                 </div>
                 @if (purchase.Expenses.Count == 0)
                 {
@@ -147,6 +192,7 @@
                         <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить расход" @onclick="() => RemoveExpense(expense)">×</button>
                     </article>
                 }
+                <button type="button" class="dona-btn dona-btn--ghost dona-btn--block" @onclick="AddExpense"><OrbitIcon Name="plus" />Добавить расход</button>
                 <div class="cost-summary">
                     @if (purchase.HasCompleteCostInputs)
                     {
@@ -159,57 +205,15 @@
                         <p role="status">Для расчета заполните цены, количество, курсы и настройки расходов.</p>
                     }
                 </div>
-                <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Зафиксировать окончательную оценку при сохранении</label>
-                <p class="cost-hint">Подтвердите, что известны все расходы. Поздний расход сохраняется отдельной ревизией оценки; история остаётся доступной.</p>
+                <label class="dona-field dona-toggle"><InputCheckbox @bind-Value="purchase.IsCostFinalized" /> Все расходы внесены</label>
+                <p class="cost-hint">Включите, когда известны цены товаров, доставка, комиссия и остальные расходы. После сохранения себестоимость будет отмечена как окончательная. Это не оплата и не закрытие закупки. Поздние расходы можно внести позже; история расчётов сохранится.</p>
                 @if (purchase.Receipts.Count > 0)
                 {
                     <p class="cost-hint">Поздние расходы переоценивают остаток партии. Доначисления по уже списанному товару учитываются текущим периодом, исходные распределения FIFO сохраняются.</p>
                 }
             </section>
-            <section class="dona-section">
-                <div class="dona-section-title">
-                    <div>
-                        <h2>Позиции</h2>
-                        <p>Товары и варианты</p>
-                    </div>
-                    <button type="button" @onclick="AddItem"><OrbitIcon Name="plus" Class="dona-inline-icon" />Позиция</button>
-                </div>
-                @if (purchase.Items.Count == 0)
-                {
-                    <p class="dona-empty">Добавьте хотя бы одну позицию.</p>
-                }
-                @foreach (var item in purchase.Items)
-                {
-                    <article class="purchase-line" @key="item.Id" @oninput="() => removalConfirmation?.MarkEdited(item)">
-                        <label class="dona-field">Товар<ProductAutocomplete Products="products" Value="item.ProductId" OnSelected="product => ProductChanged(item, product)" /></label>
-                        <label class="dona-field">Вариант<OrbitSelect TValue="Guid?" @bind-Value="item.ProductVariantId" @bind-Value:after="() => VariantChanged(item)" Options="@VariantOptions(item)" Label="Вариант товара" /></label>
-                        <div class="line-fields">
-                            <label class="dona-field">Количество<InputNumber @bind-Value="item.Quantity" min="1" /></label>
-                            <label class="dona-field">Цена, @CurrencyCodes.Symbol(purchase.CurrencyCode)<InputNumber @bind-Value="item.UnitPrice" min="0" /></label>
-                            @if (purchase.NeedsWeight || SelectedIntermediary?.RatePerKgUsd is > 0)
-                            {
-                                <label class="dona-field">Вес ед., кг<InputNumber @bind-Value="item.UnitWeightKg" min="0" step="0.01" /></label>
-                            }
-                        </div>
-                        @if (purchase.HasCompleteCostInputs)
-                        {
-                            <details class="unit-cost">
-                                <summary>Себестоимость: @Money(purchase.ItemUnitLandedCostUzs(item)) UZS / ед.</summary>
-                                <p>Товары: @Money(purchase.ItemGoodsCostUzs(item)) UZS. Расходы: @Money(purchase.ItemLandedCostUzs(item) - purchase.ItemGoodsCostUzs(item)) UZS. Всего за позицию: @Money(purchase.ItemLandedCostUzs(item)) UZS.</p>
-                            </details>
-                        }
-                        @if ((item.ReceivedQuantity ?? 0) > 0)
-                        {
-                            <div class="received-note">Получено @(item.ReceivedQuantity ?? 0) · брак @(item.DefectQuantity ?? 0) · оприходовано @item.StockedQuantity</div>
-                        }
-                        else
-                        {
-                            <button type="button" class="dona-btn dona-btn--danger dona-btn--remove remove-list-item" aria-label="Удалить позицию" @onclick="() => RemoveItem(item)">×</button>
-                        }
-                    </article>
-                }
-            </section>
-            @if (!IsNew && purchase.ClosedAt is null && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(value => value.MissingQuantity > 0))
+            }
+            @if (stage == "receiving" && CanReceive)
             {
                 <section class="dona-section receipt-card">
                     <div class="dona-section-title">
@@ -220,8 +224,7 @@
                     </div>
                     @if (HasUnsavedOrder)
                     {
-                        <p class="dona-note">В заказе или расходах есть несохранённые изменения. Сначала сохраните их, затем оформите приёмку.</p>
-                        <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="SaveAsync">Сохранить заказ и расходы</button>
+                        <p class="dona-note">В заказе или расходах есть несохранённые изменения. Сохраните их на соответствующем этапе, затем оформите приёмку.</p>
                     }
                     <div class="dona-field-row">
                         <label class="dona-field">Дата<OrbitDatePicker @bind-Value="receiptDate" ValueChangedAfter="_ => unsavedGuard?.MarkDirty()" /></label>
@@ -241,36 +244,34 @@
                             </div>
                         </article>
                     }
-                    <button type="button" class="dona-btn dona-btn--ghost" disabled="@saving" @onclick="ReceiveAsync">Оформить приёмку</button>
+
                 </section>
             }
-            @if (!IsNew && purchase.Status != PurchaseStatus.Cancelled)
+            @if (stage == "closing" && !IsNew && purchase.Status != PurchaseStatus.Cancelled)
             {
                 <section class="dona-section">
                     <h2>Закрытие закупки</h2>
                     @if (purchase.ClosedAt is { } closedAt)
                     {
                         <p>Закрыта @closedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+                        <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/discrepancies">Решения по учёту потерь</a>
                         @foreach (var settlement in purchase.ShortageSettlements)
                         {
-                            <p>@purchase.Items.Single(x => x.Id == settlement.PurchaseItemId).ProductName · недостача @settlement.Quantity шт. · при закрытии: компенсация @Money(settlement.SupplierRefund), потеря @Money(settlement.Loss ?? 0). Текущая компенсация: @Money(purchase.CurrentRefund(settlement)).</p>
+                            <p>@purchase.Items.Single(x => x.Id == settlement.PurchaseItemId).ProductName · недостача @settlement.Quantity шт. · при учёте: компенсация @Money(settlement.SupplierRefund), остаток стоимости @Money(settlement.Loss ?? 0). Текущая компенсация: @Money(purchase.CurrentRefund(settlement)).</p>
                             <a href="/purchases/@purchase.Id/compensation/@settlement.Id">Исправить компенсацию и посмотреть историю</a>
                             <p>Осталось недопоставлено: @purchase.UnresolvedShortage(settlement) ед. <a href="/purchases/@purchase.Id/late-receipt/@settlement.Id">Поздняя поставка и история</a></p>
                         }
                     }
                     else
                     {
-                        <p>Укажите фактически возвращённую поставщиком сумму. Оставшаяся стоимость недостачи станет потерей текущего периода. После закрытия приёмка недоступна.</p>
-                        @foreach (var item in purchase.Items.Where(x => x.MissingQuantity > 0))
-                        {
-                            var form = ShortageInput(item.Id);
-                            <label class="dona-field">@item.ProductName · недостача @item.MissingQuantity шт. · компенсация<InputNumber @bind-Value="form.Refund" min="0" /></label>
-                        }
-                        <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="ClosePurchaseAsync">Закрыть закупку и учесть недостачу</button>
+                        <p>Перед закрытием завершите приёмку и учтите недостачу и брак на этапе расхождений. Затем проверьте цены продажи.</p>
+                        <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/discrepancies">Разобрать расхождения</a>
+                        @if (purchase.ReceivingCompletedAt is not null && !PurchaseReceivingService.HasUnreviewedLosses(purchase)) { <p>Расхождения учтены. Закупка готова к закрытию.</p> }
+
                     }
                 </section>
             }
-            @if (purchase.Receipts.Count > 0)
+            @if (stage == "receiving" && purchase.Receipts.Count > 0)
             {
                 <section class="dona-section">
                     <h2>История приёмок</h2>
@@ -288,8 +289,24 @@
                     </ul>
                 </section>
             }
+            @if (stage == "receiving" && !CanReceive)
+            { <p class="dona-state">@(purchase.ClosedAt is not null || purchase.ReceivingCompletedAt is not null ? "Приёмка завершена. Позднюю поставку можно оформить на этапе расхождений." : purchase.Status == PurchaseStatus.Cancelled ? "Закупка отменена." : "Все заказанные товары уже приняты.")</p> }
+            @if (stage == "receiving" && !purchase.HasCompleteCostInputs)
+            { <p class="dona-message">Перед приёмкой заполните цены и курсы на этапе «Заказ» и проверьте этап «Расходы».</p> }
+            @if (stage == "closing" && purchase.Status == PurchaseStatus.Cancelled)
+            { <p class="dona-state">Закупка отменена. Закрытие недоступно.</p> }
+            @if (confirmClosing)
+            {
+                <DonaConfirmation OnCancel="() => confirmClosing = false">
+                    <div class="dona-confirm">
+                        <span>Закрыть закупку? Решения по расхождениям сохранены. Закупка будет отмечена как закрытая. Поздние расходы и поставки оформляются отдельными корректировками.</span>
+                        <button type="button" class="dona-btn dona-btn--secondary" disabled="@saving" @onclick="() => confirmClosing = false">Отмена</button>
+                        <button type="button" class="dona-btn dona-btn--danger" disabled="@saving" @onclick="ConfirmClosingAsync">Закрыть закупку</button>
+                    </div>
+                </DonaConfirmation>
+            }
             <ValidationSummary />
-            @if (purchase.CostRevisions.Count > 0)
+            @if (stage == "costs" && purchase.CostRevisions.Count > 0)
             {
                 <details class="dona-section">
                     <summary>История расчета</summary>
@@ -302,12 +319,25 @@
             @if (message is not null)
             {
                 <p class="dona-message @(success ? "dona-message--success" : "dona-message--error")" role="status">@message</p>
-                @if (success && !IsNew && purchase.Status != PurchaseStatus.Cancelled) { <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/pricing">Рассчитать продажные цены</a> }
             }
-            <div class="dona-actions">
-                <a class="dona-btn dona-btn--secondary" href="/purchases">Отмена</a>
-                <button class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : "Сохранить закупку")</button>
-            </div>
+
+            <DonaPageActions>
+                <Primary>
+                    @if (stage is "order" or "costs")
+                    { <button form="purchaseeditor-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@saving">@(saving ? "Сохраняем…" : stage == "costs" ? "Сохранить расходы" : "Сохранить заказ")</button> }
+                    else if (stage == "receiving" && CanReceive)
+                    { <button type="button" class="dona-btn dona-btn--primary" disabled="@(saving || !purchase.HasCompleteCostInputs)" @onclick="ReceiveAsync">Оформить приёмку</button> }
+                    else if (stage == "closing" && purchase.ClosedAt is null && purchase.Status != PurchaseStatus.Cancelled)
+                    { <button type="button" class="dona-btn dona-btn--primary" disabled="@(saving || purchase.ReceivingCompletedAt is null || PurchaseReceivingService.HasUnreviewedLosses(purchase))" @onclick="() => confirmClosing = true">Закрыть закупку</button> }
+                </Primary>
+                <Secondary>
+                    <a class="dona-btn dona-btn--secondary" href="/purchases">Отмена</a>
+                    @if (!IsNew)
+                    {
+                        <a class="dona-btn dona-btn--secondary" href="/purchases/@purchase.Id/reconciliation">Сверка партий и стоимости</a>
+                    }
+                </Secondary>
+            </DonaPageActions>
         </EditForm>
     }
 </div>
@@ -317,6 +347,12 @@
 
     [SupplyParameterFromQuery] public Guid? ProductId { get; set; }
     private Purchase purchase = new();
+    [Parameter] public string? Step { get; set; }
+    private string stage = "order";
+    private bool pricesSet, confirmClosing;
+    private string StageTitle => stage switch { "costs" => "Расходы", "receiving" => "Приёмка", "closing" => "Закрытие", _ => "Заказ" };
+    private bool CanReceive => !IsNew && purchase.ClosedAt is null && purchase.ReceivingCompletedAt is null && purchase.Status != PurchaseStatus.Cancelled && purchase.Items.Any(x => x.MissingQuantity > 0);
+    private async Task ConfirmClosingAsync() { await ClosePurchaseAsync(); if (success) confirmClosing = false; }
     private IReadOnlyList<Supplier> suppliers = [];
     private IReadOnlyList<Intermediary> intermediaries = [];
     private IReadOnlyList<Product> products = [];
@@ -346,6 +382,7 @@
     {
         reviewPrices = false;
         var lines = (await PricingHistory.GetPriceChangesAsync()).OrderByDescending(x => x.AppliedAt).SelectMany(x => x.Lines).GroupBy(x => x.Quote.ProductId).Select(x => x.First()).Where(x => x.Quote.PurchaseId == purchase.Id || x.Quote.Layers.Any(l => l.PurchaseId == purchase.Id));
+        pricesSet = lines.Any();
         foreach (var line in lines) if (await Pricing.NeedsReviewAsync(line)) { reviewPrices = true; break; }
     }
     private decimal? tariffUsdRate;
@@ -365,7 +402,6 @@
         catch (InvalidOperationException exception) { tariffMessage = exception.Message; }
     }
 
-    private static readonly PurchaseStatus[] Flow = [PurchaseStatus.Draft, PurchaseStatus.Ordered, PurchaseStatus.ChinaWarehouse, PurchaseStatus.Shipped, PurchaseStatus.PartiallyReceived, PurchaseStatus.Received];
 
     private bool IsNew => Id is null;
     private static readonly IReadOnlyList<OrbitSelectOption<PurchaseExpenseKind>> ExpenseKindOptions =
@@ -412,10 +448,20 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        stage = Step switch { "costs" => "costs", "receiving" => "receiving", "closing" => "closing", _ => "order" };
+        confirmClosing = false;
+        message = null;
+        success = false;
+        currencyReviewRequired = currencyPricesReviewed = false;
+        tariffMessage = null;
+        tariffUsdRate = null;
+        closingOperationId = Guid.NewGuid();
+        shortageForms.Clear();
         loading = true;
         error = null;
         try
         {
+            if (Step is not (null or "costs" or "receiving" or "closing")) throw new InvalidOperationException("Этап закупки не найден.");
             var supplierTask = Commerce.GetSuppliersAsync();
             var intermediaryTask = Commerce.GetIntermediariesAsync();
             var productTask = Catalog.GetProductsAsync();
@@ -560,6 +606,7 @@
 
     private async Task SaveAsync()
     {
+        if (stage is not ("order" or "costs")) return;
         await RunAsync(async () =>
         {
             ValidatePurchase();
@@ -579,7 +626,7 @@
     }
 
     private readonly Dictionary<Guid, ShortageForm> shortageForms = [];
-    private readonly Guid closingOperationId = Guid.NewGuid();
+    private Guid closingOperationId = Guid.NewGuid();
     private sealed class ShortageForm { public decimal Refund { get; set; } }
     private ShortageForm ShortageInput(Guid id)
     {
@@ -590,7 +637,7 @@
     {
         ValidatePurchase();
         RequireSavedOrder();
-        await Receiving.CloseAsync(purchase, purchase.Items.Where(x => x.MissingQuantity > 0)
+        await Receiving.CloseAsync(purchase, purchase.ReceivingCompletedAt is not null ? [] : purchase.Items.Where(x => x.MissingQuantity > 0)
             .Select(x => new PurchaseShortageInput(x.Id, ShortageInput(x.Id).Refund)).ToList(), closingOperationId);
     }, "Закупка закрыта, недостача учтена.");
 
@@ -685,8 +732,6 @@
         }
     }
 
-    private string FlowClass(PurchaseStatus value) =>
-        purchase.Status == value ? "active" : string.Empty;
 
     private static string VariantName(ProductVariant value) =>
         string.Join(" · ", new[] { value.Color, value.Size }.Where(text => !string.IsNullOrWhiteSpace(text)));

@@ -361,30 +361,6 @@ input[type="checkbox"]:disabled { opacity: .5; cursor: not-allowed; }
     .dona-field-row { grid-template-columns: 1fr; }
 }
 
-/* Form action bar: sticky above the tab bar on mobile, static on desktop */
-.dona-actions {
-    position: sticky;
-    bottom: calc(var(--orbit-navigation-offset, 76px) + env(safe-area-inset-bottom));
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--dona-space-2);
-    padding: 10px;
-    border: 1px solid var(--dona-line);
-    border-radius: 17px;
-    background: var(--dona-surface);
-    backdrop-filter: blur(18px);
-}
-
-/* One or two buttons share a row (primary gets twice the room); three or more:
-   the primary button goes first on its own full-width row. Buttons must be direct children. */
-.dona-actions > .dona-btn { flex: 1 1 120px; }
-.dona-actions > .dona-btn--primary { flex: 2 1 160px; }
-.dona-actions:has(> :nth-child(3)) > .dona-btn--primary { order: -1; flex-basis: 100%; }
-
-@media (min-width: 900px) {
-    .dona-actions { position: static; bottom: auto; margin-top: var(--dona-space-1); }
-}
-
 /* Inline confirmation (delete / cancel) */
 .dona-confirm {
     display: flex;
@@ -609,7 +585,7 @@ button.dona-list-row {
     text-align: left;
 }
 
-.dona-list-row > span:not(.dona-icon-tile), .dona-list-row strong, .dona-list-row small { display: block; min-width: 0; }
+.dona-list-row > span:not(.dona-icon-tile):not(.orbit-initial-badge), .dona-list-row strong, .dona-list-row small { display: block; min-width: 0; }
 .dona-list-row strong { font-size: var(--dona-type-body-sm); }
 .dona-list-row small { margin-top: var(--dona-space-1); color: var(--dona-muted); font-size: var(--dona-type-caption); }
 .dona-list-row b { color: var(--dona-muted); font-size: var(--dona-type-title-sm); }

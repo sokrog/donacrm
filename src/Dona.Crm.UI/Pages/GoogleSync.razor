@@ -6,7 +6,7 @@
 
 <PageTitle>Синхронизация — DONA CRM</PageTitle>
 <div class="dona-page dona-page--form">
-    <header class="dona-page-header">
+    <DonaPageHeader Class="dona-page-header">
         <div class="dona-heading">
             <a class="dona-icon-button dona-back-button" href="/connections" aria-label="Вернуться к подключениям"><OrbitIcon Name="back" /></a>
             <div>
@@ -15,7 +15,7 @@
                 <p class="dona-note dona-note--sm">Сначала сравните снимки. Ничего не меняется без отдельного подтверждения.</p>
             </div>
         </div>
-    </header>
+    </DonaPageHeader>
 
     @if (loading)
     {
@@ -40,7 +40,11 @@
             <section class="dona-section sync-intro">
                 <h2>Безопасный предварительный просмотр</h2>
                 <p>Приложение прочитает скрытую папку приложения в вашем Google Drive и покажет только количество записей. Локальные данные останутся без изменений.</p>
-                <button class="dona-btn dona-btn--primary dona-btn--block" disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button>
+                <DonaPageActions>
+                <Primary>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@busy" @onclick="PreviewAsync">@(busy ? "Сравниваем…" : "Сравнить данные")</button>
+                </Primary>
+            </DonaPageActions>
             </section>
         }
         else
@@ -68,33 +72,37 @@
 
             @if (!confirmPull && !confirmPush)
             {
-                <button class="dona-btn dona-btn--link dona-btn--muted refresh-action" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
-                <div class="sync-actions">
-                    <button class="dona-btn dona-btn--secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
-                    <button class="dona-btn dona-btn--primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>
-                </div>
+                <DonaPageActions>
+                <Primary>
+                    <button type="button" class="dona-btn dona-btn--primary" disabled="@busy" @onclick="() => confirmPush = true">Устройство → Google</button>
+                </Primary>
+                <Secondary>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="PreviewAsync">Обновить сравнение</button>
+                    <button type="button" class="dona-btn dona-btn--secondary" disabled="@(busy || !HasGoogleSnapshot)" @onclick="() => confirmPull = true">Google → устройство</button>
+                </Secondary>
+            </DonaPageActions>
             }
             else if (confirmPull)
             {
-                <section class="dona-card confirm-card">
+                <DonaConfirmation OnCancel="() => { if (!busy) confirmPull = false; }"><section class="confirm-card">
                     <strong>Заменить локальный снимок?</strong>
                     <p>Товары, закупки, продажи, маркетинг и настройки в @Platform.StorageTitle.ToLowerInvariant() будут заменены данными из Google.</p>
                     <div>
                         <button class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="() => confirmPull = false">Отмена</button>
                         <button class="dona-btn dona-btn--danger" disabled="@busy" @onclick="PullAsync">@(busy ? "Загружаем…" : "Подтвердить загрузку")</button>
                     </div>
-                </section>
+                </section></DonaConfirmation>
             }
             else
             {
-                <section class="dona-card confirm-card push">
+                <DonaConfirmation OnCancel="() => { if (!busy) confirmPush = false; }"><section class="confirm-card">
                     <strong>Заменить данные в личном облаке Google?</strong>
                     <p>В Google будет отправлен текущий локальный снимок. Перед записью приложение ещё раз проверит версию снимка, чтобы не перезаписать изменения с другого устройства.</p>
                     <div>
                         <button class="dona-btn dona-btn--secondary" disabled="@busy" @onclick="() => confirmPush = false">Отмена</button>
                         <button class="dona-btn dona-btn--primary" disabled="@busy" @onclick="PushAsync">@(busy ? "Отправляем…" : "Подтвердить отправку")</button>
                     </div>
-                </section>
+                </section></DonaConfirmation>
             }
         }
 

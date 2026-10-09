@@ -33,6 +33,7 @@ public sealed class StockMovement
     public Guid? SourceId { get; set; }
     public string SourceNumber { get; set; } = string.Empty;
     public string? Note { get; set; }
+    public LossTreatment? LossTreatment { get; set; }
 }
 
 public static class StockMovementText

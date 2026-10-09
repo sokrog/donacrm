@@ -3,17 +3,17 @@
 @using Dona.Crm.Web.Domain
 @using Dona.Crm.Web.Storage
 @inject ICommerceRepository Commerce
-@inject IBusinessSettingsRepository Settings
+
 
 <PageTitle>Закупки — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide">
-    <header class="dona-page-header">
+    <DonaPageHeader Class="dona-page-header">
         <div>
             <p class="dona-eyebrow">Поставка</p>
             <h1 class="dona-title">Закупки</h1>
         </div>
         <a class="dona-icon-button dona-add-button" href="/purchases/new" aria-label="Создать закупку"><OrbitIcon Name="plus" /></a>
-    </header>
+    </DonaPageHeader>
     @if (loading)
     {
         <div class="dona-state">Загружаем закупки…</div>
@@ -34,7 +34,7 @@
             <div class="dona-alert dona-alert--warning" role="status">Проверьте трек-коды: @OverdueCount поставок позже ожидаемой даты.</div>
         }
         <div class="purchase-tools">
-            <input class="dona-input" aria-label="Поиск закупок" placeholder="Номер, поставщик или трек-код" @bind="query" @bind:event="oninput" />
+            <input class="dona-input" aria-label="Поиск закупок" placeholder="Номер, партнёр или трек-код" @bind="query" @bind:event="oninput" />
             <OrbitSelect TValue="string" @bind-Value="status" Options="@PurchaseStatusFilterOptions" Label="Статус закупки" />
         </div>
         @if (!Filtered.Any())
@@ -48,12 +48,21 @@
                 {
                     <a class="dona-card" href="/purchases/@item.Id">
                         <div class="purchase-card-title">
-                            <span><strong>@item.Number</strong><small>@(item.SupplierName ?? "Поставщик не указан")</small></span>
-                            <span class="dona-badge">@item.Status.Display()</span>
+                            <strong>@item.Number</strong>
+                            <span class="dona-badge">@(item.ClosedAt is not null ? "Закрыта" : item.Status.Display())</span>
                         </div>
-                        <div class="purchase-card-meta"><span>@item.TotalQuantity шт.</span><span>@(item.HasCompleteCostInputs ? $"{Money(item.TotalCostUzs)} UZS" : "Расчет не заполнен")</span></div>
-                        <small>@(item.IsCostFinalized ? "Все расходы учтены" : "Предварительная себестоимость")</small>
-                        <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : item.TrackingCode)</span><span>@Delivery(item)</span></div>
+                        <dl class="purchase-facts">
+                            @if (!string.IsNullOrWhiteSpace(item.SupplierName)) { <div><dt>Поставщик</dt><dd>@item.SupplierName</dd></div> }
+                            @if (!string.IsNullOrWhiteSpace(item.IntermediaryName)) { <div><dt>Посредник</dt><dd>@item.IntermediaryName</dd></div> }
+                            <div><dt>Товары · @item.TotalQuantity шт.</dt><dd>@Goods(item)</dd></div>
+                            <div><dt>Комиссия и доставка</dt><dd>@IntermediaryCosts(item)</dd></div>
+                            <div class="purchase-total"><dt>Закупка с расходами</dt><dd>@(item.HasCompleteCostInputs ? $"{Money(item.TotalCostUzs)} UZS" : "Сумма ещё не рассчитана")<small>@(item.IsCostFinalized ? "Все расходы внесены" : "Предварительно")</small></dd></div>
+                            <div><dt>Дата заказа</dt><dd>@item.OrderedAt.ToLocalTime().ToString("dd.MM.yyyy")</dd></div>
+                            @if (item.EstimatedDeliveryDate is { } expected) { <div><dt>Ожидаемая доставка</dt><dd>@expected.ToString("dd.MM.yyyy")</dd></div> }
+                            @if (item.Receipts.Count > 0) { <div><dt>Последняя приёмка</dt><dd>@item.Receipts.Max(x => x.ReceivedAt).ToLocalTime().ToString("dd.MM.yyyy")</dd></div> }
+                            @if (item.ClosedAt is { } closed) { <div><dt>Дата закрытия</dt><dd>@closed.ToLocalTime().ToString("dd.MM.yyyy")</dd></div> }
+                        </dl>
+                        <div class="purchase-card-foot"><span>@(string.IsNullOrWhiteSpace(item.TrackingCode) ? "Без трек-кода" : $"Трек: {item.TrackingCode}")</span><span>@Delivery(item)</span></div>
                     </a>
                 }
             </div>
@@ -62,7 +71,7 @@
 </div>
 @code {
     private IReadOnlyList<Purchase> purchases = [];
-    private BusinessSettings settings = new();
+
     private bool loading = true;
     private string? errorMessage;
     private string query = string.Empty;
@@ -74,7 +83,7 @@
         .. Enum.GetValues<PurchaseStatus>().Select(value => new OrbitSelectOption<string>(value.ToString(), value.Display()))
     ];
 
-    private IEnumerable<Purchase> Active => purchases.Where(value => value.Status is not PurchaseStatus.Received and not PurchaseStatus.Cancelled);
+    private IEnumerable<Purchase> Active => purchases.Where(value => value.ClosedAt is null && value.ReceivingCompletedAt is null && value.Status is PurchaseStatus.Ordered or PurchaseStatus.ChinaWarehouse or PurchaseStatus.Shipped or PurchaseStatus.PartiallyReceived);
 
     private int IncomingUnits => Active.Sum(value => value.Items.Sum(item => item.MissingQuantity));
 
@@ -84,6 +93,7 @@
         (string.IsNullOrWhiteSpace(query)
             || value.Number.Contains(query, StringComparison.OrdinalIgnoreCase)
             || (value.SupplierName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (value.IntermediaryName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
             || (value.TrackingCode?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
         && (string.IsNullOrWhiteSpace(status) || value.Status.ToString() == status));
 
@@ -91,11 +101,7 @@
     {
         try
         {
-            var values = Commerce.GetPurchasesAsync();
-            var storedSettings = Settings.GetAsync();
-            await Task.WhenAll(values, storedSettings);
-            purchases = await values;
-            settings = await storedSettings;
+            purchases = await Commerce.GetPurchasesAsync();
         }
         catch (Exception exception)
         {
@@ -107,10 +113,21 @@
         }
     }
 
-    private static string Delivery(Purchase value) =>
-        value.EstimatedDeliveryDate is null
-            ? "Дата не указана"
-            : value.EstimatedDeliveryDate.Value.Date < DateTime.Today ? "Просрочено" : $"До {value.EstimatedDeliveryDate:dd.MM}";
+    private static string Goods(Purchase value) => value.Items.Count > 0 && value.Items.All(x => x.UnitPrice is not null)
+        ? $"{Money(value.GoodsCost)} {value.CurrencyCode}" : "Цены ещё не заполнены";
+    private static string IntermediaryCosts(Purchase value)
+    {
+        var expenses = value.Expenses.Where(x => x.Kind is PurchaseExpenseKind.Commission or PurchaseExpenseKind.Shipping).ToList();
+        if (expenses.Count > 0 && expenses.All(x => x.Amount is not null && (x.CurrencyCode == "UZS" || x.RateUzs is > 0))) return $"{Money(expenses.Sum(x => x.AmountUzs))} UZS";
+        return expenses.Count == 0 ? "Не внесены" : expenses.Any(x => x.Amount is null) ? "Суммы ещё не заполнены" : string.Join(" + ", expenses.GroupBy(x => x.CurrencyCode).Select(g => $"{Money(g.Sum(x => x.Amount ?? 0))} {g.Key}"));
+    }
+    private static string Delivery(Purchase value) => value.ClosedAt is not null ? "Закрыта"
+         : value.ReceivingCompletedAt is not null ? "Приёмка завершена"
+        : value.Status == PurchaseStatus.Cancelled ? "Отменена"
+        : value.Status == PurchaseStatus.Received ? "Получена"
+        : value.Status == PurchaseStatus.Draft ? "Заказ ещё не оформлен"
+        : value.EstimatedDeliveryDate is null ? "Срок доставки не указан"
+        : value.EstimatedDeliveryDate.Value.Date < DateTime.Today ? "Доставка просрочена" : "Ожидается доставка";
 
-    private static string Money(decimal value) => value.ToString("N0", CultureInfo.GetCultureInfo("ru-RU"));
+    private static string Money(decimal value) => value.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
 }

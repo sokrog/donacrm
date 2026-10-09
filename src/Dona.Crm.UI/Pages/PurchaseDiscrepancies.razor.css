@@ -1,0 +1,4 @@
+.dona-section p, .dona-section h3 { margin: 0; }
+.dona-section h3 { font-size: var(--dona-type-subtitle); }
+.dona-section article { gap: var(--dona-space-3); border-top: 1px solid var(--dona-line); padding-top: var(--dona-space-3); }
+.dona-section a.dona-btn { white-space: normal; text-align: left; }

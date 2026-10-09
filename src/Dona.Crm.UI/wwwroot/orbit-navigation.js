@@ -8,7 +8,7 @@
     addEventListener('popstate', () => { const current = normalize(location.href); const index = stack.lastIndexOf(current); if (index >= 0) stack.splice(index + 1); else stack.push(current); });
     document.addEventListener('click', event => {
         const link = event.target.closest('a.dona-back-button');
-        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (!link || link.dataset.backTarget === "explicit" || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         if (stack.length > 1) { event.preventDefault(); history.back(); }
     }, true);
 })();

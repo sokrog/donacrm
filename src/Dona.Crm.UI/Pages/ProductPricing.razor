@@ -9,16 +9,18 @@
 
 <PageTitle>Установка продажной цены — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide" aria-busy="@busy">
-    <header class="dona-page-header dona-page-header--back dona-heading">
+    <DonaPageHeader Class="dona-page-header dona-page-header--back dona-heading">
         <a class="dona-icon-button dona-back-button" href="@BackUrl" aria-label="Вернуться к источнику"><OrbitIcon Name="back" /></a>
         <div><p>@sourceName</p><h1>Установка продажной цены</h1></div>
-    </header>
+    </DonaPageHeader>
+    @if (sourcePurchase is not null) { <PurchaseNavigation Purchase="sourcePurchase" Current="pricing" /> }
+    @if (sourcePurchase is not null && (sourcePurchase.ReceivingCompletedAt is null || PurchaseReceivingService.HasUnreviewedLosses(sourcePurchase))) { <p class="dona-message">Расхождения ещё не разобраны. Цены можно назначить предварительно; после выбора учёта потерь проверьте их ещё раз.</p> }
     <p class="dona-note">Цена едина для всех вариантов и партий товара. Себестоимость учитывает физический остаток, включая резерв. Ранее созданные продажи сохраняют свои цены.</p>
     @if (loading) { <p class="dona-state" role="status">Собираем основания расчёта…</p> }
     else if (rows.Count == 0) { <div class="dona-state">@error <a href="@BackUrl">Вернуться</a></div> }
     else
     {
-        <EditForm Model="form" OnSubmit="ApplyAsync" class="dona-stack">
+        <EditForm id="productpricing-form-1" Model="form" OnSubmit="ApplyAsync" class="dona-stack">
             <UnsavedChangesGuard @ref="guard" />
             <section class="dona-section">
                 <h2>Общий расчёт для выбранных товаров</h2>
@@ -60,7 +62,15 @@
             }
             @if (error is not null) { <p class="dona-message dona-message--error" role="alert">@error</p> }
             <p class="dona-note">Изменится цен: @ChangedCount. При изменении остатков или стоимости применение будет остановлено. Обновление оснований сохранит введённые цены.</p>
-            <div class="dona-actions"><a class="dona-btn dona-btn--secondary" href="@BackUrl">Отмена</a><button class="dona-btn dona-btn--primary" type="submit" disabled="@(busy || ChangedCount == 0 || rows.Any(x => x.Selected && x.Error is not null))">@(busy ? "Применяем…" : $"Применить цены ({ChangedCount})")</button></div>
+
+            <DonaPageActions>
+                <Primary>
+                    <button form="productpricing-form-1" type="submit" class="dona-btn dona-btn--primary" disabled="@(busy || ChangedCount == 0 || rows.Any(x => x.Selected && x.Error is not null))">@(busy ? "Применяем…" : $"Применить цены ({ChangedCount})")</button>
+                </Primary>
+                <Secondary>
+                    <a class="dona-btn dona-btn--secondary" href="@BackUrl">Отмена</a>
+                </Secondary>
+            </DonaPageActions>
         </EditForm>
     }
 </div>
@@ -75,6 +85,7 @@
     private List<Row> rows = [];
     private bool loading = true, busy;
     private string? error, notice;
+    private Purchase? sourcePurchase;
     private string sourceName = "Каталог";
     private Guid operationId = Guid.NewGuid();
     private SellingPriceChange? pendingResult;
@@ -101,7 +112,7 @@
     }
     protected override async Task OnParametersSetAsync()
     {
-        loading = true; error = null; rows = []; sourceName = "Каталог"; operationId = Guid.NewGuid(); pendingRequest = null;
+        loading = true; error = null; rows = []; sourcePurchase = null; sourceName = "Каталог"; operationId = Guid.NewGuid(); pendingRequest = null;
         try
         {
             var ids = new List<Guid>();
@@ -110,6 +121,7 @@
             {
                 var purchase = await Commerce.GetPurchaseAsync(u) ?? throw new InvalidOperationException("Закупка не найдена.");
                 if (purchase.Status == PurchaseStatus.Cancelled) throw new InvalidOperationException("Закупка отменена.");
+                sourcePurchase = purchase;
                 sourceName = purchase.Number;
                 ids.AddRange(purchase.Items.Where(x => x.ProductId is not null).Select(x => x.ProductId!.Value).Distinct());
             }

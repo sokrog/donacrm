@@ -6,7 +6,7 @@
 
 <PageTitle>Движения склада — DONA CRM</PageTitle>
 <div class="dona-page dona-page--wide">
-    <header class="dona-page-header">
+    <DonaPageHeader Class="dona-page-header">
         <div class="dona-heading">
             <a class="dona-icon-button dona-back-button dona-back-button--section" href="/more" aria-label="Вернуться в меню"><OrbitIcon Name="back" /></a>
             <div>
@@ -15,7 +15,7 @@
             </div>
         </div>
         <a class="dona-btn dona-btn--primary" href="/inventory/adjustment/new"><OrbitIcon Name="plus" Class="dona-inline-icon" />Корректировка</a>
-    </header>
+    </DonaPageHeader>
     @if (!isLoading && unvalued.Count > 0)
     {
         <section class="dona-section"><h2>Партии без себестоимости</h2>
@@ -52,6 +52,7 @@
                         <strong>@item.ProductName</strong>
                         <small>@Variant(item) · @item.Type.Display() · @item.SourceNumber</small>
                         <p>@item.Note</p>
+                        @if (item.LossTreatment is { } treatment) { <small>@(treatment == LossTreatment.RemainingStock ? "Стоимость распределена на остаток" : "Стоимость учтена отдельным расходом")</small> }
                     </div>
                     <span class="delta @(item.QuantityDelta > 0 ? "plus" : item.QuantityDelta < 0 ? "minus" : "reserve")">
                         <strong>@QuantityDelta(item.QuantityDelta)</strong>
